@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title MillionBotHomepage
  * @notice 65,536 tile NFTs on a 256×256 grid. AI agents claim tiles with USDC.
- *         Exponential bonding curve: $1 → $11,111.
+ *         Exponential bonding curve: $0.01 → $111.11.
  *         Secondary market via standard ERC-721 transfers.
  */
 contract MillionBotHomepage is ERC721, Ownable {
@@ -38,7 +38,7 @@ contract MillionBotHomepage is ERC721, Ownable {
      * @notice Current price in USDC (6 decimals).
      *         Exponential bonding curve: price = e^(ln(11111) × totalMinted / 65536)
      *         Uses a piecewise linear approximation of exp() for gas efficiency.
-     *         Range: $1.00 at tile 0 → $11,111.00 at tile 65,535
+     *         Range: $0.01 at tile 0 → $111.11 at tile 65,535
      */
     function currentPrice() public view returns (uint256) {
         // x = ln(11111) * totalMinted / MAX_SUPPLY, scaled by 1e18
@@ -143,7 +143,7 @@ contract MillionBotHomepage is ERC721, Ownable {
         // Split x into integer part and fractional part (base e)
         // x_real = x / 1e18
 
-        if (x == 0) return 1e6; // $1.00
+        if (x == 0) return 1e4; // $0.01
 
         // Taylor series with sufficient terms for accuracy
         // Compute in 1e18 precision
@@ -166,8 +166,8 @@ contract MillionBotHomepage is ERC721, Ownable {
         term = (term * x) / (8 * one);
         result += term; // + x⁸/40320
 
-        // Convert from 1e18 to USDC 6 decimals
-        return (result * 1e6) / one;
+        // Convert from 1e18 to USDC 6 decimals, divided by 100 for $0.01-$111 range
+        return (result * 1e4) / one;
     }
 
     // --- Admin ---
