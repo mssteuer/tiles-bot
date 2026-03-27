@@ -1,6 +1,6 @@
 'use client';
 
-import { buildOpenSeaAssetUrl, getOpenSeaNetworkLabel, isMainnetChain } from '../lib/openseaMetadata';
+import { buildOpenSeaAssetUrl, buildOpenSeaSellUrl, getOpenSeaNetworkLabel, isMainnetChain } from '../lib/openseaMetadata';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID;
@@ -21,6 +21,9 @@ export default function TilePanel({ tile, onClose }) {
   const hasContractAddress = CONTRACT_ADDRESS && CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000';
   const openSeaUrl = hasContractAddress
     ? buildOpenSeaAssetUrl({ contractAddress: CONTRACT_ADDRESS, tileId: tile.id, chainId: CHAIN_ID })
+    : null;
+  const listForSaleUrl = hasContractAddress
+    ? buildOpenSeaSellUrl({ contractAddress: CONTRACT_ADDRESS, tileId: tile.id, chainId: CHAIN_ID })
     : null;
   const networkLabel = getOpenSeaNetworkLabel(CHAIN_ID);
   const isMainnet = isMainnetChain(CHAIN_ID);
@@ -139,7 +142,7 @@ export default function TilePanel({ tile, onClose }) {
                   View on OpenSea
                 </a>
                 <a
-                  href={openSeaUrl}
+                  href={listForSaleUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{

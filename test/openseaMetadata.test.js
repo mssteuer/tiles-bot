@@ -1,9 +1,11 @@
-const { expect } = require('chai');
+const assert = require('node:assert/strict');
+const contractArtifact = require('../artifacts/contracts/MillionBotHomepage.sol/MillionBotHomepage.json');
 
 const {
   buildTileTokenMetadata,
   buildCollectionMetadata,
   buildOpenSeaAssetUrl,
+  buildOpenSeaSellUrl,
   getOpenSeaNetworkLabel,
   isMainnetChain,
 } = require('../src/lib/openseaMetadata.cjs');
@@ -13,7 +15,6 @@ describe('OpenSea metadata helpers', function () {
     it('builds ERC-721 metadata JSON for a claimed tile with image and attributes', function () {
       const metadata = buildTileTokenMetadata({
         siteUrl: 'https://tiles.bot',
-        contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
         tileId: 123,
         tile: {
           id: 123,
@@ -31,30 +32,29 @@ describe('OpenSea metadata helpers', function () {
         },
       });
 
-      expect(metadata.name).to.equal('Million Bot Tile #123 — Agent Zero');
-      expect(metadata.description).to.include('Claims the first good tile.');
-      expect(metadata.image).to.equal('https://tiles.bot/uploads/123.png');
-      expect(metadata.external_url).to.equal('https://tiles.bot/?tile=123');
-      expect(metadata.attributes).to.deep.include({ trait_type: 'Category', value: 'research' });
-      expect(metadata.attributes).to.deep.include({ trait_type: 'Status', value: 'online' });
-      expect(metadata.attributes).to.deep.include({ trait_type: 'X Handle', value: '@agentzero' });
-      expect(metadata.attributes).to.deep.include({ trait_type: 'Row', value: 0 });
-      expect(metadata.attributes).to.deep.include({ trait_type: 'Column', value: 123 });
+      assert.equal(metadata.name, 'Million Bot Tile #123 — Agent Zero');
+      assert.match(metadata.description, /Claims the first good tile\./);
+      assert.equal(metadata.image, 'https://tiles.bot/uploads/123.png');
+      assert.equal(metadata.external_url, 'https://tiles.bot/?tile=123');
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'Category' && item.value === 'research'));
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'Status' && item.value === 'online'));
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'X Handle' && item.value === '@agentzero'));
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'Row' && item.value === 0));
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'Column' && item.value === 123));
     });
 
     it('builds fallback metadata for an unclaimed tile', function () {
       const metadata = buildTileTokenMetadata({
         siteUrl: 'https://tiles.bot',
-        contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
         tileId: 511,
         tile: null,
       });
 
-      expect(metadata.name).to.equal('Million Bot Tile #511');
-      expect(metadata.image).to.equal('https://tiles.bot/og-image.png');
-      expect(metadata.attributes).to.deep.include({ trait_type: 'Claimed', value: 'No' });
-      expect(metadata.attributes).to.deep.include({ trait_type: 'Row', value: 1 });
-      expect(metadata.attributes).to.deep.include({ trait_type: 'Column', value: 255 });
+      assert.equal(metadata.name, 'Million Bot Tile #511');
+      assert.equal(metadata.image, 'https://tiles.bot/og-image.png');
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'Claimed' && item.value === 'No'));
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'Row' && item.value === 1));
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'Column' && item.value === 255));
     });
   });
 
@@ -62,39 +62,62 @@ describe('OpenSea metadata helpers', function () {
     it('builds OpenSea collection metadata', function () {
       const metadata = buildCollectionMetadata({
         siteUrl: 'https://tiles.bot',
-        contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
       });
 
-      expect(metadata.name).to.equal('tiles.bot');
-      expect(metadata.description).to.include('256×256 canvas of NFT tiles');
-      expect(metadata.image).to.equal('https://tiles.bot/og-image.png');
-      expect(metadata.external_link).to.equal('https://tiles.bot');
-      expect(metadata.seller_fee_basis_points).to.equal(0);
-      expect(metadata.fee_recipient).to.equal('0x0000000000000000000000000000000000000000');
+      assert.equal(metadata.name, 'tiles.bot');
+      assert.match(metadata.description, /256×256 canvas of NFT tiles/);
+      assert.equal(metadata.image, 'https://tiles.bot/og-image.png');
+      assert.equal(metadata.external_link, 'https://tiles.bot');
+      assert.equal(metadata.seller_fee_basis_points, 0);
+      assert.equal(metadata.fee_recipient, '0x0000000000000000000000000000000000000000');
     });
   });
 
   describe('OpenSea links', function () {
     it('builds mainnet OpenSea asset URLs', function () {
-      expect(
+      assert.equal(
         buildOpenSeaAssetUrl({
           contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
           tileId: 42,
           chainId: '8453',
-        })
-      ).to.equal('https://opensea.io/assets/base/0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E/42');
+        }),
+        'https://opensea.io/assets/base/0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E/42'
+      );
+    });
+
+    it('builds a dedicated OpenSea sell URL instead of duplicating the asset URL', function () {
+      assert.equal(
+        buildOpenSeaSellUrl({
+          contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
+          tileId: 42,
+          chainId: '8453',
+        }),
+        'https://opensea.io/assets/base/0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E/42/sell'
+      );
     });
 
     it('builds testnet OpenSea asset URLs without gating buttons away', function () {
-      expect(
+      assert.equal(
         buildOpenSeaAssetUrl({
           contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
           tileId: 42,
           chainId: '84532',
-        })
-      ).to.equal('https://testnets.opensea.io/assets/base_sepolia/0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E/42');
-      expect(getOpenSeaNetworkLabel('84532')).to.equal('Base Sepolia');
-      expect(isMainnetChain('84532')).to.equal(false);
+        }),
+        'https://testnets.opensea.io/assets/base_sepolia/0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E/42'
+      );
+      assert.equal(getOpenSeaNetworkLabel('84532'), 'Base Sepolia');
+      assert.equal(isMainnetChain('84532'), false);
+    });
+  });
+
+  describe('contract ABI readiness', function () {
+    it('includes the metadata functions required for OpenSea integration prep', function () {
+      const functionNames = contractArtifact.abi
+        .filter((entry) => entry.type === 'function')
+        .map((entry) => entry.name);
+
+      assert.ok(functionNames.includes('setBaseMetadataURI'));
+      assert.ok(functionNames.includes('tokenURI'));
     });
   });
 });
