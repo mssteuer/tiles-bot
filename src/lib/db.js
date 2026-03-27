@@ -57,6 +57,8 @@ function initSchema(db) {
   `);
   // Add image_url column if it doesn't exist (migration for existing DBs)
   try { db.exec(`ALTER TABLE tiles ADD COLUMN image_url TEXT`); } catch {}
+  // Add tx_hash column if it doesn't exist (migration for existing DBs)
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN tx_hash TEXT`); } catch {}
 }
 
 // ─── Read helpers ────────────────────────────────────────────────────────────
@@ -78,6 +80,7 @@ function rowToTile(row) {
     lastHeartbeat: row.last_heartbeat || null,
     pricePaid: row.price_paid || null,
     imageUrl: row.image_url || null,
+    txHash: row.tx_hash || null,
   };
 }
 
