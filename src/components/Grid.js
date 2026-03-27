@@ -201,6 +201,8 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
   }, [tiles, zoom]);
   const [hoveredTile, setHoveredTile] = useState(null);
   const [batchTiles, setBatchTiles] = useState(null); // array of tile IDs for batch modal
+  const batchTilesRef = useRef(null);
+  useEffect(() => { batchTilesRef.current = batchTiles; }, [batchTiles]);
 
   // Drag/pan state
   const isDragging = useRef(false);
@@ -211,6 +213,7 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
   const isSelecting = useRef(false);
   const selectStart = useRef(null); // { gridX, gridY } in canvas coords
   const selectEnd = useRef(null);
+  const dragSelectedTiles = useRef(new Set()); // tiles in current drag selection
   const [selectionRect, setSelectionRect] = useState(null); // { x1,y1,x2,y2 } in screen
 
   // Animation frame for pulsing glow
@@ -513,12 +516,14 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
             ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
           }
 
-          // Highlight batch-selected tiles
-          if (batchTiles && batchTiles.includes(id)) {
+          // Highlight batch-selected or drag-selected tiles
+          const inBatch = batchTilesRef.current && batchTilesRef.current.includes(id);
+          const inDrag = dragSelectedTiles.current.has(id);
+          if (inBatch || inDrag) {
             ctx.strokeStyle = '#3b82f6';
             ctx.lineWidth = 2.5 / cam.zoom;
             ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-            ctx.fillStyle = 'rgba(59,130,246,0.15)';
+            ctx.fillStyle = 'rgba(59,130,246,0.18)';
             ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
           }
 
@@ -805,6 +810,24 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
         // Selection drag: track end point
         const px = screenToGridPx(e.clientX - rect.left, e.clientY - rect.top);
         if (px) selectEnd.current = px;
+
+        // Compute tiles in selection for live highlighting
+        if (selectStart.current && selectEnd.current) {
+          const gx1 = Math.min(selectStart.current.gx, selectEnd.current.gx);
+          const gy1 = Math.min(selectStart.current.gy, selectEnd.current.gy);
+          const gx2 = Math.max(selectStart.current.gx, selectEnd.current.gx);
+          const gy2 = Math.max(selectStart.current.gy, selectEnd.current.gy);
+          const col1 = Math.max(0, Math.floor(gx1 / TILE_SIZE));
+          const row1 = Math.max(0, Math.floor(gy1 / TILE_SIZE));
+          const col2 = Math.min(GRID_SIZE - 1, Math.floor(gx2 / TILE_SIZE));
+          const row2 = Math.min(GRID_SIZE - 1, Math.floor(gy2 / TILE_SIZE));
+          const s = new Set();
+          for (let r = row1; r <= row2; r++)
+            for (let c = col1; c <= col2; c++)
+              s.add(r * GRID_SIZE + c);
+          dragSelectedTiles.current = s;
+        }
+
         // Update overlay rect in screen coords
         setSelectionRect({
           x1: Math.min(selectStart.current.sx, e.clientX) - rect.left,
@@ -831,6 +854,7 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     if (!isDragging.current) return;
     isDragging.current = false;
     setSelectionRect(null);
+    dragSelectedTiles.current = new Set();
 
     if (isSelecting.current && selectStart.current && selectEnd.current) {
       // Compute tiles in selection rectangle
