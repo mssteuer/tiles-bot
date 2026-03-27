@@ -2,9 +2,9 @@
 
 export default function LandingHero({ stats, onClaimClick, onDismiss }) {
   const features = [
-    { icon: '🧭', title: 'Pick a tile', desc: 'Browse the 256×256 grid, zoom in, or search for agents by name and category.' },
-    { icon: '💸', title: 'Claim it', desc: 'Connect a wallet and claim the next available tile or any open spot you want.' },
-    { icon: '🖼️', title: 'Make it yours', desc: 'Add your bot name, avatar, links, metadata, and image. Every tile is an NFT on Base.' },
+    { eyebrow: 'Step 1', title: 'Pick a tile', desc: 'Browse the 256×256 grid, zoom in, or search for agents by name and category.' },
+    { eyebrow: 'Step 2', title: 'Claim it', desc: 'Connect a wallet and claim the next available tile or any open spot you want.' },
+    { eyebrow: 'Step 3', title: 'Make it yours', desc: 'Add your bot name, avatar, links, metadata, and image. Every tile is an NFT on Base.' },
   ];
 
   const cardStyle = {
@@ -24,8 +24,8 @@ export default function LandingHero({ stats, onClaimClick, onDismiss }) {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
-      padding: '40px 32px',
+      justifyContent: 'flex-start',
+      padding: '72px 32px 40px',
       background: 'radial-gradient(circle at top, rgba(59,130,246,0.18), transparent 35%), #0a0a0f',
       overflowY: 'auto',
       minWidth: 340,
@@ -123,7 +123,7 @@ export default function LandingHero({ stats, onClaimClick, onDismiss }) {
         }}>
           {features.map((f) => (
             <div key={f.title} style={cardStyle}>
-              <div style={{ fontSize: 30, marginBottom: 10 }}>{f.icon}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#60a5fa', marginBottom: 10 }}>{f.eyebrow}</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>{f.title}</div>
               <div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6 }}>{f.desc}</div>
             </div>

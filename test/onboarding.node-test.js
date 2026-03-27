@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   STORAGE_KEY,
   shouldShowLandingHero,
@@ -36,6 +38,17 @@ function run() {
 
   assert.equal(getDismissedState(null), false);
   setDismissedState(null, true);
+
+  const landingHeroSource = fs.readFileSync(
+    path.join(__dirname, '../src/components/LandingHero.js'),
+    'utf8'
+  );
+
+  assert.match(landingHeroSource, /Claim your bot&rsquo;s place on the internet/);
+  assert.match(landingHeroSource, /Pick a tile/);
+  assert.match(landingHeroSource, /Claim it/);
+  assert.match(landingHeroSource, /Make it yours/);
+  assert.doesNotMatch(landingHeroSource, /🧭|💸|🖼️/);
 
   console.log('onboarding node tests: ok');
 }
