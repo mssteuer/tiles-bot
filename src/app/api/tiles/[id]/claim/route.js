@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withX402 } from 'x402-next';
-import { claimTile, getCurrentPrice, setTileTxHash, TOTAL_TILES } from '@/lib/db';
+import { claimTile, deleteTile, getCurrentPrice, setTileTxHash, TOTAL_TILES } from '@/lib/db';
 
 // Treasury address that receives USDC payments (set in env or default to placeholder)
 const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000';
@@ -76,9 +76,11 @@ async function claimHandler(request, { params }) {
   try {
     txHash = await callOnChainClaim(tileId);
   } catch (err) {
-    // If the contract call fails, roll back the DB entry by checking for "already claimed" errors.
-    // Common revert messages from the MillionBotHomepage contract:
     const msg = err?.message || '';
+
+    // Roll back the local DB insert so the tile doesn't get orphaned in SQLite.
+    deleteTile(tileId);
+
     if (
       msg.includes('already claimed') ||
       msg.includes('AlreadyClaimed') ||
@@ -91,7 +93,7 @@ async function claimHandler(request, { params }) {
         { status: 409 }
       );
     }
-    // For other contract errors (gas, network, etc.), surface as 500
+
     console.error(`[claim] On-chain claim failed for tile #${tileId}:`, err);
     return NextResponse.json(
       { error: 'On-chain claim transaction failed', detail: msg },
