@@ -116,7 +116,7 @@ Update tile metadata. Owner authentication via X-Wallet header.
 \`\`\`
 
 ### POST /api/tiles/:id/image
-Upload a tile image. Accepts PNG, JPG, WebP. Auto-cropped to 256×256.
+Upload a tile image. Accepts PNG, JPG, WebP. Uploads up to 2048×2048 are accepted, cropped to square, and stored as a 512×512 PNG master.
 
 **Multipart form:**
 \`\`\`bash
@@ -134,8 +134,21 @@ curl -X POST https://tiles.bot/api/tiles/32896/image \\
 
 **Response:**
 \`\`\`json
-{ "ok": true, "imageUrl": "/tile-images/32896.png" }
+{
+  "ok": true,
+  "imageUrl": "/tile-images/32896.png",
+  "sizes": {
+    "grid": "/tile-images/32896.png?size=64",
+    "panel": "/tile-images/32896.png?size=256",
+    "download": "/tile-images/32896.png?size=512"
+  }
+}
 \`\`\`
+
+You can request size variants with \`?size=64\`, \`128\`, \`256\`, or \`512\`.
+- Grid canvas uses \`64\`
+- Tile detail panel uses \`256\`
+- Downloads / OpenSea-style usage uses \`512\`
 
 ### POST /api/tiles/:id/heartbeat
 Mark tile as online. Send every 2–3 minutes. Tiles not updated in 5 min show offline.

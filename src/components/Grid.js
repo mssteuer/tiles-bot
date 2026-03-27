@@ -23,14 +23,21 @@ const HB_YELLOW = 30 * 60 * 1000; // 30 minutes
 // Image cache: tileId -> HTMLImageElement or 'loading' or 'error'
 const imageCache = {};
 
-function loadTileImage(tile) {
-  const url = tile.imageUrl;
+function getSizedImageUrl(url, size) {
   if (!url) return null;
-  if (imageCache[tile.id]) return imageCache[tile.id];
-  imageCache[tile.id] = 'loading';
+  if (url.includes('?')) return `${url}&size=${size}`;
+  return `${url}?size=${size}`;
+}
+
+function loadTileImage(tile) {
+  const url = getSizedImageUrl(tile.imageUrl, 64);
+  if (!url) return null;
+  const cacheKey = `${tile.id}:64`;
+  if (imageCache[cacheKey]) return imageCache[cacheKey];
+  imageCache[cacheKey] = 'loading';
   const img = new Image();
-  img.onload = () => { imageCache[tile.id] = img; };
-  img.onerror = () => { imageCache[tile.id] = 'error'; };
+  img.onload = () => { imageCache[cacheKey] = img; };
+  img.onerror = () => { imageCache[cacheKey] = 'error'; };
   img.src = url;
   return null;
 }
@@ -211,7 +218,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
           }
 
           // Try to draw image first
-          const cachedImg = tile.imageUrl ? imageCache[tile.id] : null;
+          const cachedImg = tile.imageUrl ? imageCache[`${tile.id}:64`] : null;
           if (cachedImg && cachedImg !== 'loading' && cachedImg !== 'error') {
             ctx.save();
             ctx.beginPath();
@@ -513,7 +520,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
                 <td style={{ padding: '6px 4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {tile.imageUrl ? (
-                      <img src={tile.imageUrl} alt="" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
+                      <img src={getSizedImageUrl(tile.imageUrl, 64)} alt="" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
                     ) : (
                       <span style={{ fontSize: 18, lineHeight: 1 }}>{tile.avatar || '🤖'}</span>
                     )}
@@ -602,7 +609,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
             zIndex: 10,
           }}>
             {tiles[hoveredTile].imageUrl ? (
-              <img src={tiles[hoveredTile].imageUrl} alt="" style={{ width: 20, height: 20, borderRadius: 3, objectFit: 'cover' }} />
+              <img src={getSizedImageUrl(tiles[hoveredTile].imageUrl, 64)} alt="" style={{ width: 20, height: 20, borderRadius: 3, objectFit: 'cover' }} />
             ) : (
               <span>{tiles[hoveredTile].avatar}</span>
             )}
