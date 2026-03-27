@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
-import { getTile, setGithubVerification, clearGithubVerification, TOTAL_TILES } from '@/lib/db';
+import { getTile, setGithubVerification, clearGithubVerification, setXVerification, clearXVerification, TOTAL_TILES } from '@/lib/db';
+
+const X_VERIFICATION_COOLDOWN_MS = 60 * 1000;
+const xVerificationAttemptCooldowns = new Map();
 
 /**
  * GET /api/tiles/:id/verification/challenge
@@ -20,23 +23,38 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Tile not claimed' }, { status: 404 });
   }
 
-  // Challenge is deterministic: tiles.bot:verify:github:{tileId}:{owner}
-  // Owner posts this exact string in a GitHub Gist to prove GitHub + wallet ownership.
-  const challenge = `tiles.bot:verify:github:${tileId}:${tile.owner.toLowerCase()}`;
+  // Challenges are deterministic — tile ID + owner address prefix
+  const githubChallenge = `tiles.bot:verify:github:${tileId}:${tile.owner.toLowerCase()}`;
+  const xChallenge = `tiles.bot:verify:x:${tileId}:${tile.owner.toLowerCase()}`;
 
   return NextResponse.json({
     tileId,
     owner: tile.owner,
-    challenge,
-    instructions: [
-      '1. Create a public GitHub Gist at https://gist.github.com',
-      `2. Paste this exact string as the Gist content: ${challenge}`,
-      '3. Copy the Gist ID from the URL (e.g. https://gist.github.com/username/GIST_ID_HERE)',
-      '4. POST /api/tiles/' + tileId + '/verification with {"type":"github","gistId":"GIST_ID","githubUsername":"YOUR_USERNAME"}',
-    ],
+    github: {
+      challenge: githubChallenge,
+      instructions: [
+        '1. Create a public GitHub Gist at https://gist.github.com',
+        `2. Paste this exact string as the Gist content: ${githubChallenge}`,
+        '3. Copy the Gist ID from the URL (e.g. https://gist.github.com/username/GIST_ID_HERE)',
+        '4. POST /api/tiles/' + tileId + '/verification with {"type":"github","gistId":"GIST_ID","githubUsername":"YOUR_USERNAME"}',
+      ],
+    },
+    x: {
+      challenge: xChallenge,
+      instructions: [
+        '1. Post a public tweet containing this exact string:',
+        xChallenge,
+        '2. Copy the tweet URL (e.g. https://x.com/username/status/123456789)',
+        '3. POST /api/tiles/' + tileId + '/verification with {"type":"x","tweetUrl":"TWEET_URL","xHandle":"YOUR_HANDLE"}',
+      ],
+    },
+    // Keep top-level challenge for backwards compat
+    challenge: githubChallenge,
     currentStatus: {
       githubVerified: tile.githubVerified,
       githubUsername: tile.githubUsername || null,
+      xVerified: tile.xVerified,
+      xHandleVerified: tile.xHandleVerified || null,
     },
   });
 }
@@ -118,7 +136,16 @@ export async function POST(request, { params }) {
     return NextResponse.json({ ok: true, cleared: 'github', tileId });
   }
 
-  return NextResponse.json({ error: 'Unknown verification type. Supported: "github", "clear-github"' }, { status: 400 });
+  if (type === 'x') {
+    return handleXVerification(tileId, tile, body);
+  }
+
+  if (type === 'clear-x') {
+    clearXVerification(tileId);
+    return NextResponse.json({ ok: true, cleared: 'x', tileId });
+  }
+
+  return NextResponse.json({ error: 'Unknown verification type. Supported: "github", "clear-github", "x", "clear-x"' }, { status: 400 });
 }
 
 /**
@@ -127,8 +154,8 @@ export async function POST(request, { params }) {
 async function handleGithubVerification(tileId, tile, body) {
   const { gistId, githubUsername } = body;
 
-  if (!gistId || typeof gistId !== 'string' || !gistId.match(/^[a-f0-9]{20,40}$/i)) {
-    return NextResponse.json({ error: 'Invalid gistId format (must be a hex gist ID)' }, { status: 400 });
+  if (!gistId || typeof gistId !== 'string' || !gistId.match(/^[a-zA-Z0-9]{20,40}$/)) {
+    return NextResponse.json({ error: 'Invalid gistId format (must be a 20–40 char alphanumeric gist ID)' }, { status: 400 });
   }
   if (!githubUsername || typeof githubUsername !== 'string' || !githubUsername.match(/^[a-zA-Z0-9-]{1,39}$/)) {
     return NextResponse.json({ error: 'Invalid githubUsername format' }, { status: 400 });
@@ -202,5 +229,126 @@ async function handleGithubVerification(tileId, tile, body) {
     gistId,
     gistUrl: `https://gist.github.com/${githubUsername}/${gistId}`,
     message: `GitHub identity verified for tile #${tileId}. Verified as @${githubUsername}.`,
+  });
+}
+
+/**
+ * Verify X/Twitter identity via a public tweet containing the challenge string.
+ *
+ * Note: the original task language mentioned OAuth for X verification. This
+ * implementation intentionally uses the public oEmbed endpoint instead of OAuth:
+ * it verifies a durable public proof URL without storing X app credentials,
+ * access tokens, or refresh tokens server-side. The SIWE wallet signature still
+ * authorizes ownership of the tile; oEmbed is only used to read the public post.
+ *
+ * Flow:
+ * 1. Owner tweets: "tiles.bot:verify:x:{tileId}:{ownerAddress}"
+ * 2. Owner provides tweet URL + their X handle
+ * 3. Server extracts tweet ID, fetches via Twitter oEmbed API (no auth required)
+ * 4. Checks that tweet text contains the challenge string
+ * 5. Checks that the tweet is from the claimed handle
+ */
+async function handleXVerification(tileId, tile, body) {
+  const { tweetUrl, xHandle } = body;
+
+  const now = Date.now();
+  const lastAttemptAt = xVerificationAttemptCooldowns.get(tileId) || 0;
+  const retryAfterMs = X_VERIFICATION_COOLDOWN_MS - (now - lastAttemptAt);
+  if (retryAfterMs > 0) {
+    return NextResponse.json(
+      {
+        error: `Please wait ${Math.ceil(retryAfterMs / 1000)}s before trying X verification again for this tile`,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil(retryAfterMs / 1000)),
+        },
+      }
+    );
+  }
+  xVerificationAttemptCooldowns.set(tileId, now);
+
+
+  if (!xHandle || typeof xHandle !== 'string' || !xHandle.match(/^@?[a-zA-Z0-9_]{1,50}$/)) {
+    return NextResponse.json({ error: 'Invalid xHandle format' }, { status: 400 });
+  }
+
+  if (!tweetUrl || typeof tweetUrl !== 'string') {
+    return NextResponse.json({ error: 'tweetUrl is required' }, { status: 400 });
+  }
+
+  // Parse tweet ID from URL patterns:
+  // https://x.com/username/status/1234567890
+  // https://twitter.com/username/status/1234567890
+  const tweetUrlMatch = tweetUrl.match(/(?:x\.com|twitter\.com)\/([^/]+)\/status\/(\d+)/i);
+  if (!tweetUrlMatch) {
+    return NextResponse.json({ error: 'Invalid tweet URL format. Expected: https://x.com/username/status/TWEET_ID' }, { status: 400 });
+  }
+
+  const tweetId = tweetUrlMatch[2];
+  const cleanHandle = xHandle.startsWith('@') ? xHandle.slice(1).toLowerCase() : xHandle.toLowerCase();
+
+  // Expected challenge string
+  const expectedChallenge = `tiles.bot:verify:x:${tileId}:${tile.owner.toLowerCase()}`;
+
+  // Fetch tweet via Twitter oEmbed API (no auth, public tweets only)
+  let tweetText;
+  let canonicalHandle;
+  try {
+    const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(tweetUrl)}&omit_script=true`;
+    const oembedRes = await fetch(oembedUrl, {
+      headers: { 'User-Agent': 'tiles-bot-verification/1.0' },
+    });
+
+    if (oembedRes.status === 404) {
+      return NextResponse.json({ error: 'Tweet not found (must be public)' }, { status: 422 });
+    }
+    if (!oembedRes.ok) {
+      return NextResponse.json({ error: `Twitter oEmbed API error: ${oembedRes.status}` }, { status: 502 });
+    }
+
+    const oembedData = await oembedRes.json();
+    canonicalHandle = oembedData.author_url?.split('/').filter(Boolean).pop()?.toLowerCase() || null;
+    if (!canonicalHandle) {
+      return NextResponse.json({ error: 'Could not determine tweet author from Twitter response' }, { status: 502 });
+    }
+    if (canonicalHandle !== cleanHandle) {
+      return NextResponse.json(
+        { error: `Tweet author does not match claimed handle (tweet is by @${canonicalHandle}, claimed @${cleanHandle})` },
+        { status: 422 }
+      );
+    }
+
+    // oEmbed returns HTML like: <p>some text</p>&mdash; @handle
+    // Strip HTML tags to get raw text
+    tweetText = (oembedData.html || '').replace(/<[^>]+>/g, ' ').replace(/&mdash;/g, '—').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+  } catch (err) {
+    return NextResponse.json({ error: `Failed to fetch tweet: ${err.message}` }, { status: 502 });
+  }
+
+  if (!tweetText.includes(expectedChallenge)) {
+    return NextResponse.json(
+      {
+        error: 'Challenge string not found in tweet',
+        expected: expectedChallenge,
+        tweetId,
+        hint: 'Post a public tweet containing the exact challenge string',
+      },
+      { status: 422 }
+    );
+  }
+
+  // Store X verification using the canonical handle returned by Twitter
+  setXVerification(tileId, canonicalHandle, tweetUrl);
+
+  return NextResponse.json({
+    ok: true,
+    tileId,
+    verified: 'x',
+    xHandle: canonicalHandle,
+    tweetUrl,
+    tweetId,
+    message: `X/Twitter identity verified for tile #${tileId}. Verified as @${canonicalHandle}.`,
   });
 }
