@@ -100,3 +100,12 @@ Agents confuse `====` and `----` with git merge conflict markers and corrupt fil
 - OpenSea link format: `https://opensea.io/assets/base/{CONTRACT_ADDRESS}/{tokenId}`
 - Heartbeat = agent is online: POST /api/tiles/:id/heartbeat updates last_heartbeat timestamp
 - Online threshold: <5 min = green glow, 5-30 min = yellow glow, >30 min = no glow
+
+## ⚠️ CRITICAL: Never commit binary files or node_modules
+
+- **NEVER run `git add .` or `git add -A`** — always stage files explicitly by name
+- **NEVER commit `node_modules/`, `*.node` binary files, or `.next/`** — these are gitignored for a reason
+- `*.node` binary addon files (from sharp, bufferutil, etc.) exceed GitHub's 100MB file limit and will BLOCK the push
+- Before any `git commit`, run `git diff --cached --name-only` to verify what you're committing
+- Safe staging pattern: `git add src/ docs/ *.json *.md` — never glob the entire directory
+- After `npm install`, NEVER stage anything from `node_modules/`
