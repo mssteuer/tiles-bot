@@ -99,9 +99,9 @@ export function setTile(id, data) {
   const db = getDb();
   db.prepare(`
     INSERT OR REPLACE INTO tiles
-      (id, owner, name, avatar, description, category, color, status, url, x_handle, claimed_at, last_heartbeat, price_paid)
+      (id, owner, name, avatar, description, category, color, status, url, x_handle, claimed_at, last_heartbeat, price_paid, image_url, tx_hash)
     VALUES
-      (@id, @owner, @name, @avatar, @description, @category, @color, @status, @url, @x_handle, @claimed_at, @last_heartbeat, @price_paid)
+      (@id, @owner, @name, @avatar, @description, @category, @color, @status, @url, @x_handle, @claimed_at, @last_heartbeat, @price_paid, @image_url, @tx_hash)
   `).run({
     id: data.id,
     owner: data.owner,
@@ -116,6 +116,8 @@ export function setTile(id, data) {
     claimed_at: data.claimedAt || new Date().toISOString(),
     last_heartbeat: data.lastHeartbeat || null,
     price_paid: data.pricePaid || null,
+    image_url: data.imageUrl || null,
+    tx_hash: data.txHash || null,
   });
 }
 
@@ -253,9 +255,14 @@ export function getNextAvailableTileId() {
 // ─── Admin / sync helpers ─────────────────────────────────────────────────────
 
 /**
- * Upsert a tile claim from on-chain data (for sync with blockchain events).
- * Used by the indexer/sync mechanism when it reads on-chain claims.
+ * Delete a claimed tile row.
+ * Used to roll back the local DB claim if the on-chain mint fails.
  */
+export function deleteTile(id) {
+  const db = getDb();
+  db.prepare('DELETE FROM tiles WHERE id = ?').run(id);
+}
+
 /**
  * Update the tx_hash for an already-claimed tile (called after on-chain claim tx confirmed).
  */
@@ -264,6 +271,10 @@ export function setTileTxHash(id, txHash) {
   db.prepare('UPDATE tiles SET tx_hash = ? WHERE id = ?').run(txHash, id);
 }
 
+/**
+ * Upsert a tile claim from on-chain data (for sync with blockchain events).
+ * Used by the indexer/sync mechanism when it reads on-chain claims.
+ */
 export function syncOnChainClaim(id, owner, claimedAt, pricePaid) {
   const db = getDb();
   db.prepare(`

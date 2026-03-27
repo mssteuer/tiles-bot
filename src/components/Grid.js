@@ -51,13 +51,26 @@ function getHeartbeatGlowColor(lastHeartbeat) {
 }
 
 function tileMatchesFilter(tile, searchQuery, categoryFilter) {
-  const matchesCategory = !categoryFilter || categoryFilter === 'All' || categoryFilter === 'all' ||
-    tile.category === categoryFilter.toLowerCase();
-  const matchesSearch = !searchQuery ||
-    tile.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tile.owner?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tile.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const normalizedCategoryFilter = categoryFilter?.toLowerCase();
+  const matchesCategory = !normalizedCategoryFilter || normalizedCategoryFilter === 'all' ||
+    tile.category?.toLowerCase() === normalizedCategoryFilter;
+  const normalizedSearch = searchQuery?.toLowerCase();
+  const matchesSearch = !normalizedSearch ||
+    tile.name?.toLowerCase().includes(normalizedSearch) ||
+    tile.owner?.toLowerCase().includes(normalizedSearch) ||
+    tile.description?.toLowerCase().includes(normalizedSearch);
   return matchesCategory && matchesSearch;
+}
+
+function hasActiveFilter(searchQuery, categoryFilter) {
+  const normalizedCategoryFilter = categoryFilter?.toLowerCase();
+  return Boolean(searchQuery && searchQuery.length > 0) || Boolean(normalizedCategoryFilter && normalizedCategoryFilter !== 'all');
+}
+
+function getFirstMatchingTile(tiles, searchQuery, categoryFilter) {
+  return Object.values(tiles)
+    .filter(tile => tileMatchesFilter(tile, searchQuery, categoryFilter))
+    .sort((a, b) => a.id - b.id)[0] || null;
 }
 
 export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter }) {
@@ -134,7 +147,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    const hasActiveFilter = (searchQuery && searchQuery.length > 0) || (categoryFilter && categoryFilter !== 'All' && categoryFilter !== 'all');
+    const isFilterActive = hasActiveFilter(searchQuery, categoryFilter);
     const cam = cameraRef.current;
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
@@ -204,7 +217,9 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
 
         if (tile) {
           const baseColor = tile.color || CATEGORY_COLORS[tile.category] || '#333';
-          const tileMatches = !hasActiveFilter || tileMatchesFilter(tile, searchQuery, categoryFilter);
+          const tileMatches = !isFilterActive || tileMatchesFilter(tile, searchQuery, categoryFilter);
+
+          ctx.save();
           if (!tileMatches) ctx.globalAlpha = 0.25;
 
           // ── Heartbeat glow halo ──────────────────────────────────────
@@ -242,9 +257,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
           } else {
             // Colored background + emoji
             ctx.fillStyle = baseColor;
-            ctx.globalAlpha = 0.25;
             ctx.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-            ctx.globalAlpha = 1;
 
             if (cam.zoom > 0.2) {
               ctx.font = `${Math.min(20, TILE_SIZE * 0.5)}px system-ui`;
@@ -271,11 +284,10 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
           if (cam.zoom > 0.5) {
             ctx.font = `bold ${Math.min(8, TILE_SIZE * 0.18)}px system-ui`;
             ctx.fillStyle = '#fff';
-            ctx.globalAlpha = 0.9;
+            ctx.globalAlpha = tileMatches ? 0.9 : 0.25 * 0.9;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             ctx.fillText(tile.name?.substring(0, 12) || '', x + TILE_SIZE / 2, y + TILE_SIZE - 2);
-            ctx.globalAlpha = 1;
           }
 
           // Highlight selected
@@ -285,8 +297,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
             ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
           }
 
-          // Reset alpha after dimming non-matching tile
-          if (!tileMatches) ctx.globalAlpha = 1;
+          ctx.restore();
         }
 
         // Hover highlight
@@ -323,6 +334,29 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
   }, [draw, viewMode]);
+
+  // Auto-center the grid on the first matching tile when filters change.
+  useEffect(() => {
+    if (viewMode === 'list') return;
+    if (!hasActiveFilter(searchQuery, categoryFilter)) return;
+
+    const firstMatch = getFirstMatchingTile(tiles, searchQuery, categoryFilter);
+    if (!firstMatch) return;
+
+    const targetX = (firstMatch.id % GRID_SIZE) * TILE_SIZE + TILE_SIZE / 2;
+    const targetY = Math.floor(firstMatch.id / GRID_SIZE) * TILE_SIZE + TILE_SIZE / 2;
+
+    setCamera(prev => {
+      const alreadyCentered = Math.abs(prev.x - targetX) < TILE_SIZE / 2 && Math.abs(prev.y - targetY) < TILE_SIZE / 2;
+      if (alreadyCentered) return prev;
+      return {
+        ...prev,
+        x: targetX,
+        y: targetY,
+        zoom: Math.max(prev.zoom, 0.6),
+      };
+    });
+  }, [tiles, searchQuery, categoryFilter, viewMode]);
 
   // Resize
   useEffect(() => {
@@ -504,9 +538,9 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
 
   // ─── List view ───────────────────────────────────────────────────────────
   if (viewMode === 'list') {
-    const hasActiveFilter = (searchQuery && searchQuery.length > 0) || (categoryFilter && categoryFilter !== 'All' && categoryFilter !== 'all');
+    const isFilterActive = hasActiveFilter(searchQuery, categoryFilter);
     const tileList = Object.values(tiles)
-      .filter(tile => !hasActiveFilter || tileMatchesFilter(tile, searchQuery, categoryFilter))
+      .filter(tile => !isFilterActive || tileMatchesFilter(tile, searchQuery, categoryFilter))
       .sort((a, b) => a.id - b.id);
     return (
       <div style={{ flex: 1, overflowY: 'auto', background: '#0a0a0f', padding: '8px 16px' }}>
