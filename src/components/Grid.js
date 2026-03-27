@@ -175,14 +175,33 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     const startY = GRID_PX / 2;
     const startZoom = fitZoom;
 
-    // Target: centroid of claimed tiles, zoomed to max useful level
-    let sumR = 0, sumC = 0;
-    for (const id of ids) {
-      sumR += Math.floor(id / GRID_SIZE);
-      sumC += id % GRID_SIZE;
+    // Target: densest cluster — slide a window across the grid, find peak density
+    const WINDOW = 20; // 20×20 tile window
+    const coords = ids.map(id => ({ r: Math.floor(id / GRID_SIZE), c: id % GRID_SIZE }));
+
+    let bestCount = 0, bestR = 128, bestC = 128;
+    // Build a set for O(1) lookup
+    const occupied = new Set(ids);
+
+    for (const { r: seedR, c: seedC } of coords) {
+      // Check window centered on each tile
+      const wr = Math.max(0, seedR - Math.floor(WINDOW / 2));
+      const wc = Math.max(0, seedC - Math.floor(WINDOW / 2));
+      let count = 0;
+      for (let dr = 0; dr < WINDOW && wr + dr < GRID_SIZE; dr++) {
+        for (let dc = 0; dc < WINDOW && wc + dc < GRID_SIZE; dc++) {
+          if (occupied.has((wr + dr) * GRID_SIZE + (wc + dc))) count++;
+        }
+      }
+      if (count > bestCount) {
+        bestCount = count;
+        bestR = wr + WINDOW / 2;
+        bestC = wc + WINDOW / 2;
+      }
     }
-    const targetX = (sumC / ids.length) * TILE_SIZE + TILE_SIZE / 2;
-    const targetY = (sumR / ids.length) * TILE_SIZE + TILE_SIZE / 2;
+
+    const targetX = bestC * TILE_SIZE + TILE_SIZE / 2;
+    const targetY = bestR * TILE_SIZE + TILE_SIZE / 2;
     const targetZoom = 4; // deep zoom so individual tiles are clearly visible
 
     // Set initial camera to show full grid
