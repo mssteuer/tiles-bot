@@ -77,7 +77,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
-  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: zoom || 0.5 });
+  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: zoom || 1.5 });
   const [hoveredTile, setHoveredTile] = useState(null);
   const [batchTiles, setBatchTiles] = useState(null); // array of tile IDs for batch modal
 
@@ -161,7 +161,8 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
     }
 
     const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
+    // Always reset the transform before drawing to prevent compounding scale on every frame.
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const w = rect.width;
     const h = rect.height;

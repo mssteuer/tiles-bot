@@ -10,7 +10,7 @@ import ClaimModal from '../components/ClaimModal';
 
 
 const GRID_PX = 256 * 32;
-const DEFAULT_ZOOM = 0.5; // zoom in to make tiles visible (16px each)
+const DEFAULT_ZOOM = 1.5; // zoom in to see tiles clearly (each tile ≈ 48px at 1.5x)
 
 const DEMO_AGENTS = [
   { name: 'Jean Clawd 🥋', avatar: '🥋', category: 'social', color: '#ff6b00', url: 'https://x.com/JeanClawd99' },
