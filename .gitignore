@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env.local
+data/
+.next/
+data/
+node_modules/
+.next/
