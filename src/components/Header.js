@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
-  const pct = ((stats.claimed / stats.total) * 100).toFixed(1);
+  const pct = stats.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(1) : '0.0';
 
   return (
     <header style={{
@@ -32,7 +32,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
         <a href="/SKILL.md" target="_blank" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>SKILL.md</a>
         <Stat label="Claimed" value={`${stats.claimed.toLocaleString()} / ${stats.total.toLocaleString()}`} />
         <Stat label="Filled" value={`${pct}%`} />
-        <Stat label="Current Price" value={`$${parseFloat(stats.price).toFixed(4)}`} accent />
+        <Stat label="Current Price" value={`$${parseFloat(stats.currentPrice ?? 0).toFixed(4)}`} accent />
         <ProgressBar pct={parseFloat(pct)} />
         <button style={{
           background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',

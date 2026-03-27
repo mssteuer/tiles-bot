@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 
 function timeAgo(isoString, nowTs) {
   if (!isoString) return 'unknown';
@@ -27,47 +27,23 @@ function formatUsd(value) {
   return `$${n.toFixed(4)}`;
 }
 
-export default function StatsPanel() {
-  const [open, setOpen] = useState(true);
-  const [stats, setStats] = useState(null);
+export default function StatsPanel({ stats, onRefresh }) {
+  const [open, setOpen] = React.useState(true);
   const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
-  const [nowTs, setNowTs] = useState(Date.now());
+  const [nowTs, setNowTs] = React.useState(Date.now());
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await fetch('/api/stats', { cache: 'no-store' });
-      if (res.ok) setStats(await res.json());
-    } catch {
-      // silently fail
-    }
-  }, []);
+  React.useEffect(() => {
+    if (!onRefresh) return undefined;
 
-  useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30_000);
+    onRefresh();
+    const interval = setInterval(onRefresh, 30_000);
     return () => clearInterval(interval);
-  }, [fetchStats]);
+  }, [onRefresh]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const tick = setInterval(() => setNowTs(Date.now()), 30_000);
     return () => clearInterval(tick);
   }, []);
-
-  useEffect(() => {
-    const es = new EventSource('/api/events');
-    es.onmessage = (e) => {
-      try {
-        const event = JSON.parse(e.data);
-        if (event.type === 'tile_claimed') {
-          fetchStats();
-          setNowTs(Date.now());
-        }
-      } catch {
-        // ignore parse errors
-      }
-    };
-    return () => es.close();
-  }, [fetchStats]);
 
   const panelStyle = {
     background: '#0f0f1a',
@@ -173,7 +149,7 @@ export default function StatsPanel() {
           )}
 
           <div style={{ color: '#374151', fontSize: 11, textAlign: 'right' }}>
-            Live via SSE + 30s refresh
+            Live via shared SSE + 30s refresh
           </div>
         </div>
       )}

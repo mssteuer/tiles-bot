@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withX402 } from 'x402-next';
-import { claimTile, getCurrentPrice, setTileTxHash, unclaimTile, TOTAL_TILES } from '@/lib/db';
+import { claimTile, getClaimedCount, getCurrentPrice, getNextAvailableTileId, setTileTxHash, unclaimTile, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
 // Treasury address that receives USDC payments (set in env or default to placeholder)
@@ -108,7 +108,14 @@ async function claimHandler(request, { params }) {
   }
 
   // Broadcast real-time update to all connected SSE clients
-  broadcast({ type: 'tile_claimed', tileId, tile });
+  broadcast({
+    type: 'tile_claimed',
+    tileId,
+    tile,
+    claimedCount: getClaimedCount(),
+    currentPrice: getCurrentPrice(),
+    nextAvailableTileId: getNextAvailableTileId(),
+  });
 
   return NextResponse.json({ tile, pricePaid: price, txHash }, { status: 201 });
 }
