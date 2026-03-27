@@ -469,10 +469,20 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
     }
   }, [onZoomChange]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e) => {
+    // If single-finger lift with no pan → treat as tap (tile select)
+    if (e.changedTouches.length === 1 && !dragMoved.current) {
+      const touch = e.changedTouches[0];
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        const tileId = screenToGrid(touch.clientX - rect.left, touch.clientY - rect.top);
+        if (tileId !== null) onTileClick(tileId);
+      }
+    }
     isDragging.current = false;
+    dragMoved.current = false;
     lastTouchDist.current = null;
-  }, []);
+  }, [screenToGrid, onTileClick]);
 
   // Wheel listener
   useEffect(() => {
