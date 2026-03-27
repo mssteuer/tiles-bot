@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract, useReadContract, useSwitchChain } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useState } from 'react';
+import { useAccount, useWriteContract, useReadContract, useSwitchChain, useConnect, useDisconnect } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, MBH_ABI, ERC20_ABI, TARGET_CHAIN } from '@/lib/wagmi';
 
 export default function ClaimModal({ tileId, onClose, onClaimed }) {
   const { address, isConnected, chainId } = useAccount();
   const { switchChain } = useSwitchChain();
+  const { connectors, connect, isPending: isConnecting } = useConnect();
+  const { disconnect } = useDisconnect();
 
   const [step, setStep] = useState('info'); // info | approve | claim | success | error
   const [errorMsg, setErrorMsg] = useState('');
@@ -124,9 +125,30 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
         </div>
 
         {!isConnected ? (
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ color: '#94a3b8', marginBottom: 16, fontSize: 14 }}>Connect your wallet to claim this tile.</p>
-            <ConnectButton />
+          <div>
+            <p style={{ color: '#94a3b8', marginBottom: 16, fontSize: 14, textAlign: 'center' }}>Connect your wallet to claim this tile.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {connectors.map((connector) => (
+                <button
+                  key={connector.uid}
+                  onClick={() => connect({ connector })}
+                  disabled={isConnecting}
+                  style={{
+                    width: '100%', padding: '12px 16px', borderRadius: 10,
+                    border: '1px solid #2a2a3e', background: '#1a1a2e',
+                    color: '#fff', fontWeight: 600, fontSize: 14,
+                    cursor: isConnecting ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    opacity: isConnecting ? 0.7 : 1,
+                  }}
+                >
+                  {connector.name === 'MetaMask' && '🦊 '}
+                  {connector.name === 'Coinbase Wallet' && '🟦 '}
+                  {connector.name === 'Injected' && '💉 '}
+                  {connector.name}
+                </button>
+              ))}
+            </div>
           </div>
         ) : wrongChain ? (
           <div style={{ textAlign: 'center' }}>
