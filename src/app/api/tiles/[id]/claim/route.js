@@ -3,6 +3,11 @@ import { withX402 } from 'x402-next';
 import { claimTile, getCurrentPrice, setTileTxHash, unclaimTile, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
+const CHAIN_BY_NETWORK = {
+  base: 'base',
+  'base-sepolia': 'baseSepolia',
+};
+
 // Treasury address that receives USDC payments (set in env or default to placeholder)
 const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000';
 
@@ -24,7 +29,7 @@ async function callOnChainClaim(tileId) {
   }
 
   const { createWalletClient, http, parseAbi } = await import('viem');
-  const { base } = await import('viem/chains');
+  const chains = await import('viem/chains');
   const { privateKeyToAccount } = await import('viem/accounts');
 
   const CLAIM_ABI = parseAbi(['function claim(uint256 tokenId) external']);
@@ -35,10 +40,17 @@ async function callOnChainClaim(tileId) {
     return null;
   }
 
+  const chainKey = CHAIN_BY_NETWORK[X402_NETWORK];
+  const chain = chainKey ? chains[chainKey] : null;
+
+  if (!chain) {
+    throw new Error(`[claim] Unsupported X402_NETWORK: ${X402_NETWORK}`);
+  }
+
   const account = privateKeyToAccount(process.env.SERVER_WALLET_PRIVATE_KEY);
   const walletClient = createWalletClient({
     account,
-    chain: base,
+    chain,
     transport: http(),
   });
 
@@ -93,7 +105,7 @@ async function claimHandler(request, { params }) {
         { status: 409 }
       );
     }
-    // For other contract errors (gas, network, etc.), surface as 500
+
     console.error(`[claim] On-chain claim failed for tile #${tileId}:`, err);
     return NextResponse.json(
       { error: 'On-chain claim transaction failed', detail: msg },
