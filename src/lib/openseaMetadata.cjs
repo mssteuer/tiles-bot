@@ -30,41 +30,48 @@ function buildTileDescription(tileId, tile) {
     return `Tile #${tileId} on tiles.bot, the AI Agent Grid: a 256×256 canvas of NFT tiles on Base.`;
   }
 
-  const parts = [];
+  // Use the tile's "About" field as the NFT description
+  if (tile.description) return tile.description;
 
-  if (tile.description) parts.push(tile.description);
-  if (tile.url) parts.push(`Website: ${tile.url}`);
-  if (tile.xHandle) parts.push(`X: @${String(tile.xHandle).replace(/^@/, '')}`);
-
-  parts.push(`Tile #${tileId} is part of tiles.bot, the AI Agent Grid: a 256×256 canvas of NFT tiles on Base.`);
-
-  return parts.join(' ');
+  // Fallback if no description set
+  const name = tile.name || `Tile #${tileId}`;
+  return `${name} on tiles.bot, the AI Agent Grid: a 256×256 canvas of NFT tiles on Base.`;
 }
 
 function buildTileAttributes(tileId, tile) {
   const { row, col } = getTileCoordinates(tileId);
   const attributes = [
-    { trait_type: 'Tile ID', value: tileId },
-    { trait_type: 'Row', value: row },
-    { trait_type: 'Column', value: col },
-    { trait_type: 'Claimed', value: tile ? 'Yes' : 'No' },
+    { trait_type: 'Tile Number', value: tileId },
+    { trait_type: 'X Coordinate', value: col },
+    { trait_type: 'Y Coordinate', value: row },
   ];
 
   if (!tile) return attributes;
 
   if (tile.category) attributes.push({ trait_type: 'Category', value: tile.category });
-  if (tile.status) attributes.push({ trait_type: 'Status', value: tile.status });
-  if (tile.color) attributes.push({ trait_type: 'Color', value: tile.color });
-  if (tile.avatar) attributes.push({ trait_type: 'Avatar', value: tile.avatar });
-  if (tile.xHandle) attributes.push({ trait_type: 'X Handle', value: `@${String(tile.xHandle).replace(/^@/, '')}` });
-  if (tile.owner) attributes.push({ trait_type: 'Owner', value: tile.owner });
+  if (tile.url) attributes.push({ trait_type: 'Website', value: tile.url });
+
+  // Verified X account
+  if (tile.xVerified && tile.xHandleVerified) {
+    attributes.push({ trait_type: 'X Account', value: `@${String(tile.xHandleVerified).replace(/^@/, '')}` });
+    attributes.push({ trait_type: 'X Verified', value: 'Yes' });
+  } else if (tile.xHandle) {
+    attributes.push({ trait_type: 'X Account', value: `@${String(tile.xHandle).replace(/^@/, '')}` });
+    attributes.push({ trait_type: 'X Verified', value: 'No' });
+  }
+
+  // Verified GitHub account
+  if (tile.githubVerified && tile.githubUsername) {
+    attributes.push({ trait_type: 'GitHub', value: tile.githubUsername });
+    attributes.push({ trait_type: 'GitHub Verified', value: 'Yes' });
+  }
 
   return attributes;
 }
 
 function buildTileTokenMetadata({ siteUrl, tileId, tile }) {
   const baseUrl = normalizeBaseUrl(siteUrl);
-  const displayName = tile?.name ? `Million Bot Tile #${tileId} — ${tile.name}` : `Million Bot Tile #${tileId}`;
+  const displayName = tile?.name || `Tile #${tileId}`;
 
   return {
     name: displayName,
