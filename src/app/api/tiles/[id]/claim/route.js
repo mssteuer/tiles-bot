@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withX402 } from 'x402-next';
-import { claimTile, getCurrentPrice, setTileTxHash, TOTAL_TILES } from '@/lib/db';
+import { claimTile, getCurrentPrice, setTileTxHash, TOTAL_TILES, unclaimTile } from '@/lib/db';
 
 // Treasury address that receives USDC payments (set in env or default to placeholder)
 const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000';
@@ -13,6 +13,35 @@ const X402_NETWORK = process.env.X402_NETWORK || 'base-sepolia';
  * Returns the tx hash, or null if SERVER_WALLET_PRIVATE_KEY is not configured.
  * Throws if the contract call fails (e.g. tile already claimed on-chain → 409).
  */
+function getContractChainName() {
+  return process.env.CONTRACT_CHAIN || process.env.X402_NETWORK || 'base-sepolia';
+}
+
+async function getContractChain() {
+  const chainName = getContractChainName();
+  const chains = await import('viem/chains');
+  const chain = chains[chainName];
+
+  if (!chain) {
+    throw new Error(`[claim] Unsupported contract chain: ${chainName}`);
+  }
+
+  return chain;
+}
+
+function isAlreadyClaimedError(message) {
+  return (
+    message.includes('already claimed') ||
+    message.includes('AlreadyClaimed') ||
+    message.includes('ERC721: token already minted')
+  );
+}
+
+/**
+ * Call the on-chain claim() function using the server wallet.
+ * Returns the confirmed tx hash, or null if SERVER_WALLET_PRIVATE_KEY is not configured.
+ * Throws if the contract call fails.
+ */
 async function callOnChainClaim(tileId) {
   if (!process.env.SERVER_WALLET_PRIVATE_KEY) {
     console.warn(
@@ -22,8 +51,7 @@ async function callOnChainClaim(tileId) {
     return null;
   }
 
-  const { createWalletClient, http, parseAbi } = await import('viem');
-  const { base } = await import('viem/chains');
+  const { createWalletClient, createPublicClient, http, parseAbi } = await import('viem');
   const { privateKeyToAccount } = await import('viem/accounts');
 
   const CLAIM_ABI = parseAbi(['function claim(uint256 tokenId) external']);
@@ -34,11 +62,19 @@ async function callOnChainClaim(tileId) {
     return null;
   }
 
+  const chain = await getContractChain();
   const account = privateKeyToAccount(process.env.SERVER_WALLET_PRIVATE_KEY);
+  const transport = http();
+
   const walletClient = createWalletClient({
     account,
-    chain: base,
-    transport: http(),
+    chain,
+    transport,
+  });
+
+  const publicClient = createPublicClient({
+    chain,
+    transport,
   });
 
   const txHash = await walletClient.writeContract({
@@ -47,6 +83,11 @@ async function callOnChainClaim(tileId) {
     functionName: 'claim',
     args: [BigInt(tileId)],
   });
+
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  if (receipt.status !== 'success') {
+    throw new Error(`[claim] Transaction failed on-chain: ${txHash}`);
+  }
 
   return txHash;
 }
@@ -71,37 +112,44 @@ async function claimHandler(request, { params }) {
     return NextResponse.json({ error: 'Tile already claimed or invalid' }, { status: 409 });
   }
 
-  // Call the smart contract to actually mint the NFT on-chain
+  // Call the smart contract to actually mint the NFT on-chain.
+  // If this fails, roll back the DB claim so the tile can be re-claimed.
   let txHash = null;
   try {
     txHash = await callOnChainClaim(tileId);
   } catch (err) {
-    // If the contract call fails, roll back the DB entry by checking for "already claimed" errors.
-    // Common revert messages from the MillionBotHomepage contract:
     const msg = err?.message || '';
-    if (
-      msg.includes('already claimed') ||
-      msg.includes('AlreadyClaimed') ||
-      msg.includes('ERC721: token already minted') ||
-      msg.includes('revert')
-    ) {
-      console.error(`[claim] Contract revert for tile #${tileId}:`, msg);
+    const rolledBack = unclaimTile(tileId);
+
+    if (isAlreadyClaimedError(msg)) {
+      console.error(`[claim] Contract reports tile #${tileId} already claimed:`, msg);
       return NextResponse.json(
-        { error: 'Tile already claimed on-chain', detail: msg },
+        {
+          error: 'Tile already claimed on-chain',
+          detail: msg,
+          rolledBack,
+        },
         { status: 409 }
       );
     }
-    // For other contract errors (gas, network, etc.), surface as 500
+
     console.error(`[claim] On-chain claim failed for tile #${tileId}:`, err);
     return NextResponse.json(
-      { error: 'On-chain claim transaction failed', detail: msg },
+      {
+        error: 'On-chain claim transaction failed',
+        detail: msg,
+        rolledBack,
+      },
       { status: 500 }
     );
   }
 
-  // Persist txHash into DB
+  // Persist txHash into DB when available.
   if (txHash) {
-    setTileTxHash(tileId, txHash);
+    const updated = setTileTxHash(tileId, txHash);
+    if (!updated) {
+      console.error(`[claim] Failed to persist tx hash for tile #${tileId}`);
+    }
     tile.txHash = txHash;
   }
 

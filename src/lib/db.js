@@ -147,9 +147,9 @@ export function claimTile(id, wallet, pricePaid) {
   const db = getDb();
   if (id < 0 || id >= TOTAL_TILES) return null;
 
-  // Check if already claimed (atomic with INSERT)
+  // Check if already claimed before insert.
   const existing = db.prepare('SELECT id FROM tiles WHERE id = ?').get(id);
-  if (existing) return null; // already claimed
+  if (existing) return null;
 
   const tile = {
     id,
@@ -180,6 +180,12 @@ export function claimTile(id, wallet, pricePaid) {
   });
 
   return tile;
+}
+
+export function unclaimTile(id) {
+  const db = getDb();
+  const result = db.prepare('DELETE FROM tiles WHERE id = ?').run(id);
+  return result.changes > 0;
 }
 
 export function updateTileMetadata(id, metadata) {
@@ -261,7 +267,8 @@ export function getNextAvailableTileId() {
  */
 export function setTileTxHash(id, txHash) {
   const db = getDb();
-  db.prepare('UPDATE tiles SET tx_hash = ? WHERE id = ?').run(txHash, id);
+  const result = db.prepare('UPDATE tiles SET tx_hash = ? WHERE id = ?').run(txHash, id);
+  return result.changes > 0;
 }
 
 export function syncOnChainClaim(id, owner, claimedAt, pricePaid) {
