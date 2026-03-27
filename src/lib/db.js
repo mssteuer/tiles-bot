@@ -256,6 +256,14 @@ export function getNextAvailableTileId() {
  * Upsert a tile claim from on-chain data (for sync with blockchain events).
  * Used by the indexer/sync mechanism when it reads on-chain claims.
  */
+/**
+ * Update the tx_hash for an already-claimed tile (called after on-chain claim tx confirmed).
+ */
+export function setTileTxHash(id, txHash) {
+  const db = getDb();
+  db.prepare('UPDATE tiles SET tx_hash = ? WHERE id = ?').run(txHash, id);
+}
+
 export function syncOnChainClaim(id, owner, claimedAt, pricePaid) {
   const db = getDb();
   db.prepare(`
