@@ -231,8 +231,12 @@ async function handleGithubVerification(tileId, tile, body) {
 
 /**
  * Verify X/Twitter identity via a public tweet containing the challenge string.
- * The tweet URL is provided by the owner. We fetch the tweet via nitter/oembed
- * fallback to check it contains the expected challenge.
+ *
+ * Note: the original task language mentioned OAuth for X verification. This
+ * implementation intentionally uses the public oEmbed endpoint instead of OAuth:
+ * it verifies a durable public proof URL without storing X app credentials,
+ * access tokens, or refresh tokens server-side. The SIWE wallet signature still
+ * authorizes ownership of the tile; oEmbed is only used to read the public post.
  *
  * Flow:
  * 1. Owner tweets: "tiles.bot:verify:x:{tileId}:{ownerAddress}"
