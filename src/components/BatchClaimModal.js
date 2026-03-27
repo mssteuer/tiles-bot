@@ -1,14 +1,27 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseAbi } from 'viem';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID;
+const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
-export default function BatchClaimModal({ tileIds, tiles, onClose }) {
-  const [claiming, setClaiming] = useState(false);
+const USDC_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) returns (bool)',
+]);
+
+const CONTRACT_ABI = parseAbi([
+  'function batchClaim(uint256[] calldata tileIds) external',
+  'function currentPrice() view returns (uint256)',
+]);
+
+export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) {
+  const [step, setStep] = useState('preview'); // preview | approve | claim | success | error
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState(null);
+  const { address, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
 
   // Separate claimed vs unclaimed
   const { unclaimed, alreadyClaimed } = useMemo(() => {
@@ -21,216 +34,184 @@ export default function BatchClaimModal({ tileIds, tiles, onClose }) {
     return { unclaimed, alreadyClaimed };
   }, [tileIds, tiles]);
 
-  // Estimate total price (bonding curve: $1 at current supply, roughly)
-  // Use server-side calculation — for UI show estimate
-  const estimatedPrice = useMemo(() => {
-    // We don't have live bonding curve in client, so show per-tile price as $1+
-    // Real price computed on server
-    return unclaimed.length; // placeholder: $1 per tile (actual price from bonding curve)
-  }, [unclaimed]);
+  // Fetch current price from server
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(r => r.json())
+      .then(d => setCurrentPrice(d.currentPrice || 0.01))
+      .catch(() => setCurrentPrice(0.01));
+  }, []);
 
-  const handleClaim = async () => {
-    if (unclaimed.length === 0) return;
-    setClaiming(true);
-    setError(null);
+  // Estimate total cost: each successive tile costs slightly more (bonding curve)
+  // For a rough estimate, use currentPrice * count (actual prices increase per tile)
+  const estimatedTotal = currentPrice !== null ? (currentPrice * unclaimed.length).toFixed(4) : '...';
+  const perTilePrice = currentPrice !== null ? currentPrice.toFixed(4) : '...';
+
+  const handleBatchClaim = async () => {
+    if (!isConnected || unclaimed.length === 0) return;
+
     try {
-      const res = await fetch('/api/tiles/batch-claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tileIds: unclaimed }),
+      setStep('approve');
+      setError(null);
+
+      // Approve USDC — use a generous amount (price * count * 1.5 for bonding curve increase)
+      const approveAmount = BigInt(Math.ceil((currentPrice || 1) * unclaimed.length * 1.5 * 1e6));
+      const approveTx = await writeContractAsync({
+        address: USDC_ADDRESS,
+        abi: USDC_ABI,
+        functionName: 'approve',
+        args: [CONTRACT_ADDRESS, approveAmount],
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Batch claim failed');
-      setSuccess(true);
+
+      setStep('claim');
+
+      // Call batchClaim on contract
+      const claimTx = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: 'batchClaim',
+        args: [unclaimed.map(id => BigInt(id))],
+      });
+
+      // Register tiles in our DB
+      for (const id of unclaimed) {
+        try {
+          await fetch(`/api/tiles/${id}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet: address, txHash: claimTx }),
+          });
+        } catch {} // best-effort
+      }
+
+      setStep('success');
+      if (onClaimed) onClaimed(unclaimed);
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setClaiming(false);
+      const msg = err?.shortMessage || err?.message || 'Transaction failed';
+      if (msg.toLowerCase().includes('reject') || msg.toLowerCase().includes('denied')) {
+        setStep('preview');
+        return;
+      }
+      setError(msg);
+      setStep('error');
     }
   };
 
-  const preview = tileIds.slice(0, 10);
-  const rest = tileIds.length - 10;
+  const gridCols = Math.min(unclaimed.length, 8);
 
   return (
     <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,0.75)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      backdropFilter: 'blur(4px)',
-    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      position: 'fixed', inset: 0, zIndex: 9999,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+    }} onClick={onClose}>
       <div style={{
-        background: '#0f0f1a',
-        border: '1px solid #1a1a2e',
-        borderRadius: 16,
-        padding: 28,
-        width: 440,
-        maxWidth: '95vw',
-        maxHeight: '80vh',
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 20,
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Batch Claim Tiles</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#666', fontSize: 24, cursor: 'pointer', lineHeight: 1 }}>×</button>
+        background: '#1a1a2e', border: '1px solid #2a2a4a', borderRadius: 16,
+        padding: 24, maxWidth: 520, width: '95%', maxHeight: '80vh', overflowY: 'auto',
+        color: '#e2e8f0',
+      }} onClick={e => e.stopPropagation()}>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 20 }}>Batch Claim — {unclaimed.length} Tile{unclaimed.length !== 1 ? 's' : ''}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 24, cursor: 'pointer' }}>×</button>
         </div>
 
-        {success ? (
-          <div style={{ textAlign: 'center', padding: 24 }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-            <h3 style={{ margin: '0 0 8px', color: '#22c55e' }}>Batch claim submitted!</h3>
-            <p style={{ color: '#888', fontSize: 14 }}>Your tiles are being processed. Check back in a moment.</p>
-            <button onClick={onClose} style={{
-              marginTop: 16,
-              background: '#22c55e',
-              border: 'none',
-              color: '#000',
-              padding: '10px 24px',
-              borderRadius: 8,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}>Close</button>
+        {alreadyClaimed.length > 0 && (
+          <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 13 }}>
+            ⚠️ {alreadyClaimed.length} tile{alreadyClaimed.length !== 1 ? 's' : ''} already claimed — skipping
           </div>
-        ) : (
-          <>
-            {/* Summary stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              <StatBox label="Selected" value={tileIds.length} color="#3b82f6" />
-              <StatBox label="Available" value={unclaimed.length} color="#22c55e" />
-              <StatBox label="Already Claimed" value={alreadyClaimed.length} color="#ef4444" />
+        )}
+
+        {/* Tile preview grid */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: 4,
+          marginBottom: 16, maxHeight: 200, overflowY: 'auto',
+        }}>
+          {unclaimed.slice(0, 64).map(id => (
+            <div key={id} style={{
+              background: '#2a2a4a', borderRadius: 4, padding: 4,
+              fontSize: 10, textAlign: 'center', color: '#94a3b8',
+              border: '1px solid rgba(59,130,246,0.3)',
+            }}>
+              #{id}
             </div>
+          ))}
+          {unclaimed.length > 64 && (
+            <div style={{ fontSize: 11, color: '#64748b', padding: 4 }}>+{unclaimed.length - 64} more</div>
+          )}
+        </div>
 
-            {/* Price estimate */}
-            {unclaimed.length > 0 && (
-              <div style={{
-                background: '#1a1a2e',
-                borderRadius: 10,
-                padding: 16,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <span style={{ color: '#888', fontSize: 14 }}>Estimated total (USDC)</span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: '#3b82f6' }}>
-                  ~${estimatedPrice.toFixed(2)}
-                </span>
-              </div>
-            )}
+        {/* Pricing */}
+        <div style={{ background: '#0f0f23', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>
+            <span>Price per tile:</span>
+            <span>${perTilePrice} USDC</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 600, color: '#e2e8f0' }}>
+            <span>Estimated total:</span>
+            <span>~${estimatedTotal} USDC</span>
+          </div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+            Actual cost may be slightly higher due to bonding curve increase per tile
+          </div>
+        </div>
 
-            {/* Tile list preview */}
-            <div>
-              <div style={{ fontSize: 12, color: '#555', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Selected Tiles
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {preview.map(id => {
-                  const isClaimed = !!tiles[id];
-                  return (
-                    <span key={id} style={{
-                      padding: '3px 8px',
-                      borderRadius: 6,
-                      fontSize: 12,
-                      background: isClaimed ? 'rgba(239,68,68,0.15)' : 'rgba(59,130,246,0.15)',
-                      border: `1px solid ${isClaimed ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.3)'}`,
-                      color: isClaimed ? '#ef4444' : '#3b82f6',
-                    }}>
-                      #{id}{isClaimed ? ' ✗' : ''}
-                    </span>
-                  );
-                })}
-                {rest > 0 && (
-                  <span style={{ padding: '3px 8px', color: '#555', fontSize: 12 }}>
-                    and {rest} more...
-                  </span>
-                )}
-              </div>
-              {alreadyClaimed.length > 0 && (
-                <p style={{ margin: '10px 0 0', fontSize: 12, color: '#ef4444' }}>
-                  ⚠️ {alreadyClaimed.length} tile{alreadyClaimed.length > 1 ? 's are' : ' is'} already claimed and will be excluded.
-                </p>
-              )}
+        {/* Action buttons */}
+        {step === 'preview' && (
+          !isConnected ? (
+            <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>
+              Connect your wallet first (🦊 button in header)
             </div>
+          ) : (
+            <button onClick={handleBatchClaim} style={{
+              width: '100%', padding: '14px 0', borderRadius: 10,
+              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+              color: '#fff', border: 'none', fontSize: 16, fontWeight: 600, cursor: 'pointer',
+            }}>
+              Claim {unclaimed.length} Tile{unclaimed.length !== 1 ? 's' : ''} (~${estimatedTotal} USDC)
+            </button>
+          )
+        )}
 
-            {/* Error */}
-            {error && (
-              <div style={{
-                background: 'rgba(239,68,68,0.1)',
-                border: '1px solid rgba(239,68,68,0.3)',
-                borderRadius: 8,
-                padding: '10px 14px',
-                fontSize: 13,
-                color: '#ef4444',
-              }}>
-                {error}
-              </div>
-            )}
+        {step === 'approve' && (
+          <div style={{ textAlign: 'center', color: '#f59e0b', fontSize: 14 }}>
+            ⏳ Approve USDC in MetaMask...
+          </div>
+        )}
 
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={onClose} style={{
-                flex: 1,
-                background: 'transparent',
-                border: '1px solid #333',
-                color: '#888',
-                padding: '12px 0',
-                borderRadius: 10,
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontSize: 14,
-              }}>
-                Cancel
-              </button>
-              <button
-                onClick={handleClaim}
-                disabled={unclaimed.length === 0 || claiming}
-                style={{
-                  flex: 2,
-                  background: unclaimed.length === 0 ? '#222' : 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                  border: 'none',
-                  color: unclaimed.length === 0 ? '#555' : '#fff',
-                  padding: '12px 0',
-                  borderRadius: 10,
-                  fontWeight: 600,
-                  cursor: unclaimed.length === 0 ? 'not-allowed' : 'pointer',
-                  fontSize: 14,
-                  transition: 'opacity 0.2s',
-                  opacity: claiming ? 0.7 : 1,
-                }}
-              >
-                {claiming ? 'Claiming...' : unclaimed.length === 0 ? 'No tiles to claim' : `Claim ${unclaimed.length} tile${unclaimed.length > 1 ? 's' : ''}`}
-              </button>
+        {step === 'claim' && (
+          <div style={{ textAlign: 'center', color: '#3b82f6', fontSize: 14 }}>
+            ⏳ Confirm batch claim in MetaMask...
+          </div>
+        )}
+
+        {step === 'success' && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>
+            <div style={{ color: '#22c55e', fontSize: 16, fontWeight: 600 }}>
+              {unclaimed.length} tiles claimed!
             </div>
+            <button onClick={onClose} style={{
+              marginTop: 12, padding: '10px 24px', borderRadius: 8,
+              background: '#22c55e', color: '#fff', border: 'none', cursor: 'pointer',
+            }}>
+              Done
+            </button>
+          </div>
+        )}
 
-            {unclaimed.length > 0 && (
-              <p style={{ margin: 0, fontSize: 11, color: '#444', textAlign: 'center', lineHeight: 1.6 }}>
-                Pay with USDC on Base via x402. Actual price calculated on-chain.
-              </p>
-            )}
-          </>
+        {step === 'error' && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#ef4444', fontSize: 14, marginBottom: 8 }}>{error}</div>
+            <button onClick={() => setStep('preview')} style={{
+              padding: '10px 24px', borderRadius: 8,
+              background: '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer',
+            }}>
+              Try Again
+            </button>
+          </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function StatBox({ label, value, color }) {
-  return (
-    <div style={{
-      background: '#1a1a2e',
-      borderRadius: 10,
-      padding: '14px 12px',
-      textAlign: 'center',
-      border: `1px solid ${color}22`,
-    }}>
-      <div style={{ fontSize: 24, fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>{label}</div>
     </div>
   );
 }
