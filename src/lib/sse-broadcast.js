@@ -5,6 +5,27 @@
 
 const clients = new Map();
 let nextId = 0;
+let keepAliveTimer = null;
+const KEEPALIVE_MS = 25000; // 25s — safely under nginx proxy_read_timeout (60s default)
+
+function ensureKeepAliveLoop() {
+  if (keepAliveTimer) return;
+
+  keepAliveTimer = setInterval(() => {
+    for (const [id, controller] of clients) {
+      try {
+        controller.enqueue(':keepalive\n\n');
+      } catch {
+        clients.delete(id);
+      }
+    }
+
+    if (clients.size === 0 && keepAliveTimer) {
+      clearInterval(keepAliveTimer);
+      keepAliveTimer = null;
+    }
+  }, KEEPALIVE_MS);
+}
 
 /**
  * Register a new SSE client.
@@ -14,6 +35,7 @@ let nextId = 0;
 export function addSseClient(controller) {
   const id = nextId++;
   clients.set(id, controller);
+  ensureKeepAliveLoop();
   return id;
 }
 
@@ -23,6 +45,11 @@ export function addSseClient(controller) {
  */
 export function removeSseClient(id) {
   clients.delete(id);
+
+  if (clients.size === 0 && keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
+  }
 }
 
 /**
