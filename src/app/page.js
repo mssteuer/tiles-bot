@@ -173,20 +173,19 @@ export default function Home() {
   useEffect(() => {
     let closed = false;
 
-    async function refreshFromServer() {
+    async function refreshGridAndStats() {
       const [grid, statsSnapshot] = await Promise.all([fetchGrid(), fetchStatsSnapshot()]);
       if (closed) return;
 
       if (grid) {
         setTiles(grid.tiles);
-        setStats(grid.stats);
-        if (grid.stats.nextAvailableTileId != null) {
-          setNextAvailableTileId(grid.stats.nextAvailableTileId);
-        }
-      } else if (statsSnapshot) {
-        setStats(statsSnapshot);
-        if (statsSnapshot.nextAvailableTileId != null) {
-          setNextAvailableTileId(statsSnapshot.nextAvailableTileId);
+      }
+
+      const nextStats = statsSnapshot || grid?.stats;
+      if (nextStats) {
+        setStats(nextStats);
+        if (nextStats.nextAvailableTileId != null) {
+          setNextAvailableTileId(nextStats.nextAvailableTileId);
         }
       }
     }
@@ -194,7 +193,7 @@ export default function Home() {
     const es = new EventSource('/api/events');
 
     es.onopen = () => {
-      refreshFromServer();
+      refreshGridAndStats();
     };
 
     es.onmessage = (e) => {
@@ -229,7 +228,7 @@ export default function Home() {
       closed = true;
       es.close();
     };
-  }, []);
+  }, [refreshStats]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,8 +322,8 @@ export default function Home() {
             }}
           />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, overflowY: 'auto', background: '#07071a' }}>
-            <StatsPanel stats={stats} onRefresh={refreshStats} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, overflowY: 'auto', background: '#07071a', width: '100%', maxWidth: 360, boxSizing: 'border-box' }}>
+            <StatsPanel stats={stats} />
           </div>
         )}
       </div>
