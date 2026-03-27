@@ -54,6 +54,18 @@ function initSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_tiles_owner ON tiles(owner);
     CREATE INDEX IF NOT EXISTS idx_tiles_category ON tiles(category);
     CREATE INDEX IF NOT EXISTS idx_tiles_status ON tiles(status);
+
+    CREATE TABLE IF NOT EXISTS tile_connections (
+      from_id  INTEGER NOT NULL,
+      to_id    INTEGER NOT NULL,
+      label    TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (from_id, to_id),
+      CHECK (from_id <> to_id),
+      CHECK (from_id < to_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_connections_from ON tile_connections(from_id);
+    CREATE INDEX IF NOT EXISTS idx_connections_to ON tile_connections(to_id);
   `);
   // Add image_url column if it doesn't exist (migration for existing DBs)
   try { db.exec(`ALTER TABLE tiles ADD COLUMN image_url TEXT`); } catch {}
@@ -386,6 +398,90 @@ export function clearXVerification(id) {
   db.prepare(
     'UPDATE tiles SET x_verified = 0, x_handle_verified = NULL WHERE id = ?'
   ).run(id);
+}
+
+// ─── Neighbor / Connection helpers ───────────────────────────────────────────
+
+const MAX_CONNECTIONS_PER_TILE = 20;
+
+/**
+ * Add a connection between two tiles (from_id always < to_id for canonical form).
+ * Returns { ok: true } or throws with a descriptive error.
+ */
+export function addConnection(idA, idB, label) {
+  const db = getDb();
+  const from_id = Math.min(idA, idB);
+  const to_id = Math.max(idA, idB);
+
+  // Count existing connections for both tiles
+  const countA = db.prepare(
+    'SELECT COUNT(*) as n FROM tile_connections WHERE from_id = ? OR to_id = ?'
+  ).get(idA, idA)?.n || 0;
+  const countB = db.prepare(
+    'SELECT COUNT(*) as n FROM tile_connections WHERE from_id = ? OR to_id = ?'
+  ).get(idB, idB)?.n || 0;
+
+  if (countA >= MAX_CONNECTIONS_PER_TILE || countB >= MAX_CONNECTIONS_PER_TILE) {
+    throw new Error(`Max ${MAX_CONNECTIONS_PER_TILE} connections per tile`);
+  }
+
+  db.prepare(
+    'INSERT OR IGNORE INTO tile_connections (from_id, to_id, label) VALUES (?, ?, ?)'
+  ).run(from_id, to_id, label || null);
+  return { ok: true, from_id, to_id };
+}
+
+/**
+ * Remove a connection between two tiles.
+ */
+export function removeConnection(idA, idB) {
+  const db = getDb();
+  const from_id = Math.min(idA, idB);
+  const to_id = Math.max(idA, idB);
+  const result = db.prepare(
+    'DELETE FROM tile_connections WHERE from_id = ? AND to_id = ?'
+  ).run(from_id, to_id);
+  return result.changes > 0;
+}
+
+/**
+ * Get all neighbors of a tile (both directions).
+ * Returns array of { neighborId, label, createdAt }.
+ */
+export function getNeighbors(id) {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT
+      CASE WHEN from_id = ? THEN to_id ELSE from_id END AS neighbor_id,
+      label,
+      created_at
+    FROM tile_connections
+    WHERE from_id = ? OR to_id = ?
+  `).all(id, id, id);
+  return rows.map(r => ({ neighborId: r.neighbor_id, label: r.label || null, createdAt: r.created_at }));
+}
+
+/**
+ * Check if a connection exists between two tiles.
+ */
+export function connectionExists(idA, idB) {
+  const db = getDb();
+  const from_id = Math.min(idA, idB);
+  const to_id = Math.max(idA, idB);
+  const row = db.prepare(
+    'SELECT 1 FROM tile_connections WHERE from_id = ? AND to_id = ?'
+  ).get(from_id, to_id);
+  return !!row;
+}
+
+/**
+ * Get all connections in the DB (for rendering on the grid).
+ * Returns array of { fromId, toId, label }.
+ */
+export function getAllConnections() {
+  const db = getDb();
+  return db.prepare('SELECT from_id, to_id, label FROM tile_connections').all()
+    .map(r => ({ fromId: r.from_id, toId: r.to_id, label: r.label || null }));
 }
 
 // Close DB gracefully on process exit

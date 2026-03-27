@@ -73,7 +73,7 @@ function getFirstMatchingTile(tiles, searchQuery, categoryFilter) {
     .sort((a, b) => a.id - b.id)[0] || null;
 }
 
-export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter }) {
+export default function Grid({ tiles, connections, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -98,6 +98,10 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
 
   const cameraRef = useRef(camera);
   useEffect(() => { cameraRef.current = camera; }, [camera]);
+
+  // Connections ref (kept in sync with prop for draw callback)
+  const connectionsRef = useRef(connections || []);
+  useEffect(() => { connectionsRef.current = connections || []; }, [connections]);
 
   const screenToGrid = useCallback((sx, sy) => {
     const canvas = canvasRef.current;
@@ -312,13 +316,87 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
       }
     }
 
+    // ── Connection lines (neighbor network) ──────────────────────────────
+    const conns = connectionsRef.current;
+    if (conns && conns.length > 0 && cam.zoom > 0.05) {
+      for (const conn of conns) {
+        const fromTile = tiles[conn.fromId];
+        const toTile = tiles[conn.toId];
+        if (!fromTile || !toTile) continue;
+
+        const fromCol = conn.fromId % GRID_SIZE;
+        const fromRow = Math.floor(conn.fromId / GRID_SIZE);
+        const toCol = conn.toId % GRID_SIZE;
+        const toRow = Math.floor(conn.toId / GRID_SIZE);
+
+        // Center points of each tile
+        const x1 = fromCol * TILE_SIZE + TILE_SIZE / 2;
+        const y1 = fromRow * TILE_SIZE + TILE_SIZE / 2;
+        const x2 = toCol * TILE_SIZE + TILE_SIZE / 2;
+        const y2 = toRow * TILE_SIZE + TILE_SIZE / 2;
+
+        // Skip if both tiles are far outside viewport (optimization)
+        const bufPx = 2 * TILE_SIZE;
+        const inView = (
+          (x1 >= left - bufPx && x1 <= right + bufPx && y1 >= top - bufPx && y1 <= bottom + bufPx) ||
+          (x2 >= left - bufPx && x2 <= right + bufPx && y2 >= top - bufPx && y2 <= bottom + bufPx)
+        );
+        if (!inView) continue;
+
+        // Determine line color: green if both online, yellow if one is online, grey otherwise
+        const fromOnline = fromTile.lastHeartbeat && (now - fromTile.lastHeartbeat <= HB_GREEN);
+        const toOnline = toTile.lastHeartbeat && (now - toTile.lastHeartbeat <= HB_GREEN);
+        const fromYellow = !fromOnline && fromTile.lastHeartbeat && (now - fromTile.lastHeartbeat <= HB_YELLOW);
+        const toYellow = !toOnline && toTile.lastHeartbeat && (now - toTile.lastHeartbeat <= HB_YELLOW);
+
+        let lineColor, lineAlpha;
+        if (fromOnline && toOnline) {
+          // Both live: bright green pulse
+          lineColor = `rgba(34,197,94,${(0.5 + 0.4 * pulse).toFixed(2)})`;
+          lineAlpha = 0.9 + 0.1 * pulse;
+        } else if (fromOnline || toOnline || fromYellow || toYellow) {
+          // At least one is yellow-warm
+          lineColor = 'rgba(234,179,8,0.4)';
+          lineAlpha = 0.4;
+        } else {
+          // Both offline
+          lineColor = 'rgba(100,116,139,0.25)';
+          lineAlpha = 0.25;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = lineAlpha;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = Math.max(0.5, 1.5 / cam.zoom);
+        ctx.setLineDash([4 / cam.zoom, 4 / cam.zoom]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw a small midpoint dot on the line when zoomed in
+        if (cam.zoom > 0.3) {
+          const mx = (x1 + x2) / 2;
+          const my = (y1 + y2) / 2;
+          ctx.globalAlpha = lineAlpha * 0.8;
+          ctx.fillStyle = lineColor;
+          ctx.beginPath();
+          ctx.arc(mx, my, Math.max(1, 2.5 / cam.zoom), 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
     // Grid border
     ctx.strokeStyle = '#1a1a2e';
     ctx.lineWidth = 2 / cam.zoom;
     ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
 
     ctx.restore();
-  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter]); // camera via ref
+  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter]); // camera via ref, connections via ref
 
   // Animation loop for pulsing glow
   useEffect(() => {
