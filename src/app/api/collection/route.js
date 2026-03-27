@@ -1,14 +1,5 @@
 import { NextResponse } from 'next/server';
-import { buildCollectionMetadata } from '@/lib/openseaMetadata';
-
-function getSiteUrl(request) {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
-  if (configured) return configured.replace(/\/$/, '');
-
-  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
-  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'tiles.bot';
-  return `${forwardedProto}://${forwardedHost}`;
-}
+import { buildCollectionMetadata, getSiteUrl } from '@/lib/openseaMetadata';
 
 export async function GET(request) {
   return NextResponse.json(
