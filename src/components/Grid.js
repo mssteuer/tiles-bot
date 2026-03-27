@@ -152,19 +152,30 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
-  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.04 }); // start zoomed out
+  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.05 }); // start zoomed out (full grid visible)
   const introPlayed = useRef(false);
 
-  // Intro animation: pan+zoom from overview to densest tile cluster
+  // Intro animation: full grid overview → zoom into densest tile cluster
   useEffect(() => {
     if (introPlayed.current) return;
 
-    // Wait until tiles are actually loaded
+    // Wait until tiles are actually loaded AND canvas is mounted
     const ids = Object.keys(tiles).map(Number);
-    if (ids.length === 0) return;
+    const container = containerRef.current;
+    if (ids.length === 0 || !container) return;
 
     introPlayed.current = true;
 
+    // Calculate zoom that fits entire grid in viewport
+    const rect = container.getBoundingClientRect();
+    const fitZoom = Math.min(rect.width / GRID_PX, rect.height / GRID_PX);
+
+    // Start: entire grid visible, centered
+    const startX = GRID_PX / 2;
+    const startY = GRID_PX / 2;
+    const startZoom = fitZoom;
+
+    // Target: centroid of claimed tiles, zoomed to max useful level
     let sumR = 0, sumC = 0;
     for (const id of ids) {
       sumR += Math.floor(id / GRID_SIZE);
@@ -172,32 +183,35 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     }
     const targetX = (sumC / ids.length) * TILE_SIZE + TILE_SIZE / 2;
     const targetY = (sumR / ids.length) * TILE_SIZE + TILE_SIZE / 2;
-    const targetZoom = zoom || 1.5;
+    const targetZoom = 4; // deep zoom so individual tiles are clearly visible
 
-    const startX = GRID_PX / 2;
-    const startY = GRID_PX / 2;
-    const startZoom = 0.04;
-    const duration = 2000; // 2 seconds
+    // Set initial camera to show full grid
+    setCamera({ x: startX, y: startY, zoom: startZoom });
+
+    const duration = 2500; // 2.5 seconds
     const startTime = performance.now();
 
-    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    // Ease-in-out for a cinematic feel
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
 
     function animate(now) {
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / duration);
-      const e = easeOutCubic(t);
+      const e = easeInOutCubic(t);
 
       setCamera({
         x: startX + (targetX - startX) * e,
         y: startY + (targetY - startY) * e,
-        zoom: startZoom + (targetZoom - startZoom) * e,
+        zoom: startZoom * Math.pow(targetZoom / startZoom, e), // exponential zoom feels natural
       });
 
       if (t < 1) requestAnimationFrame(animate);
     }
 
-    // Small delay before starting animation
-    setTimeout(() => requestAnimationFrame(animate), 300);
+    // Brief pause so user sees the full grid first
+    setTimeout(() => requestAnimationFrame(animate), 600);
   }, [tiles, zoom]);
   const [hoveredTile, setHoveredTile] = useState(null);
   const [batchTiles, setBatchTiles] = useState(null); // array of tile IDs for batch modal
