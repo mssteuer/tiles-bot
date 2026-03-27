@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withX402 } from 'x402-next';
 import { claimTile, getCurrentPrice, setTileTxHash, TOTAL_TILES } from '@/lib/db';
+import { broadcast } from '@/lib/sse-broadcast';
 
 // Treasury address that receives USDC payments (set in env or default to placeholder)
 const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000';
@@ -104,6 +105,9 @@ async function claimHandler(request, { params }) {
     setTileTxHash(tileId, txHash);
     tile.txHash = txHash;
   }
+
+  // Broadcast real-time update to all connected SSE clients
+  broadcast({ type: 'tile_claimed', tileId, tile });
 
   return NextResponse.json({ tile, pricePaid: price, txHash }, { status: 201 });
 }
