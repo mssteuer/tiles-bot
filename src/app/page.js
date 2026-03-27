@@ -139,6 +139,12 @@ async function fetchGrid() {
   return res.json();
 }
 
+async function fetchStatsSnapshot() {
+  const res = await fetch('/api/stats');
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export default function Home() {
   const [tiles, setTiles] = useState({});
   const [selectedTile, setSelectedTile] = useState(null);
@@ -150,21 +156,59 @@ export default function Home() {
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
 
-  // SSE: real-time tile updates — no manual refresh needed
+  // SSE: real-time tile updates — re-sync on (re)connect and after claim events
   useEffect(() => {
+    let closed = false;
+
+    async function refreshFromServer() {
+      const [grid, statsSnapshot] = await Promise.all([fetchGrid(), fetchStatsSnapshot()]);
+      if (closed) return;
+
+      if (grid) {
+        setTiles(grid.tiles);
+        setStats({
+          claimed: grid.stats.claimed,
+          total: grid.stats.total,
+          price: grid.stats.currentPrice,
+        });
+        if (grid.stats.nextAvailableTileId != null) {
+          setNextAvailableTileId(grid.stats.nextAvailableTileId);
+        }
+      } else if (statsSnapshot) {
+        setStats(prev => ({
+          ...prev,
+          claimed: statsSnapshot.claimed,
+          total: statsSnapshot.total,
+          price: statsSnapshot.currentPrice,
+        }));
+        if (statsSnapshot.nextAvailableTileId != null) {
+          setNextAvailableTileId(statsSnapshot.nextAvailableTileId);
+        }
+      }
+    }
+
     const es = new EventSource('/api/events');
+
+    es.onopen = () => {
+      refreshFromServer();
+    };
+
     es.onmessage = (e) => {
       try {
         const event = JSON.parse(e.data);
         if (event.type === 'tile_claimed') {
           setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
-          setStats(prev => ({ ...prev, claimed: (prev.claimed || 0) + 1 }));
+          refreshFromServer();
         }
       } catch {
         // ignore parse errors
       }
     };
-    return () => es.close();
+
+    return () => {
+      closed = true;
+      es.close();
+    };
   }, []);
 
   useEffect(() => {
@@ -239,7 +283,7 @@ export default function Home() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div id="grid-section" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Grid
           tiles={tiles}
           onTileClick={handleTileClick}

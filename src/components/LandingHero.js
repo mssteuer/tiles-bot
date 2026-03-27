@@ -21,8 +21,8 @@ export default function LandingHero({ stats, onClaimClick }) {
   function handleBrowseGrid() {
     localStorage.setItem('tiles_seen_hero', '1');
     setHeroVisible(false);
-    // Smooth-scroll to the canvas/grid section
-    const gridEl = document.getElementById('grid-canvas') || document.querySelector('canvas') || document.getElementById('grid-section');
+    // Smooth-scroll to the grid section
+    const gridEl = document.getElementById('grid-section') || document.querySelector('canvas');
     if (gridEl) {
       gridEl.scrollIntoView({ behavior: 'smooth' });
     } else {
@@ -192,16 +192,6 @@ export default function LandingHero({ stats, onClaimClick }) {
         </button>
       </div>
 
-      {/* Live stats hint */}
-      {stats && (
-        <div style={{ marginTop: 20, fontSize: 12, color: '#475569' }}>
-          <span style={{ color: '#3b82f6' }}>{stats.claimed?.toLocaleString()}</span>
-          {' / '}
-          {(stats.total ?? 65536).toLocaleString()} tiles claimed
-          {' · '}
-          Price: <span style={{ color: '#8b5cf6' }}>${price}</span>
-        </div>
-      )}
     </div>
   );
 }
