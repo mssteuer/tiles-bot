@@ -14,6 +14,17 @@ const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000
 // Network: 'base' for mainnet, 'base-sepolia' for testnet
 const X402_NETWORK = process.env.X402_NETWORK || 'base-sepolia';
 
+function isAlreadyClaimedError(message) {
+  const msg = String(message || '').toLowerCase();
+  return (
+    msg.includes('already claimed') ||
+    msg.includes('alreadyclaimed') ||
+    msg.includes('erc721: token already minted') ||
+    msg.includes('token already minted') ||
+    msg.includes('token exists')
+  );
+}
+
 /**
  * Call the on-chain claim() function using the server wallet.
  * Returns the tx hash, or null if SERVER_WALLET_PRIVATE_KEY is not configured.
@@ -89,16 +100,17 @@ async function claimHandler(request, { params }) {
   try {
     txHash = await callOnChainClaim(tileId);
   } catch (err) {
-    // Roll back the DB entry — tile must be re-claimable after a failed on-chain tx
-    unclaimTile(tileId);
-
     const msg = err?.message || '';
-    if (
-      msg.includes('already claimed') ||
-      msg.includes('AlreadyClaimed') ||
-      msg.includes('ERC721: token already minted') ||
-      msg.includes('revert')
-    ) {
+    const alreadyClaimed = isAlreadyClaimedError(msg);
+
+    // Only roll back the local DB row when the on-chain claim failed for a retryable/non-conflict reason.
+    // If the contract says the token already exists on-chain, keep the DB row so the tile does not
+    // incorrectly look unclaimed locally.
+    if (!alreadyClaimed) {
+      unclaimTile(tileId);
+    }
+
+    if (alreadyClaimed) {
       console.error(`[claim] Contract revert for tile #${tileId}:`, msg);
       return NextResponse.json(
         { error: 'Tile already claimed on-chain', detail: msg },

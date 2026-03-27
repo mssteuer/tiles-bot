@@ -257,7 +257,11 @@ export function getNextAvailableTileId() {
  * Used by the indexer/sync mechanism when it reads on-chain claims.
  */
 /**
- * Roll back a DB claim if the on-chain tx fails (removes the tile row so it can be re-claimed).
+ * Roll back a DB claim if the on-chain tx fails.
+ *
+ * This is intentionally a hard delete and should only be used for rows created by the
+ * current claim attempt after the caller has determined the failure is not an on-chain
+ * ownership conflict (for example: NOT "already claimed" / "token exists").
  */
 export function unclaimTile(id) {
   const db = getDb();

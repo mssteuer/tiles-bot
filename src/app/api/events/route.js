@@ -1,4 +1,4 @@
-import { addSseClient, removeSseClient, encodeSseMessage } from '@/lib/sse-broadcast';
+import { addSseClient, removeSseClient, encodeSseMessage, encoder } from '@/lib/sse-broadcast';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +20,7 @@ export async function GET() {
     start(controller) {
       clientId = addSseClient(controller);
 
+      controller.enqueue(encoder.encode(': connected\n\n'));
       controller.enqueue(encodeSseMessage({ type: 'connected' }));
 
       keepAliveTimer = setInterval(() => {

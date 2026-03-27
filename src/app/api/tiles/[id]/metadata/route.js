@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { verifyMessage } from 'viem';
-import { getTile, TOTAL_TILES } from '@/lib/db';
+import { ethers } from 'ethers';
+import { getTile, TOTAL_TILES, updateTileMetadata } from '@/lib/db';
 import { buildTileTokenMetadata, getSiteUrl } from '@/lib/openseaMetadata';
 
 // Contract ABI verification (task #490 req #5):
@@ -9,12 +9,28 @@ import { buildTileTokenMetadata, getSiteUrl } from '@/lib/openseaMetadata';
 //   - tokenURI(uint256) — returns {baseMetadataURI}{tokenId}/metadata
 // Verified via: artifacts/contracts/MillionBotHomepage.sol/MillionBotHomepage.json
 
+function parseTileId(id) {
+  const tileId = parseInt(id, 10);
+  if (isNaN(tileId) || tileId < 0 || tileId >= TOTAL_TILES) {
+    return null;
+  }
+  return tileId;
+}
+
+function normalizeAddress(address) {
+  return typeof address === 'string' ? address.trim().toLowerCase() : '';
+}
+
+function buildExpectedMessage(tileId, timestamp) {
+  return `tiles.bot:metadata:${tileId}:${timestamp}`;
+}
+
 // GET /api/tiles/:id/metadata — ERC-721 tokenURI endpoint (public, no auth)
 export async function GET(request, { params }) {
   const { id } = await params;
-  const tileId = parseInt(id, 10);
+  const tileId = parseTileId(id);
 
-  if (isNaN(tileId) || tileId < 0 || tileId >= TOTAL_TILES) {
+  if (tileId === null) {
     return NextResponse.json({ error: 'Invalid tile ID' }, { status: 400 });
   }
 
@@ -33,10 +49,12 @@ export async function GET(request, { params }) {
   });
 }
 
+// PUT /api/tiles/:id/metadata — owner-only metadata update via EIP-191 personal_sign
 export async function PUT(request, { params }) {
   const { id } = await params;
-  const tileId = parseInt(id, 10);
-  if (isNaN(tileId) || tileId < 0 || tileId >= TOTAL_TILES) {
+  const tileId = parseTileId(id);
+
+  if (tileId === null) {
     return NextResponse.json({ error: 'Invalid tile ID' }, { status: 400 });
   }
 
@@ -45,58 +63,55 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: 'Tile not claimed' }, { status: 404 });
   }
 
-  // Check for wallet signature auth (new UI path)
-  const walletAddress = request.headers.get('X-Wallet-Address');
-  const walletSig = request.headers.get('X-Wallet-Signature');
-  const walletMsg = request.headers.get('X-Wallet-Message');
-
-  if (walletAddress && walletSig && walletMsg) {
-    // Verify ownership
-    if (tile.owner.toLowerCase() !== walletAddress.toLowerCase()) {
-      return NextResponse.json({ error: 'Not tile owner' }, { status: 403 });
-    }
-
-    // Verify message format: tiles.bot:metadata:{tileId}:{timestamp}
-    const msgParts = walletMsg.split(':');
-    if (msgParts[0] !== 'tiles.bot' || msgParts[1] !== 'metadata' || msgParts[2] !== String(tileId)) {
-      return NextResponse.json({ error: 'Invalid message format' }, { status: 401 });
-    }
-
-    // Check timestamp within 10 minutes (message uses 5-min window rounding)
-    const msgTs = parseInt(msgParts[3], 10);
-    const nowTs = Math.floor(Date.now() / 1000);
-    if (isNaN(msgTs) || Math.abs(nowTs - msgTs) > 600) {
-      return NextResponse.json({ error: 'Signature expired' }, { status: 401 });
-    }
-
-    // Verify signature
-    try {
-      const valid = await verifyMessage({
-        address: walletAddress,
-        message: walletMsg,
-        signature: walletSig,
-      });
-      if (!valid) {
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-      }
-    } catch {
-      return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
-    }
-  } else {
-    // Legacy path: X-Wallet header (demo/seed flows)
-    const wallet = request.headers.get('X-Wallet');
-    if (!wallet) {
-      return NextResponse.json({ error: 'Auth required (X-Wallet-Address/Signature/Message headers or X-Wallet)' }, { status: 401 });
-    }
-    if (tile.owner.toLowerCase() !== wallet.toLowerCase()) {
-      return NextResponse.json({ error: 'Not tile owner' }, { status: 403 });
-    }
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { updateTileMetadata } = await import('@/lib/db');
-  const body = await request.json().catch(() => null);
-  if (!body) {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  const signature = request.headers.get('X-Wallet-Signature');
+  const message = request.headers.get('X-Wallet-Message');
+  const walletAddress = request.headers.get('X-Wallet-Address');
+
+  if (!signature || !message || !walletAddress) {
+    return NextResponse.json(
+      { error: 'Auth required (X-Wallet-Address, X-Wallet-Message, X-Wallet-Signature)' },
+      { status: 401 }
+    );
+  }
+
+  const msgParts = message.split(':');
+  if (msgParts.length !== 4 || msgParts[0] !== 'tiles.bot' || msgParts[1] !== 'metadata') {
+    return NextResponse.json({ error: 'Invalid message format' }, { status: 401 });
+  }
+
+  if (msgParts[2] !== String(tileId)) {
+    return NextResponse.json({ error: 'Signature does not match tile ID' }, { status: 401 });
+  }
+
+  const timestamp = parseInt(msgParts[3], 10);
+  const nowTs = Math.floor(Date.now() / 1000);
+  if (isNaN(timestamp) || Math.abs(nowTs - timestamp) > 600) {
+    return NextResponse.json({ error: 'Signature expired' }, { status: 401 });
+  }
+
+  const expectedMessage = buildExpectedMessage(tileId, timestamp);
+  if (message !== expectedMessage) {
+    return NextResponse.json({ error: 'Invalid message format' }, { status: 401 });
+  }
+
+  let recoveredAddress;
+  try {
+    recoveredAddress = ethers.verifyMessage(message, signature);
+  } catch {
+    return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
+  }
+
+  if (normalizeAddress(recoveredAddress) !== normalizeAddress(walletAddress)) {
+    return NextResponse.json({ error: 'Signer does not match claimed wallet address' }, { status: 401 });
+  }
+
+  if (normalizeAddress(recoveredAddress) !== normalizeAddress(tile.owner)) {
+    return NextResponse.json({ error: 'Not tile owner' }, { status: 403 });
   }
 
   const updated = updateTileMetadata(tileId, body);

@@ -7,10 +7,11 @@
  * if the app is later scaled across multiple Node.js workers.
  */
 
-const encoder = new TextEncoder();
+export const encoder = new TextEncoder();
 const clients = new Map();
 let nextId = 0;
 let nextEventId = 0;
+const MAX_SAFE_COUNTER = Number.MAX_SAFE_INTEGER;
 
 /**
  * Encode an SSE message payload.
@@ -24,7 +25,8 @@ export function encodeSseMessage(event, options = {}) {
     return encoder.encode(`: ${options.comment}\n\n`);
   }
 
-  const lines = [`id: ${nextEventId++}`];
+  const lines = [`id: ${nextEventId}`];
+  nextEventId = (nextEventId + 1) % MAX_SAFE_COUNTER;
   if (options.event) lines.push(`event: ${options.event}`);
   lines.push(`data: ${JSON.stringify(event)}`);
   return encoder.encode(`${lines.join('\n')}\n\n`);
@@ -36,7 +38,8 @@ export function encodeSseMessage(event, options = {}) {
  * @returns {number} client id (use to remove later)
  */
 export function addSseClient(controller) {
-  const id = nextId++;
+  const id = nextId;
+  nextId = (nextId + 1) % MAX_SAFE_COUNTER;
   clients.set(id, controller);
   return id;
 }
