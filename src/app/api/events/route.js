@@ -28,6 +28,8 @@ export async function GET() {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
+      // Disable nginx proxy buffering so SSE events are flushed immediately
+      'X-Accel-Buffering': 'no',
     },
   });
 }

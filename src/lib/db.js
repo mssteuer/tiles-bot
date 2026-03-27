@@ -274,6 +274,14 @@ export function getTopHolders(limit = 10) {
  * Used by the indexer/sync mechanism when it reads on-chain claims.
  */
 /**
+ * Roll back a DB claim if the on-chain tx fails (removes the tile row so it can be re-claimed).
+ */
+export function unclaimTile(id) {
+  const db = getDb();
+  db.prepare('DELETE FROM tiles WHERE id = ?').run(id);
+}
+
+/**
  * Update the tx_hash for an already-claimed tile (called after on-chain claim tx confirmed).
  */
 export function setTileTxHash(id, txHash) {
