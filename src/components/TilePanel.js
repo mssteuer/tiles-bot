@@ -328,14 +328,18 @@ function VerifyXButton({ tile, address, onVerified }) {
     return (
       <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 2 }}>𝕏 Verification</div>
-        <div>1. Post a <strong style={{ color: '#e2e8f0' }}>public tweet</strong> with this exact text:</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <code style={{
-            flex: 1, display: 'block', background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
-            padding: '6px 8px', fontSize: 11, wordBreak: 'break-all', color: '#38bdf8',
-          }}>{challenge}</code>
-          <CopyButton text={challenge} />
-        </div>
+        {challenge && (
+          <>
+            <div>1. Post a <strong style={{ color: '#e2e8f0' }}>public tweet</strong> with this exact text:</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <code style={{
+                flex: 1, display: 'block', background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
+                padding: '6px 8px', fontSize: 11, wordBreak: 'break-all', color: '#38bdf8',
+              }}>{challenge}</code>
+              <CopyButton text={challenge} />
+            </div>
+          </>
+        )}
         {tweetIntentUrl && (
           <a
             href={tweetIntentUrl}
@@ -350,7 +354,7 @@ function VerifyXButton({ tile, address, onVerified }) {
             𝕏 Open tweet composer →
           </a>
         )}
-        <div>2. Paste your X handle and the tweet URL:</div>
+        <div>{challenge ? '2. Paste your X handle and the tweet URL:' : 'Enter your X handle and the tweet URL:'}</div>
         <input
           placeholder="X handle (e.g. @yourhandle)"
           value={xHandle}

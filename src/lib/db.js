@@ -386,7 +386,7 @@ export function setXVerification(id, xHandle, tweetUrl) {
 export function clearXVerification(id) {
   const db = getDb();
   db.prepare(
-    'UPDATE tiles SET x_verified = 0, x_handle_verified = NULL WHERE id = ?'
+    'UPDATE tiles SET x_verified = 0, x_handle_verified = NULL, x_tweet_url = NULL WHERE id = ?'
   ).run(id);
 }
 
