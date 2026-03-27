@@ -6,3 +6,6 @@ data/
 data/
 node_modules/
 .next/
+
+# Binary native addons (too large for GitHub)
+*.node
