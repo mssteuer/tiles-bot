@@ -58,6 +58,24 @@ const CATEGORY_COLORS = {
 };
 
 const CATEGORIES = ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'];
+const VERIFIED_COLOR = '#22c55e';
+const UNVERIFIED_COLOR = '#6b7280';
+const X_ICON_STYLE = { fontFamily: 'Arial, sans-serif' };
+
+function VerificationBadge({ verified, title }) {
+  return (
+    <span
+      title={title}
+      style={{
+        color: verified ? VERIFIED_COLOR : UNVERIFIED_COLOR,
+        fontSize: 11,
+        fontWeight: 700,
+      }}
+    >
+      ✓
+    </span>
+  );
+}
 
 /**
  * CopyButton — copy text to clipboard with visual feedback.
@@ -310,12 +328,12 @@ function VerifyXButton({ tile, address, onVerified }) {
       <button
         onClick={handleStart}
         style={{
-          width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #1d9bf044',
-          background: '#111122', color: '#1d9bf0', fontSize: 13, fontWeight: 500,
+          width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #22c55e44',
+          background: '#111122', color: VERIFIED_COLOR, fontSize: 13, fontWeight: 500,
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}
       >
-        𝕏 Verify X/Twitter Identity
+        <span style={X_ICON_STYLE}>𝕏</span> Verify X/Twitter Identity
       </button>
     );
   }
@@ -327,14 +345,14 @@ function VerifyXButton({ tile, address, onVerified }) {
   if (step === 'show-challenge' || step === 'error' || step === 'submitting') {
     return (
       <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 2 }}>𝕏 Verification</div>
+        <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 2 }}><span style={X_ICON_STYLE}>𝕏</span> Verification</div>
         {challenge && (
           <>
             <div>1. Post a <strong style={{ color: '#e2e8f0' }}>public tweet</strong> with this exact text:</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <code style={{
                 flex: 1, display: 'block', background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
-                padding: '6px 8px', fontSize: 11, wordBreak: 'break-all', color: '#38bdf8',
+                padding: '6px 8px', fontSize: 11, wordBreak: 'break-all', color: VERIFIED_COLOR,
               }}>{challenge}</code>
               <CopyButton text={challenge} />
             </div>
@@ -347,11 +365,11 @@ function VerifyXButton({ tile, address, onVerified }) {
             rel="noopener noreferrer"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '8px 12px', borderRadius: 8, border: '1px solid #1d9bf044',
-              background: '#0d0d1a', color: '#1d9bf0', fontSize: 12, textDecoration: 'none', fontWeight: 500,
+              padding: '8px 12px', borderRadius: 8, border: '1px solid #22c55e44',
+              background: '#0d0d1a', color: VERIFIED_COLOR, fontSize: 12, textDecoration: 'none', fontWeight: 500,
             }}
           >
-            𝕏 Open tweet composer →
+            <span style={X_ICON_STYLE}>𝕏</span> Open tweet composer →
           </a>
         )}
         <div>{challenge ? '2. Paste your X handle and the tweet URL:' : 'Enter your X handle and the tweet URL:'}</div>
@@ -376,7 +394,7 @@ function VerifyXButton({ tile, address, onVerified }) {
         {errMsg && <div style={{ color: '#f87171', fontSize: 11 }}>{errMsg}</div>}
         <div style={{ display: 'flex', gap: 6 }}>
           <button
-            onClick={() => { setStep('idle'); setErrMsg(''); setTweetUrl(''); }}
+            onClick={() => { setStep('idle'); setErrMsg(''); setTweetUrl(''); setXHandle(tile.xHandle || ''); }}
             style={{
               flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #334155',
               background: '#111122', color: '#94a3b8',
@@ -390,7 +408,7 @@ function VerifyXButton({ tile, address, onVerified }) {
             disabled={step === 'submitting'}
             style={{
               flex: 2, padding: '8px 12px', borderRadius: 8, border: 'none',
-              background: step === 'submitting' ? '#334155' : '#1d9bf0', color: '#fff',
+              background: step === 'submitting' ? '#334155' : VERIFIED_COLOR, color: '#000',
               fontSize: 13, fontWeight: 600, cursor: step === 'submitting' ? 'not-allowed' : 'pointer',
             }}
           >
@@ -403,8 +421,8 @@ function VerifyXButton({ tile, address, onVerified }) {
 
   if (step === 'done') {
     return (
-      <div style={{ fontSize: 12, color: '#1d9bf0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-        𝕏 Verified as @{xHandle.replace('@', '')}
+      <div style={{ fontSize: 12, color: VERIFIED_COLOR, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        <span style={X_ICON_STYLE}>𝕏</span> Verified as @{xHandle.replace('@', '')}
       </div>
     );
   }
@@ -832,19 +850,26 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
                 <a href={`https://x.com/${tile.xHandleVerified || tile.xHandle}`} target="_blank" rel="noopener" style={{
                   color: '#94a3b8', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
                 }}>
-                  𝕏 @{tile.xHandleVerified || tile.xHandle}
-                  {tile.xVerified && (
-                    <span title="X/Twitter identity verified" style={{ color: '#1d9bf0', fontSize: 11 }}>✓</span>
-                  )}
+                  <span style={X_ICON_STYLE}>𝕏</span> @{tile.xHandleVerified || tile.xHandle}
+                  <VerificationBadge verified={tile.xVerified} title={tile.xVerified ? 'X/Twitter identity verified' : 'X/Twitter identity not verified'} />
                 </a>
               )}
-              {tile.githubVerified && tile.githubUsername && (
-                <a href={`https://github.com/${tile.githubUsername}`} target="_blank" rel="noopener" style={{
-                  color: '#94a3b8', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
-                }}>
-                  <span>🐙 @{tile.githubUsername}</span>
-                  <span title="GitHub identity verified" style={{ color: '#22c55e', fontSize: 11 }}>✓</span>
-                </a>
+              {(tile.githubUsername || isOwner) && (
+                tile.githubUsername ? (
+                  <a href={`https://github.com/${tile.githubUsername}`} target="_blank" rel="noopener" style={{
+                    color: '#94a3b8', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
+                  }}>
+                    <span>🐙 @{tile.githubUsername}</span>
+                    <VerificationBadge verified={tile.githubVerified} title={tile.githubVerified ? 'GitHub identity verified' : 'GitHub identity not verified'} />
+                  </a>
+                ) : (
+                  <div style={{
+                    color: '#94a3b8', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4,
+                  }}>
+                    <span>🐙 GitHub</span>
+                    <VerificationBadge verified={false} title="GitHub identity not verified" />
+                  </div>
+                )
               )}
             </div>
 
@@ -972,7 +997,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
               }} />
             )}
             {isOwner && tile.githubVerified && (
-              <div style={{ fontSize: 12, color: '#22c55e', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <div style={{ fontSize: 12, color: VERIFIED_COLOR, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                 🐙 GitHub verified as @{tile.githubUsername}
               </div>
             )}
@@ -990,8 +1015,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
               }} />
             )}
             {isOwner && tile.xVerified && tile.xHandleVerified && (
-              <div style={{ fontSize: 12, color: '#1d9bf0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                𝕏 Verified as @{tile.xHandleVerified}
+              <div style={{ fontSize: 12, color: VERIFIED_COLOR, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <span style={X_ICON_STYLE}>𝕏</span> Verified as @{tile.xHandleVerified}
               </div>
             )}
 
