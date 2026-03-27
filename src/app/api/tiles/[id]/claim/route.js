@@ -14,6 +14,8 @@ const X402_NETWORK = process.env.X402_NETWORK || 'base-sepolia';
  * Throws if the contract call fails (e.g. tile already claimed on-chain → 409).
  */
 function getContractChainName() {
+  // CONTRACT_CHAIN is preferred because x402 payment settlement network and contract deployment
+  // chain are related in this project today, but they are conceptually separate concerns.
   return process.env.CONTRACT_CHAIN || process.env.X402_NETWORK || 'base-sepolia';
 }
 
@@ -121,6 +123,8 @@ async function claimHandler(request, { params }) {
     const msg = err?.message || '';
     const rolledBack = unclaimTile(tileId);
 
+    // Only explicit ownership/minted signals map to 409.
+    // Generic Solidity reverts stay 500 so non-double-claim contract failures are not mislabeled.
     if (isAlreadyClaimedError(msg)) {
       console.error(`[claim] Contract reports tile #${tileId} already claimed:`, msg);
       return NextResponse.json(
