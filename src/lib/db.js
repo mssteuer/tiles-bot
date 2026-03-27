@@ -267,12 +267,16 @@ export function getTopHolders(limit = 10) {
   ).all(limit);
 }
 
+export function getEstimatedSoldOutRevenue() {
+  let total = 0;
+  for (let minted = 0; minted < TOTAL_TILES; minted++) {
+    total += Math.exp(Math.log(11111) * minted / TOTAL_TILES) / 100;
+  }
+  return total;
+}
+
 // ─── Admin / sync helpers ─────────────────────────────────────────────────────
 
-/**
- * Upsert a tile claim from on-chain data (for sync with blockchain events).
- * Used by the indexer/sync mechanism when it reads on-chain claims.
- */
 /**
  * Roll back a DB claim if the on-chain tx fails (removes the tile row so it can be re-claimed).
  */
@@ -289,6 +293,10 @@ export function setTileTxHash(id, txHash) {
   db.prepare('UPDATE tiles SET tx_hash = ? WHERE id = ?').run(txHash, id);
 }
 
+/**
+ * Upsert a tile claim from on-chain data (for sync with blockchain events).
+ * Used by the indexer/sync mechanism when it reads on-chain claims.
+ */
 export function syncOnChainClaim(id, owner, claimedAt, pricePaid) {
   const db = getDb();
   db.prepare(`

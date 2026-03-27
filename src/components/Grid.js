@@ -594,6 +594,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
     <>
       <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: isSelecting.current ? 'crosshair' : (isDragging.current ? 'grabbing' : 'grab') }}>
         <canvas
+          id="grid-canvas"
           ref={canvasRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
