@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 
 function getSizedImageUrl(url, size) {
@@ -180,8 +180,17 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
     display: 'block',
   };
 
-  // Detect mobile (< 640px) via CSS media query applied at render
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    function updateIsMobile() {
+      setIsMobile(window.innerWidth < 640);
+    }
+
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
+  }, []);
 
   const panelStyle = isMobile
     ? {
