@@ -828,11 +828,11 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
                   🔗 {tile.url}
                 </a>
               )}
-              {tile.xHandle && (
-                <a href={`https://x.com/${tile.xHandle}`} target="_blank" rel="noopener" style={{
+              {(tile.xHandle || (tile.xVerified && tile.xHandleVerified)) && (
+                <a href={`https://x.com/${tile.xHandleVerified || tile.xHandle}`} target="_blank" rel="noopener" style={{
                   color: '#94a3b8', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
                 }}>
-                  𝕏 @{tile.xHandle}
+                  𝕏 @{tile.xHandleVerified || tile.xHandle}
                   {tile.xVerified && (
                     <span title="X/Twitter identity verified" style={{ color: '#1d9bf0', fontSize: 11 }}>✓</span>
                   )}
@@ -977,8 +977,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
               </div>
             )}
 
-            {/* X/Twitter Verification button — owner only, only if tile has an xHandle */}
-            {isOwner && tile.xHandle && !tile.xVerified && (
+            {/* X/Twitter Verification button — owner only */}
+            {isOwner && !tile.xVerified && (
               <VerifyXButton tile={tile} address={address} onVerified={() => {
                 // Refresh tile data
                 if (onTileUpdated) {
