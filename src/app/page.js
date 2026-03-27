@@ -144,8 +144,20 @@ async function fetchStatsSnapshot() {
   return res.json();
 }
 
+async function fetchConnections() {
+  try {
+    const res = await fetch('/api/connections');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.connections || [];
+  } catch {
+    return [];
+  }
+}
+
 export default function Home() {
   const [tiles, setTiles] = useState({});
+  const [connections, setConnections] = useState([]);
   const [selectedTile, setSelectedTile] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -160,12 +172,14 @@ export default function Home() {
     let closed = false;
 
     async function refreshGridAndStats() {
-      const [grid, statsSnapshot] = await Promise.all([fetchGrid(), fetchStatsSnapshot()]);
+      const [grid, statsSnapshot, conns] = await Promise.all([fetchGrid(), fetchStatsSnapshot(), fetchConnections()]);
       if (closed) return;
 
       if (grid) {
         setTiles(grid.tiles);
       }
+
+      setConnections(conns);
 
       const nextStats = statsSnapshot || grid?.stats;
       if (nextStats) {
@@ -289,6 +303,8 @@ export default function Home() {
       <div className="main-content">
         <Grid
           tiles={tiles}
+          connections={connections}
+          onConnectionsChange={setConnections}
           onTileClick={handleTileClick}
           selectedTile={selectedTile}
           zoom={zoom}
@@ -305,6 +321,7 @@ export default function Home() {
             onTileUpdated={(id, updatedTile) => {
               setTiles(prev => ({ ...prev, [id]: { ...prev[id], ...updatedTile } }));
             }}
+            onConnectionsChange={setConnections}
           />
         ) : null}
         </div>

@@ -196,7 +196,221 @@ function VerifyGithubButton({ tile, address, onVerified }) {
   return null;
 }
 
-export default function TilePanel({ tile, onClose, onTileUpdated }) {
+/**
+ * NeighborNetworkPanel — lets tile owners connect/disconnect to other tiles.
+ * Displays existing connections for all viewers.
+ */
+function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange }) {
+  const { signMessageAsync } = useSignMessage();
+  const [neighbors, setNeighbors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showConnect, setShowConnect] = useState(false);
+  const [targetId, setTargetId] = useState('');
+  const [label, setLabel] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const [errMsg, setErrMsg] = useState('');
+
+  async function loadNeighbors() {
+    try {
+      const res = await fetch(`/api/tiles/${tile.id}/connect`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setNeighbors(data.neighbors || []);
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (tile.id != null) loadNeighbors();
+  }, [tile.id]);
+
+  async function handleConnect() {
+    const targetNum = parseInt(targetId.trim(), 10);
+    if (isNaN(targetNum) || targetNum < 0 || targetNum >= 65536) {
+      setErrMsg('Invalid tile ID (must be 0–65535)');
+      return;
+    }
+    setConnecting(true);
+    setErrMsg('');
+    try {
+      const ts = Math.floor(Date.now() / 1000 / 300) * 300;
+      const message = `tiles.bot:metadata:${tile.id}:${ts}`;
+      const sig = await signMessageAsync({ message });
+
+      const res = await fetch(`/api/tiles/${tile.id}/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Wallet-Address': address,
+          'X-Wallet-Signature': sig,
+          'X-Wallet-Message': message,
+        },
+        body: JSON.stringify({ targetId: targetNum, label: label.trim() || null }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Connection failed (${res.status})`);
+      }
+      setTargetId('');
+      setLabel('');
+      setShowConnect(false);
+      await loadNeighbors();
+      // Notify parent to refresh connections for grid rendering
+      if (onConnectionsChange) {
+        fetch('/api/connections').then(r => r.json()).then(d => onConnectionsChange(d.connections || [])).catch(() => {});
+      }
+    } catch (e) {
+      setErrMsg(e.message);
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function handleDisconnect(neighborId) {
+    try {
+      const ts = Math.floor(Date.now() / 1000 / 300) * 300;
+      const message = `tiles.bot:metadata:${tile.id}:${ts}`;
+      const sig = await signMessageAsync({ message });
+
+      const res = await fetch(`/api/tiles/${tile.id}/connect`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Wallet-Address': address,
+          'X-Wallet-Signature': sig,
+          'X-Wallet-Message': message,
+        },
+        body: JSON.stringify({ targetId: neighborId }),
+      });
+      if (!res.ok) return;
+      await loadNeighbors();
+      if (onConnectionsChange) {
+        fetch('/api/connections').then(r => r.json()).then(d => onConnectionsChange(d.connections || [])).catch(() => {});
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (loading) return null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontSize: 12, color: '#94a3b8', fontWeight: 600,
+      }}>
+        <span>🔗 Connections ({neighbors.length})</span>
+        {isOwner && !showConnect && neighbors.length < 20 && (
+          <button
+            onClick={() => { setShowConnect(true); setErrMsg(''); }}
+            style={{
+              padding: '3px 8px', borderRadius: 5, border: '1px solid #334155',
+              background: '#111122', color: '#3b82f6', fontSize: 11, cursor: 'pointer',
+            }}
+          >
+            + Connect
+          </button>
+        )}
+      </div>
+
+      {/* Existing connections */}
+      {neighbors.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {neighbors.map(n => {
+            const statusColor = n.status === 'online' ? '#22c55e' : n.status === 'busy' ? '#f59e0b' : '#ef4444';
+            return (
+              <div key={n.tileId} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: '#111122', borderRadius: 6, padding: '5px 8px',
+                border: '1px solid #1a1a2e', fontSize: 11,
+              }}>
+                <span style={{ fontSize: 14 }}>{n.avatar || '🤖'}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#e2e8f0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    #{n.tileId} {n.name || 'Unnamed'}
+                  </div>
+                  {n.label && <div style={{ color: '#64748b', fontSize: 10 }}>{n.label}</div>}
+                </div>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0 }} title={n.status} />
+                {isOwner && (
+                  <button
+                    onClick={() => handleDisconnect(n.tileId)}
+                    title="Disconnect"
+                    style={{
+                      background: 'none', border: 'none', color: '#475569', cursor: 'pointer',
+                      fontSize: 13, padding: '0 2px', lineHeight: 1,
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {neighbors.length === 0 && !showConnect && (
+        <div style={{ fontSize: 11, color: '#475569', textAlign: 'center' }}>No connections yet.</div>
+      )}
+
+      {/* Connect form */}
+      {showConnect && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px', background: '#0d0d1a', borderRadius: 8, border: '1px solid #334155' }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Connect to tile</div>
+          <input
+            type="number"
+            min="0"
+            max="65535"
+            placeholder="Target tile ID (0–65535)"
+            value={targetId}
+            onChange={e => setTargetId(e.target.value)}
+            style={{
+              background: '#111122', border: '1px solid #334155', borderRadius: 5,
+              padding: '5px 8px', color: '#e2e8f0', fontSize: 11, outline: 'none',
+            }}
+          />
+          <input
+            placeholder="Label (optional, e.g. 'teammate', 'partner')"
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            maxLength={50}
+            style={{
+              background: '#111122', border: '1px solid #334155', borderRadius: 5,
+              padding: '5px 8px', color: '#e2e8f0', fontSize: 11, outline: 'none',
+            }}
+          />
+          {errMsg && <div style={{ color: '#f87171', fontSize: 10 }}>{errMsg}</div>}
+          <div style={{ display: 'flex', gap: 5 }}>
+            <button
+              onClick={() => { setShowConnect(false); setErrMsg(''); setTargetId(''); setLabel(''); }}
+              style={{
+                flex: 1, padding: '5px 8px', borderRadius: 5, border: '1px solid #334155',
+                background: '#111122', color: '#94a3b8', fontSize: 11, cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConnect}
+              disabled={connecting}
+              style={{
+                flex: 2, padding: '5px 8px', borderRadius: 5, border: 'none',
+                background: connecting ? '#334155' : '#3b82f6', color: '#fff',
+                fontSize: 11, fontWeight: 600, cursor: connecting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {connecting ? 'Connecting…' : 'Connect'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange }) {
   const isClaimed = !!tile.name;
   const row = Math.floor(tile.id / 256);
   const col = tile.id % 256;
@@ -759,6 +973,16 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
               <div style={{ fontSize: 12, color: '#22c55e', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                 ✓ GitHub verified as @{tile.githubUsername}
               </div>
+            )}
+
+            {/* Neighbor Network */}
+            {tile.id != null && (
+              <NeighborNetworkPanel
+                tile={tile}
+                address={address}
+                isOwner={isOwner}
+                onConnectionsChange={onConnectionsChange}
+              />
             )}
 
             {/* Share button */}
