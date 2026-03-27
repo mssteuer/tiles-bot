@@ -60,6 +60,32 @@ const CATEGORY_COLORS = {
 const CATEGORIES = ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'];
 
 /**
+ * CopyButton — copy text to clipboard with visual feedback.
+ */
+function CopyButton({ text, label = 'Copy' }) {
+  const [copied, setCopied] = useState(false);
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        padding: '4px 8px', borderRadius: 5, border: '1px solid #334155',
+        background: copied ? '#22c55e22' : '#1a1a2e', color: copied ? '#22c55e' : '#94a3b8',
+        fontSize: 11, cursor: 'pointer', flexShrink: 0,
+      }}
+    >
+      {copied ? '✓ Copied' : label}
+    </button>
+  );
+}
+
+/**
  * VerifyGithubButton — lets the tile owner verify their GitHub identity via a public Gist.
  * 1. Owner clicks → fetches challenge string from GET /api/tiles/:id/verification
  * 2. Owner creates a public Gist with that string, pastes the Gist ID
@@ -80,7 +106,7 @@ function VerifyGithubButton({ tile, address, onVerified }) {
       const res = await fetch(`/api/tiles/${tile.id}/verification`);
       if (!res.ok) throw new Error(`Failed to get challenge (${res.status})`);
       const data = await res.json();
-      setChallenge(data.challenge);
+      setChallenge(data.github?.challenge || data.challenge);
       setStep('show-challenge');
     } catch (e) {
       setErrMsg(e.message);
@@ -132,7 +158,7 @@ function VerifyGithubButton({ tile, address, onVerified }) {
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}
       >
-        <span>⚙</span> Verify GitHub Identity
+        <span>🐙</span> Verify GitHub Identity
       </button>
     );
   }
@@ -146,10 +172,13 @@ function VerifyGithubButton({ tile, address, onVerified }) {
       <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 2 }}>GitHub Verification</div>
         <div>1. Create a <a href="https://gist.github.com" target="_blank" rel="noopener" style={{ color: '#3b82f6' }}>public GitHub Gist</a> with this exact text:</div>
-        <code style={{
-          display: 'block', background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
-          padding: '6px 8px', fontSize: 11, wordBreak: 'break-all', color: '#a3e635',
-        }}>{challenge}</code>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <code style={{
+            flex: 1, display: 'block', background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
+            padding: '6px 8px', fontSize: 11, wordBreak: 'break-all', color: '#a3e635',
+          }}>{challenge}</code>
+          <CopyButton text={challenge} />
+        </div>
         <div>2. Enter your GitHub username and the Gist ID (from the URL):</div>
         <input
           placeholder="GitHub username"
@@ -170,17 +199,29 @@ function VerifyGithubButton({ tile, address, onVerified }) {
           }}
         />
         {errMsg && <div style={{ color: '#f87171', fontSize: 11 }}>{errMsg}</div>}
-        <button
-          onClick={handleSubmit}
-          disabled={step === 'submitting'}
-          style={{
-            padding: '8px 12px', borderRadius: 8, border: 'none',
-            background: step === 'submitting' ? '#334155' : '#22c55e', color: '#000',
-            fontSize: 13, fontWeight: 600, cursor: step === 'submitting' ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {step === 'submitting' ? 'Verifying…' : 'Submit Verification'}
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={() => { setStep('idle'); setErrMsg(''); setGistId(''); setGithubUsername(''); }}
+            style={{
+              flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #334155',
+              background: '#111122', color: '#94a3b8',
+              fontSize: 12, cursor: 'pointer',
+            }}
+          >
+            ← Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={step === 'submitting'}
+            style={{
+              flex: 2, padding: '8px 12px', borderRadius: 8, border: 'none',
+              background: step === 'submitting' ? '#334155' : '#22c55e', color: '#000',
+              fontSize: 13, fontWeight: 600, cursor: step === 'submitting' ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {step === 'submitting' ? 'Verifying…' : 'Submit Verification'}
+          </button>
+        </div>
       </div>
     );
   }
@@ -188,7 +229,178 @@ function VerifyGithubButton({ tile, address, onVerified }) {
   if (step === 'done') {
     return (
       <div style={{ fontSize: 12, color: '#22c55e', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-        ✓ GitHub verified as @{githubUsername}
+        🐙 GitHub verified as @{githubUsername}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/**
+ * VerifyXButton — lets the tile owner verify their X/Twitter identity via a public tweet.
+ * 1. Owner clicks → fetches X challenge string from GET /api/tiles/:id/verification
+ * 2. Owner tweets the challenge string publicly
+ * 3. Owner pastes tweet URL + their handle
+ * 4. POST /api/tiles/:id/verification with EIP-191 wallet auth → server checks tweet
+ */
+function VerifyXButton({ tile, address, onVerified }) {
+  const { signMessageAsync } = useSignMessage();
+  const [step, setStep] = useState('idle'); // idle | fetching-challenge | show-challenge | submitting | error | done
+  const [challenge, setChallenge] = useState('');
+  const [tweetUrl, setTweetUrl] = useState('');
+  const [xHandle, setXHandle] = useState(tile.xHandle || '');
+  const [errMsg, setErrMsg] = useState('');
+
+  async function handleStart() {
+    setStep('fetching-challenge');
+    setErrMsg('');
+    try {
+      const res = await fetch(`/api/tiles/${tile.id}/verification`);
+      if (!res.ok) throw new Error(`Failed to get challenge (${res.status})`);
+      const data = await res.json();
+      setChallenge(data.x?.challenge || '');
+      setStep('show-challenge');
+    } catch (e) {
+      setErrMsg(e.message);
+      setStep('error');
+    }
+  }
+
+  async function handleSubmit() {
+    if (!tweetUrl.trim() || !xHandle.trim()) {
+      setErrMsg('Please enter both your X handle and the tweet URL.');
+      return;
+    }
+    setStep('submitting');
+    setErrMsg('');
+    try {
+      const ts = Math.floor(Date.now() / 1000 / 300) * 300;
+      const message = `tiles.bot:metadata:${tile.id}:${ts}`;
+      const sig = await signMessageAsync({ message });
+
+      const res = await fetch(`/api/tiles/${tile.id}/verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Wallet-Address': address,
+          'X-Wallet-Signature': sig,
+          'X-Wallet-Message': message,
+        },
+        body: JSON.stringify({ type: 'x', tweetUrl: tweetUrl.trim(), xHandle: xHandle.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Verification failed (${res.status})`);
+      }
+      setStep('done');
+      if (onVerified) onVerified();
+    } catch (e) {
+      setErrMsg(e.message);
+      setStep('error');
+    }
+  }
+
+  const tweetIntentUrl = challenge
+    ? `https://x.com/intent/tweet?text=${encodeURIComponent(challenge)}`
+    : null;
+
+  if (step === 'idle') {
+    return (
+      <button
+        onClick={handleStart}
+        style={{
+          width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #1d9bf044',
+          background: '#111122', color: '#1d9bf0', fontSize: 13, fontWeight: 500,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        }}
+      >
+        𝕏 Verify X/Twitter Identity
+      </button>
+    );
+  }
+
+  if (step === 'fetching-challenge') {
+    return <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>Fetching challenge…</div>;
+  }
+
+  if (step === 'show-challenge' || step === 'error' || step === 'submitting') {
+    return (
+      <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 2 }}>𝕏 Verification</div>
+        <div>1. Post a <strong style={{ color: '#e2e8f0' }}>public tweet</strong> with this exact text:</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <code style={{
+            flex: 1, display: 'block', background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
+            padding: '6px 8px', fontSize: 11, wordBreak: 'break-all', color: '#38bdf8',
+          }}>{challenge}</code>
+          <CopyButton text={challenge} />
+        </div>
+        {tweetIntentUrl && (
+          <a
+            href={tweetIntentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '8px 12px', borderRadius: 8, border: '1px solid #1d9bf044',
+              background: '#0d0d1a', color: '#1d9bf0', fontSize: 12, textDecoration: 'none', fontWeight: 500,
+            }}
+          >
+            𝕏 Open tweet composer →
+          </a>
+        )}
+        <div>2. Paste your X handle and the tweet URL:</div>
+        <input
+          placeholder="X handle (e.g. @yourhandle)"
+          value={xHandle}
+          onChange={e => setXHandle(e.target.value)}
+          style={{
+            background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
+            padding: '6px 8px', color: '#e2e8f0', fontSize: 12, outline: 'none',
+          }}
+        />
+        <input
+          placeholder="Tweet URL (e.g. https://x.com/handle/status/123...)"
+          value={tweetUrl}
+          onChange={e => setTweetUrl(e.target.value)}
+          style={{
+            background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
+            padding: '6px 8px', color: '#e2e8f0', fontSize: 12, outline: 'none',
+          }}
+        />
+        {errMsg && <div style={{ color: '#f87171', fontSize: 11 }}>{errMsg}</div>}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={() => { setStep('idle'); setErrMsg(''); setTweetUrl(''); }}
+            style={{
+              flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #334155',
+              background: '#111122', color: '#94a3b8',
+              fontSize: 12, cursor: 'pointer',
+            }}
+          >
+            ← Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={step === 'submitting'}
+            style={{
+              flex: 2, padding: '8px 12px', borderRadius: 8, border: 'none',
+              background: step === 'submitting' ? '#334155' : '#1d9bf0', color: '#fff',
+              fontSize: 13, fontWeight: 600, cursor: step === 'submitting' ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {step === 'submitting' ? 'Verifying…' : 'Submit Verification'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'done') {
+    return (
+      <div style={{ fontSize: 12, color: '#1d9bf0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        𝕏 Verified as @{xHandle.replace('@', '')}
       </div>
     );
   }
@@ -626,7 +838,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
                 <a href={`https://github.com/${tile.githubUsername}`} target="_blank" rel="noopener" style={{
                   color: '#94a3b8', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
                 }}>
-                  <span>⚙ @{tile.githubUsername}</span>
+                  <span>🐙 @{tile.githubUsername}</span>
                   <span title="GitHub identity verified" style={{ color: '#22c55e', fontSize: 11 }}>✓</span>
                 </a>
               )}
@@ -757,7 +969,25 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
             )}
             {isOwner && tile.githubVerified && (
               <div style={{ fontSize: 12, color: '#22c55e', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                ✓ GitHub verified as @{tile.githubUsername}
+                🐙 GitHub verified as @{tile.githubUsername}
+              </div>
+            )}
+
+            {/* X/Twitter Verification button — owner only, only if tile has an xHandle */}
+            {isOwner && tile.xHandle && !tile.xVerified && (
+              <VerifyXButton tile={tile} address={address} onVerified={() => {
+                // Refresh tile data
+                if (onTileUpdated) {
+                  fetch(`/api/tiles/${tile.id}`)
+                    .then(r => r.json())
+                    .then(updated => onTileUpdated(tile.id, updated))
+                    .catch(() => {});
+                }
+              }} />
+            )}
+            {isOwner && tile.xVerified && tile.xHandleVerified && (
+              <div style={{ fontSize: 12, color: '#1d9bf0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                𝕏 Verified as @{tile.xHandleVerified}
               </div>
             )}
 
