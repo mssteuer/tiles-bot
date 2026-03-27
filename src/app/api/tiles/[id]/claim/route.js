@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { withX402 } from 'x402-next';
-import { claimTile, getClaimedCount, getCurrentPrice, getNextAvailableTileId, setTileTxHash, unclaimTile, TOTAL_TILES } from '@/lib/db';
+import {
+  claimTile,
+  getClaimedCount,
+  getCurrentPrice,
+  getNextAvailableTileId,
+  getRecentlyClaimed,
+  getTopHolders,
+  setTileTxHash,
+  unclaimTile,
+  TOTAL_TILES,
+} from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
 // Treasury address that receives USDC payments (set in env or default to placeholder)
@@ -130,6 +140,16 @@ async function claimHandler(request, { params }) {
     claimedCount: getClaimedCount(),
     currentPrice: getCurrentPrice(),
     nextAvailableTileId: getNextAvailableTileId(),
+    recentlyClaimed: getRecentlyClaimed(10).map(row => ({
+      id: row.id,
+      name: row.name || `Tile #${row.id}`,
+      owner: row.owner,
+      claimedAt: row.claimed_at,
+    })),
+    topHolders: getTopHolders(10).map(row => ({
+      owner: row.owner,
+      count: row.count,
+    })),
   });
 
   return NextResponse.json({ tile, pricePaid: price, txHash }, { status: 201 });

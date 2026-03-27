@@ -267,6 +267,8 @@ export function getTopHolders(limit = 10) {
   ).all(limit);
 }
 
+// Precompute the full bonding-curve revenue once at module load.
+// 65,536 iterations is trivial here and avoids recalculating the same sum on every request.
 const ESTIMATED_SOLD_OUT_REVENUE = (() => {
   let total = 0;
   for (let minted = 0; minted < TOTAL_TILES; minted++) {

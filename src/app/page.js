@@ -156,19 +156,6 @@ export default function Home() {
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
 
-  const refreshStats = useCallback(async () => {
-    try {
-      const statsSnapshot = await fetchStatsSnapshot();
-      if (!statsSnapshot) return;
-      setStats(statsSnapshot);
-      if (statsSnapshot.nextAvailableTileId != null) {
-        setNextAvailableTileId(statsSnapshot.nextAvailableTileId);
-      }
-    } catch {
-      console.warn('Failed to refresh stats snapshot');
-    }
-  }, []);
-
   // SSE: real-time tile updates — re-sync on (re)connect and patch local grid on claim events
   useEffect(() => {
     let closed = false;
@@ -208,12 +195,13 @@ export default function Home() {
               claimed,
               currentPrice: event.currentPrice ?? prev.currentPrice,
               nextAvailableTileId: event.nextAvailableTileId ?? prev.nextAvailableTileId,
+              recentlyClaimed: event.recentlyClaimed ?? prev.recentlyClaimed,
+              topHolders: event.topHolders ?? prev.topHolders,
             };
           });
           if (event.nextAvailableTileId != null) {
             setNextAvailableTileId(event.nextAvailableTileId);
           }
-          refreshStats();
         }
       } catch {
         // ignore parse errors
@@ -228,7 +216,7 @@ export default function Home() {
       closed = true;
       es.close();
     };
-  }, [refreshStats]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
