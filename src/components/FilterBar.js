@@ -21,14 +21,15 @@ export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, on
   const pillStyle = (active) => ({
     padding: '6px 14px',
     borderRadius: 20,
-    border: active ? '1px solid #3b82f6' : '1px solid #2a2a3e',
-    background: active ? 'rgba(59,130,246,0.15)' : 'transparent',
-    color: active ? '#3b82f6' : '#94a3b8',
+    border: active ? '1px solid #4f46e5' : '1px solid #2a2a3e',
+    background: active ? '#4f46e5' : 'transparent',
+    color: active ? '#ffffff' : '#94a3b8',
     fontSize: 12,
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.15s',
     whiteSpace: 'nowrap',
+    boxShadow: active ? '0 0 8px rgba(79,70,229,0.4)' : 'none',
   });
 
   const iconBtnStyle = {
