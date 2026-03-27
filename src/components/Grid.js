@@ -158,11 +158,12 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
   // Intro animation: pan+zoom from overview to densest tile cluster
   useEffect(() => {
     if (introPlayed.current) return;
-    introPlayed.current = true;
 
-    // Find the densest area — centroid of all claimed tiles
+    // Wait until tiles are actually loaded
     const ids = Object.keys(tiles).map(Number);
     if (ids.length === 0) return;
+
+    introPlayed.current = true;
 
     let sumR = 0, sumC = 0;
     for (const id of ids) {
