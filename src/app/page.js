@@ -171,7 +171,22 @@ export default function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  // Filter applied in Grid.js canvas via tileMatchesFilter (searchQuery + categoryFilter props)
+  const filteredTiles = Object.fromEntries(
+    Object.entries(tiles).filter(([, tile]) => {
+      if (filterCategory !== 'All' && tile.category !== filterCategory.toLowerCase()) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          tile.name?.toLowerCase().includes(q) ||
+          tile.description?.toLowerCase().includes(q) ||
+          tile.category?.toLowerCase().includes(q) ||
+          tile.url?.toLowerCase().includes(q) ||
+          tile.x_handle?.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    })
+  );
 
   const handleZoomIn = useCallback(() => setZoom(z => Math.min(3, z * 1.3)), []);
   const handleZoomOut = useCallback(() => setZoom(z => Math.max(0.03, z / 1.3)), []);
@@ -220,14 +235,12 @@ export default function Home() {
       />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Grid
-          tiles={tiles}
+          tiles={filteredTiles}
           onTileClick={handleTileClick}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}
           viewMode={viewMode}
-          searchQuery={searchQuery}
-          categoryFilter={filterCategory}
         />
         {selectedTile !== null ? (
           <TilePanel
