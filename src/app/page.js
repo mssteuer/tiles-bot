@@ -154,6 +154,7 @@ async function fetchConnections() {
   } catch {
     return [];
   }
+}
 
 async function fetchBlocks() {
   try {
@@ -164,7 +165,6 @@ async function fetchBlocks() {
   } catch {
     return [];
   }
-}
 }
 
 export default function Home() {
