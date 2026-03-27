@@ -130,7 +130,7 @@ export default function StatsPanel({ stats }) {
             <div>
               <div style={sectionTitle}>Recently Claimed</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {stats.recentlyClaimed.slice(0, 5).map(t => (
+                {stats.recentlyClaimed.map(t => (
                   <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ color: '#475569', marginRight: 4 }}>#{t.id}</span>
