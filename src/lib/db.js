@@ -708,3 +708,68 @@ export function getCategoryBreakdown() {
     `SELECT COALESCE(category, 'uncategorized') as category, COUNT(*) as count FROM tiles GROUP BY category ORDER BY count DESC`
   ).all();
 }
+
+// ─── Webhook + view count helpers ────────────────────────────────────────────
+
+/**
+ * Migrate DB to add webhook and view tracking columns (idempotent).
+ */
+function ensureWebhookColumns() {
+  const db = getDb();
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN webhook_url TEXT`); } catch {}
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_views (
+      tile_id    INTEGER NOT NULL,
+      view_date  TEXT NOT NULL,        -- YYYY-MM-DD UTC
+      view_count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (tile_id, view_date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_tile_views_tile ON tile_views(tile_id);
+  `);
+}
+
+// Run migration immediately (cheap, idempotent)
+ensureWebhookColumns();
+
+/**
+ * Increment view count for a tile today, return today's count.
+ */
+export function incrementViewCount(tileId) {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+  db.prepare(`
+    INSERT INTO tile_views (tile_id, view_date, view_count)
+    VALUES (?, ?, 1)
+    ON CONFLICT(tile_id, view_date) DO UPDATE SET view_count = view_count + 1
+  `).run(tileId, today);
+  const row = db.prepare(`SELECT view_count FROM tile_views WHERE tile_id = ? AND view_date = ?`).get(tileId, today);
+  return row?.view_count || 1;
+}
+
+/**
+ * Get today's view count for a tile.
+ */
+export function getViewCountToday(tileId) {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const row = db.prepare(`SELECT view_count FROM tile_views WHERE tile_id = ? AND view_date = ?`).get(tileId, today);
+  return row?.view_count || 0;
+}
+
+/**
+ * Get webhook URL for a tile (null if not set).
+ */
+export function getTileWebhookUrl(tileId) {
+  const db = getDb();
+  const row = db.prepare(`SELECT webhook_url FROM tiles WHERE id = ?`).get(tileId);
+  return row?.webhook_url || null;
+}
+
+/**
+ * Update webhook_url for a tile.
+ */
+export function updateTileWebhook(tileId, webhookUrl) {
+  const db = getDb();
+  const result = db.prepare(`UPDATE tiles SET webhook_url = ? WHERE id = ?`).run(webhookUrl || null, tileId);
+  return result.changes > 0;
+}
