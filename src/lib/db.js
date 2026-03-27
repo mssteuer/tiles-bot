@@ -250,6 +250,23 @@ export function getNextAvailableTileId() {
   return TOTAL_TILES - 1; // all claimed (shouldn't happen)
 }
 
+// ─── Stats helpers ────────────────────────────────────────────────────────────
+
+// All tiles in DB are claimed (no row = unclaimed). Status tracks online/offline heartbeat.
+export function getRecentlyClaimed(limit = 10) {
+  const db = getDb();
+  return db.prepare(
+    'SELECT id, name, owner, claimed_at FROM tiles ORDER BY claimed_at DESC LIMIT ?'
+  ).all(limit);
+}
+
+export function getTopHolders(limit = 10) {
+  const db = getDb();
+  return db.prepare(
+    'SELECT owner, COUNT(*) as count FROM tiles GROUP BY owner ORDER BY count DESC LIMIT ?'
+  ).all(limit);
+}
+
 // ─── Admin / sync helpers ─────────────────────────────────────────────────────
 
 /**
