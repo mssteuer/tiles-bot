@@ -7,12 +7,8 @@ const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000
 
 // Network: 'base' for mainnet, 'base-sepolia' for testnet
 const X402_NETWORK = process.env.X402_NETWORK || 'base-sepolia';
+const RECEIPT_TIMEOUT_MS = 30_000;
 
-/**
- * Call the on-chain claim() function using the server wallet.
- * Returns the tx hash, or null if SERVER_WALLET_PRIVATE_KEY is not configured.
- * Throws if the contract call fails (e.g. tile already claimed on-chain → 409).
- */
 function getContractChainName() {
   // CONTRACT_CHAIN is preferred because x402 payment settlement network and contract deployment
   // chain are related in this project today, but they are conceptually separate concerns.
@@ -37,6 +33,73 @@ function isAlreadyClaimedError(message) {
     message.includes('AlreadyClaimed') ||
     message.includes('ERC721: token already minted')
   );
+}
+
+function isReceiptTimeoutError(error) {
+  const message = error?.message || '';
+  return message.includes('timed out') || message.includes('timeout');
+}
+
+/**
+ * The server wallet is the on-chain msg.sender for contract.claim(tokenId).
+ * That wallet must hold sufficient USDC on the contract chain and must have already
+ * approved the NFT contract to spend it, otherwise claim() reverts with
+ * "USDC transfer failed". x402 settlement pays the treasury address separately and
+ * does not grant ERC-20 allowance for the server wallet.
+ */
+async function checkServerWalletClaimReadiness(publicClient, contractAddress, account, tileId) {
+  const { getContract, parseAbi } = await import('viem');
+
+  const READINESS_ABI = parseAbi([
+    'function usdc() view returns (address)',
+    'function currentPrice() view returns (uint256)',
+    'function allowance(address owner, address spender) view returns (uint256)',
+    'function balanceOf(address account) view returns (uint256)',
+  ]);
+
+  const contract = getContract({
+    address: contractAddress,
+    abi: READINESS_ABI,
+    client: publicClient,
+  });
+
+  const usdcAddress = await contract.read.usdc();
+  const [requiredAmount, allowance, balance] = await Promise.all([
+    contract.read.currentPrice(),
+    publicClient.readContract({
+      address: usdcAddress,
+      abi: READINESS_ABI,
+      functionName: 'allowance',
+      args: [account.address, contractAddress],
+    }),
+    publicClient.readContract({
+      address: usdcAddress,
+      abi: READINESS_ABI,
+      functionName: 'balanceOf',
+      args: [account.address],
+    }),
+  ]);
+
+  if (balance < requiredAmount || allowance < requiredAmount) {
+    const reasons = [];
+    if (balance < requiredAmount) reasons.push(`insufficient USDC balance (${balance} < ${requiredAmount})`);
+    if (allowance < requiredAmount) reasons.push(`missing USDC approval (${allowance} < ${requiredAmount})`);
+
+    const error = new Error(
+      `[claim] Server wallet not ready for on-chain claim of tile #${tileId}: ${reasons.join('; ')}. ` +
+      `SERVER_WALLET_PRIVATE_KEY wallet must hold USDC and approve ${contractAddress} before claim().`
+    );
+    error.code = 'SERVER_WALLET_NOT_READY';
+    error.meta = {
+      usdcAddress,
+      contractAddress,
+      wallet: account.address,
+      requiredAmount: requiredAmount.toString(),
+      allowance: allowance.toString(),
+      balance: balance.toString(),
+    };
+    throw error;
+  }
 }
 
 /**
@@ -79,6 +142,8 @@ async function callOnChainClaim(tileId) {
     transport,
   });
 
+  await checkServerWalletClaimReadiness(publicClient, contractAddress, account, tileId);
+
   const txHash = await walletClient.writeContract({
     address: contractAddress,
     abi: CLAIM_ABI,
@@ -86,7 +151,10 @@ async function callOnChainClaim(tileId) {
     args: [BigInt(tileId)],
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash: txHash,
+    timeout: RECEIPT_TIMEOUT_MS,
+  });
   if (receipt.status !== 'success') {
     throw new Error(`[claim] Transaction failed on-chain: ${txHash}`);
   }
@@ -134,6 +202,32 @@ async function claimHandler(request, { params }) {
           rolledBack,
         },
         { status: 409 }
+      );
+    }
+
+    if (err?.code === 'SERVER_WALLET_NOT_READY') {
+      console.error(`[claim] Server wallet readiness check failed for tile #${tileId}:`, err.meta || msg);
+      return NextResponse.json(
+        {
+          error: 'Server wallet is not ready for on-chain claim',
+          detail: msg,
+          rolledBack,
+          readiness: err.meta,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (isReceiptTimeoutError(err)) {
+      console.error(`[claim] Timed out waiting for receipt for tile #${tileId}:`, err);
+      return NextResponse.json(
+        {
+          error: 'Timed out waiting for on-chain claim confirmation',
+          detail: msg,
+          rolledBack,
+          timeoutMs: RECEIPT_TIMEOUT_MS,
+        },
+        { status: 500 }
       );
     }
 
