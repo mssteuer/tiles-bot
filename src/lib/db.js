@@ -655,3 +655,56 @@ export function updateBlockMetadata(blockId, metadata) {
 process.on('exit', () => { if (_db) _db.close(); });
 process.on('SIGINT', () => { if (_db) { _db.close(); process.exit(0); } });
 process.on('SIGTERM', () => { if (_db) { _db.close(); process.exit(0); } });
+
+// ─── Leaderboard helpers ──────────────────────────────────────────────────────
+
+/**
+ * Get top tile holders with their tile names (most recently active tile).
+ * Returns [{ owner, count, tiles: [{ id, name, avatar, category, status }] }]
+ */
+export function getTopHoldersWithTiles(limit = 20) {
+  const db = getDb();
+  const holders = db.prepare(
+    `SELECT owner, COUNT(*) as count FROM tiles GROUP BY owner ORDER BY count DESC LIMIT ?`
+  ).all(limit);
+
+  for (const h of holders) {
+    const tiles = db.prepare(
+      `SELECT id, name, avatar, category, status FROM tiles WHERE owner = ? ORDER BY claimed_at ASC LIMIT 5`
+    ).all(h.owner);
+    h.tiles = tiles;
+  }
+  return holders;
+}
+
+/**
+ * Get count of online agents (heartbeat within TTL).
+ */
+export function getOnlineCount() {
+  const db = getDb();
+  const cutoff = Date.now() - HEARTBEAT_TTL_MS;
+  const row = db.prepare(
+    `SELECT COUNT(*) as cnt FROM tiles WHERE status = 'online' AND last_heartbeat IS NOT NULL AND last_heartbeat >= ?`
+  ).get(cutoff);
+  return row.cnt;
+}
+
+/**
+ * Get most recently active (heartbeat) agents.
+ */
+export function getRecentlyActive(limit = 10) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT id, name, avatar, category, owner, last_heartbeat, status FROM tiles WHERE last_heartbeat IS NOT NULL ORDER BY last_heartbeat DESC LIMIT ?`
+  ).all(limit);
+}
+
+/**
+ * Get category breakdown.
+ */
+export function getCategoryBreakdown() {
+  const db = getDb();
+  return db.prepare(
+    `SELECT COALESCE(category, 'uncategorized') as category, COUNT(*) as count FROM tiles GROUP BY category ORDER BY count DESC`
+  ).all();
+}

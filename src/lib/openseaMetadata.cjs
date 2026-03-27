@@ -41,15 +41,15 @@ function buildTileDescription(tileId, tile) {
 function buildTileAttributes(tileId, tile) {
   const { row, col } = getTileCoordinates(tileId);
   const attributes = [
-    { trait_type: 'Tile Number', value: tileId },
-    { trait_type: 'X Coordinate', value: col },
-    { trait_type: 'Y Coordinate', value: row },
+    { display_type: 'number', trait_type: 'Tile Number', value: tileId },
+    { display_type: 'number', trait_type: 'X Coordinate', value: col },
+    { display_type: 'number', trait_type: 'Y Coordinate', value: row },
   ];
 
   if (!tile) return attributes;
 
-  if (tile.category) attributes.push({ trait_type: 'Category', value: tile.category });
-  if (tile.url) attributes.push({ trait_type: 'Website', value: tile.url });
+  if (tile.category) attributes.push({ trait_type: 'Category', value: String(tile.category) });
+  if (tile.url) attributes.push({ trait_type: 'Website', value: String(tile.url) });
 
   // Verified X account
   if (tile.xVerified && tile.xHandleVerified) {
@@ -62,7 +62,7 @@ function buildTileAttributes(tileId, tile) {
 
   // Verified GitHub account
   if (tile.githubVerified && tile.githubUsername) {
-    attributes.push({ trait_type: 'GitHub', value: tile.githubUsername });
+    attributes.push({ trait_type: 'GitHub', value: String(tile.githubUsername) });
     attributes.push({ trait_type: 'GitHub Verified', value: 'Yes' });
   }
 
