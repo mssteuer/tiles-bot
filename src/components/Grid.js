@@ -152,7 +152,52 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
-  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: zoom || 1.5 });
+  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.04 }); // start zoomed out
+  const introPlayed = useRef(false);
+
+  // Intro animation: pan+zoom from overview to densest tile cluster
+  useEffect(() => {
+    if (introPlayed.current) return;
+    introPlayed.current = true;
+
+    // Find the densest area — centroid of all claimed tiles
+    const ids = Object.keys(tiles).map(Number);
+    if (ids.length === 0) return;
+
+    let sumR = 0, sumC = 0;
+    for (const id of ids) {
+      sumR += Math.floor(id / GRID_SIZE);
+      sumC += id % GRID_SIZE;
+    }
+    const targetX = (sumC / ids.length) * TILE_SIZE + TILE_SIZE / 2;
+    const targetY = (sumR / ids.length) * TILE_SIZE + TILE_SIZE / 2;
+    const targetZoom = zoom || 1.5;
+
+    const startX = GRID_PX / 2;
+    const startY = GRID_PX / 2;
+    const startZoom = 0.04;
+    const duration = 2000; // 2 seconds
+    const startTime = performance.now();
+
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+    function animate(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const e = easeOutCubic(t);
+
+      setCamera({
+        x: startX + (targetX - startX) * e,
+        y: startY + (targetY - startY) * e,
+        zoom: startZoom + (targetZoom - startZoom) * e,
+      });
+
+      if (t < 1) requestAnimationFrame(animate);
+    }
+
+    // Small delay before starting animation
+    setTimeout(() => requestAnimationFrame(animate), 300);
+  }, [tiles, zoom]);
   const [hoveredTile, setHoveredTile] = useState(null);
   const [batchTiles, setBatchTiles] = useState(null); // array of tile IDs for batch modal
 
@@ -287,7 +332,7 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
 
     // Grid lines (only when zoomed enough)
     if (cam.zoom > 0.08) {
-      ctx.strokeStyle = '#111122';
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
       ctx.lineWidth = 1 / cam.zoom;
       for (let col = minCol; col <= maxCol + 1; col++) {
         ctx.beginPath();
@@ -465,6 +510,15 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 3 / cam.zoom;
             ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          }
+
+          // Highlight batch-selected tiles
+          if (batchTiles && batchTiles.includes(id)) {
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2.5 / cam.zoom;
+            ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+            ctx.fillStyle = 'rgba(59,130,246,0.15)';
+            ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
           }
 
           ctx.restore();
