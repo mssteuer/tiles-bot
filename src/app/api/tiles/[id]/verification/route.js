@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { getTile, setGithubVerification, clearGithubVerification, setXVerification, clearXVerification, TOTAL_TILES } from '@/lib/db';
 
+const X_VERIFICATION_COOLDOWN_MS = 60 * 1000;
+const xVerificationAttemptCooldowns = new Map();
+
 /**
  * GET /api/tiles/:id/verification/challenge
  * Returns a challenge message for the tile owner to sign and post as proof.
@@ -247,6 +250,25 @@ async function handleGithubVerification(tileId, tile, body) {
  */
 async function handleXVerification(tileId, tile, body) {
   const { tweetUrl, xHandle } = body;
+
+  const now = Date.now();
+  const lastAttemptAt = xVerificationAttemptCooldowns.get(tileId) || 0;
+  const retryAfterMs = X_VERIFICATION_COOLDOWN_MS - (now - lastAttemptAt);
+  if (retryAfterMs > 0) {
+    return NextResponse.json(
+      {
+        error: `Please wait ${Math.ceil(retryAfterMs / 1000)}s before trying X verification again for this tile`,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil(retryAfterMs / 1000)),
+        },
+      }
+    );
+  }
+  xVerificationAttemptCooldowns.set(tileId, now);
+
 
   if (!xHandle || typeof xHandle !== 'string' || !xHandle.match(/^@?[a-zA-Z0-9_]{1,50}$/)) {
     return NextResponse.json({ error: 'Invalid xHandle format' }, { status: 400 });

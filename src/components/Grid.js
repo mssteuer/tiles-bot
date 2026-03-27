@@ -281,7 +281,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
           ctx.fill();
 
           // Social verification badges on tile canvas
-          if (cam.zoom > 0.18) {
+          if (cam.zoom > 0.35) {
             const badges = [
               { label: 'G', verified: Boolean(tile.githubVerified) },
               { label: 'X', verified: Boolean(tile.xVerified) },
