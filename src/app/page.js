@@ -164,6 +164,7 @@ export default function Home() {
   const [filterCategory, setFilterCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
+  const [heatmapMode, setHeatmapMode] = useState(false);
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
 
@@ -299,6 +300,8 @@ export default function Home() {
         onZoomReset={handleZoomReset}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        heatmapMode={heatmapMode}
+        onHeatmapToggle={setHeatmapMode}
       />
       <div className="main-content">
         <Grid
@@ -312,6 +315,7 @@ export default function Home() {
           viewMode={viewMode}
           searchQuery={searchQuery}
           categoryFilter={filterCategory}
+          heatmapMode={heatmapMode}
         />
         <div className={`side-panel${panelOpen ? ' open' : ''}`}>
         {panelOpen ? (
