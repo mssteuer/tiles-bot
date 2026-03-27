@@ -1,0 +1,213 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAccount, useWriteContract, useReadContract, useSwitchChain } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { parseUnits, formatUnits } from 'viem';
+import { CONTRACT_ADDRESS, USDC_ADDRESS, MBH_ABI, ERC20_ABI, TARGET_CHAIN } from '@/lib/wagmi';
+
+export default function ClaimModal({ tileId, onClose, onClaimed }) {
+  const { address, isConnected, chainId } = useAccount();
+  const { switchChain } = useSwitchChain();
+
+  const [step, setStep] = useState('info'); // info | approve | claim | success | error
+  const [errorMsg, setErrorMsg] = useState('');
+  const [txHash, setTxHash] = useState('');
+
+  // Read on-chain price
+  const { data: onChainPrice } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: MBH_ABI,
+    functionName: 'currentPrice',
+    enabled: !!CONTRACT_ADDRESS,
+  });
+
+  // Read USDC allowance
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: [address, CONTRACT_ADDRESS],
+    enabled: !!address && !!CONTRACT_ADDRESS,
+  });
+
+  // Read USDC balance
+  const { data: usdcBalance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [address],
+    enabled: !!address,
+  });
+
+  const { writeContractAsync } = useWriteContract();
+
+  const price = onChainPrice ? onChainPrice : parseUnits('0.01', 6); // fallback $0.01
+  const priceDisplay = formatUnits(price, 6);
+  const hasAllowance = allowance && allowance >= price;
+  const hasBalance = usdcBalance && usdcBalance >= price;
+
+  const wrongChain = isConnected && chainId !== TARGET_CHAIN.id;
+
+  async function handleApprove() {
+    setStep('approve');
+    setErrorMsg('');
+    try {
+      const hash = await writeContractAsync({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [CONTRACT_ADDRESS, price * 2n], // approve 2x for safety
+      });
+      setTxHash(hash);
+      await refetchAllowance();
+      setStep('claim');
+    } catch (e) {
+      setErrorMsg(e.shortMessage || e.message || 'Approval failed');
+      setStep('error');
+    }
+  }
+
+  async function handleClaim() {
+    setStep('claim');
+    setErrorMsg('');
+    try {
+      const hash = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: MBH_ABI,
+        functionName: 'claim',
+        args: [BigInt(tileId)],
+      });
+      setTxHash(hash);
+
+      // Register with local DB
+      await fetch(`/api/tiles/${tileId}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: address, txHash: hash, pricePaid: priceDisplay }),
+      });
+
+      setStep('success');
+      if (onClaimed) onClaimed(tileId, address);
+    } catch (e) {
+      setErrorMsg(e.shortMessage || e.message || 'Claim failed');
+      setStep('error');
+    }
+  }
+
+  const overlayStyle = {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1000, backdropFilter: 'blur(4px)',
+  };
+  const modalStyle = {
+    background: '#0f0f1a', border: '1px solid #2a2a3e', borderRadius: 16,
+    padding: 32, minWidth: 360, maxWidth: 440, width: '90vw',
+    boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
+  };
+
+  return (
+    <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={modalStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Claim Tile #{tileId}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', fontSize: 20, cursor: 'pointer' }}>✕</button>
+        </div>
+
+        {/* Tile position info */}
+        <div style={{ background: '#1a1a2e', borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#94a3b8' }}>
+          <div>Position: Row {Math.floor(tileId / 256)}, Col {tileId % 256}</div>
+          <div style={{ marginTop: 4, fontSize: 20, fontWeight: 700, color: '#3b82f6' }}>
+            ${parseFloat(priceDisplay).toFixed(4)} USDC
+          </div>
+          <div style={{ marginTop: 2, fontSize: 11, color: '#555' }}>Bonding curve price — lower is earlier</div>
+        </div>
+
+        {!isConnected ? (
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: '#94a3b8', marginBottom: 16, fontSize: 14 }}>Connect your wallet to claim this tile.</p>
+            <ConnectButton />
+          </div>
+        ) : wrongChain ? (
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: '#f59e0b', marginBottom: 16, fontSize: 14 }}>
+              Switch to {TARGET_CHAIN.name} to claim.
+            </p>
+            <button
+              onClick={() => switchChain({ chainId: TARGET_CHAIN.id })}
+              style={{ background: '#f59e0b', color: '#000', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              Switch Network
+            </button>
+          </div>
+        ) : step === 'success' ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+            <h3 style={{ color: '#22c55e', margin: '0 0 8px' }}>Tile Claimed!</h3>
+            <p style={{ color: '#94a3b8', fontSize: 13 }}>Tile #{tileId} is now yours.</p>
+            {txHash && (
+              <a href={`https://${TARGET_CHAIN.id === 84532 ? 'sepolia.' : ''}basescan.org/tx/${txHash}`}
+                target="_blank" rel="noopener noreferrer"
+                style={{ color: '#3b82f6', fontSize: 12 }}>View on Basescan →</a>
+            )}
+            <button
+              onClick={onClose}
+              style={{ marginTop: 20, background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            >Done</button>
+          </div>
+        ) : step === 'error' ? (
+          <div>
+            <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{errorMsg}</p>
+            <button onClick={() => setStep('info')}
+              style={{ background: '#1a1a2e', color: '#fff', border: '1px solid #2a2a3e', borderRadius: 8, padding: '10px 24px', cursor: 'pointer', width: '100%' }}>
+              Try Again
+            </button>
+          </div>
+        ) : (
+          <div>
+            {/* Balance check */}
+            {!hasBalance && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef444440', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#ef4444' }}>
+                Insufficient USDC balance. You need ${parseFloat(priceDisplay).toFixed(4)} USDC on {TARGET_CHAIN.name}.
+              </div>
+            )}
+
+            {/* Step 1: Approve */}
+            {!hasAllowance ? (
+              <button
+                onClick={handleApprove}
+                disabled={!hasBalance || step === 'approve'}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+                  background: hasBalance ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : '#333',
+                  color: '#fff', fontWeight: 700, fontSize: 15, cursor: hasBalance ? 'pointer' : 'not-allowed',
+                  opacity: step === 'approve' ? 0.7 : 1,
+                }}
+              >
+                {step === 'approve' ? 'Approving...' : '1. Approve USDC'}
+              </button>
+            ) : (
+              /* Step 2: Claim */
+              <button
+                onClick={handleClaim}
+                disabled={!hasBalance || step === 'claim'}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+                  background: hasBalance ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : '#333',
+                  color: '#fff', fontWeight: 700, fontSize: 15, cursor: hasBalance ? 'pointer' : 'not-allowed',
+                  opacity: step === 'claim' ? 0.7 : 1,
+                }}
+              >
+                {step === 'claim' ? 'Claiming...' : `Claim for $${parseFloat(priceDisplay).toFixed(4)}`}
+              </button>
+            )}
+
+            <p style={{ textAlign: 'center', marginTop: 12, fontSize: 11, color: '#555' }}>
+              Connected: {address?.slice(0, 6)}...{address?.slice(-4)}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
