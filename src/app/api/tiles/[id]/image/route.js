@@ -164,7 +164,7 @@ export async function GET(request, { params }) {
   return new NextResponse(outputBuffer, {
     headers: {
       'Content-Type': 'image/png',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=60',
+      'Cache-Control': 'public, max-age=31536000, immutable',
       'X-Image-Size': String(requestedSize),
       'X-Image-Source': imageUrl,
     },
