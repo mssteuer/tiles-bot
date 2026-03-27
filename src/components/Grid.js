@@ -516,22 +516,22 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
             ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
           }
 
-          // Highlight batch-selected or drag-selected tiles
-          const inBatch = batchTilesRef.current && batchTilesRef.current.includes(id);
-          const inDrag = dragSelectedTiles.current.has(id);
-          if (inBatch || inDrag) {
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineWidth = 2.5 / cam.zoom;
-            ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-            ctx.fillStyle = 'rgba(59,130,246,0.18)';
-            ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          }
-
           ctx.restore();
         }
 
+        // Drag-selection highlight (works on ALL tiles, claimed or not)
+        const inBatchOuter = batchTilesRef.current && batchTilesRef.current.includes(id);
+        const inDragOuter = dragSelectedTiles.current.has(id);
+        if (inBatchOuter || inDragOuter) {
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2.5 / cam.zoom;
+          ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+          ctx.fillStyle = 'rgba(59,130,246,0.2)';
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        }
+
         // Hover highlight
-        if (hoveredTile === id) {
+        if (hoveredTile === id && !inDragOuter) {
           ctx.fillStyle = tile ? 'rgba(255,255,255,0.1)' : 'rgba(59,130,246,0.08)';
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
           ctx.strokeStyle = tile ? '#fff' : '#3b82f6';
@@ -1067,7 +1067,7 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
           style={{ display: 'block', width: '100%', height: '100%' }}
         />
 
-        {/* Drag-select overlay rectangle */}
+        {/* Drag-select overlay — outline only, no fill */}
         {selectionRect && (
           <div style={{
             position: 'absolute',
@@ -1075,8 +1075,8 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
             top: selectionRect.y1,
             width: selectionRect.x2 - selectionRect.x1,
             height: selectionRect.y2 - selectionRect.y1,
-            border: '2px solid rgba(59,130,246,0.8)',
-            background: 'rgba(59,130,246,0.12)',
+            border: '2px dashed rgba(59,130,246,0.9)',
+            background: 'none',
             pointerEvents: 'none',
             borderRadius: 2,
           }} />
