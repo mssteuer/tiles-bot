@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getTile, TOTAL_TILES } from '@/lib/db';
+import { getTile, TOTAL_TILES, incrementViewCount, getTileWebhookUrl } from '@/lib/db';
+import { fireWebhook } from '@/lib/webhook';
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -18,5 +19,18 @@ export async function GET(request, { params }) {
     });
   }
 
-  return NextResponse.json(tile);
+  // Track view + fire webhook (best-effort, non-blocking)
+  const viewCountToday = incrementViewCount(tileId);
+  const webhookUrl = getTileWebhookUrl(tileId);
+  if (webhookUrl) {
+    // Fire without await — don't let webhook latency slow the response
+    fireWebhook(webhookUrl, {
+      event: 'tile_viewed',
+      tileId,
+      viewCountToday,
+      timestamp: new Date().toISOString(),
+    }).catch(() => {});
+  }
+
+  return NextResponse.json({ ...tile, viewCountToday });
 }
