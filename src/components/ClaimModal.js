@@ -103,14 +103,20 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       console.log('[tiles.bot] Claim tx hash:', hash);
       setTxHash(hash);
 
-      // Register with local DB (best-effort)
-      try {
-        await fetch(`/api/tiles/${tileId}/claim`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wallet: address, txHash: hash, pricePaid: priceDisplay }),
-        });
-      } catch (_) {}
+      // Register with local DB via /register (no x402, verifies on-chain ownership)
+      // Retry a few times — chain confirmation may take a moment
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
+          const res = await fetch(`/api/tiles/${tileId}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet: address, txHash: hash }),
+          });
+          if (res.ok || res.status === 200) break;
+          console.log(`[tiles.bot] Register attempt ${attempt + 1}: ${res.status}`);
+        } catch (_) {}
+      }
 
       setStep('success');
       if (onClaimed) onClaimed(tileId, address);
