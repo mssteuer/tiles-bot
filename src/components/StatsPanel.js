@@ -144,7 +144,7 @@ export default function StatsPanel({ stats }) {
           )}
 
           <div style={{ color: '#374151', fontSize: 11, textAlign: 'right' }}>
-            Live updates via shared SSE
+            Live updates via SSE
           </div>
         </div>
       )}
