@@ -458,55 +458,7 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
           ctx.lineWidth = 1.5 / cam.zoom;
           ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
 
-          // Status dot
-          const statusColor = tile.status === 'online' ? '#22c55e' : tile.status === 'busy' ? '#f59e0b' : '#ef4444';
-          const dotR = Math.max(2, 3 / cam.zoom);
-          ctx.fillStyle = statusColor;
-          ctx.beginPath();
-          ctx.arc(x + TILE_SIZE - 5, y + 5, dotR, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Social verification badges on tile canvas
-          if (cam.zoom > 0.35) {
-            const badges = [
-              { label: 'G', verified: Boolean(tile.githubVerified) },
-              { label: 'X', verified: Boolean(tile.xVerified) },
-            ];
-            const badgeSize = Math.max(7, 8 / cam.zoom);
-            const badgeGap = Math.max(1.5, 2 / cam.zoom);
-            const badgeY = y + TILE_SIZE - badgeSize - Math.max(2, 2 / cam.zoom);
-            let badgeX = x + Math.max(2, 2 / cam.zoom);
-
-            for (const badge of badges) {
-              ctx.save();
-              ctx.fillStyle = badge.verified ? '#22c55e' : '#6b7280';
-              ctx.strokeStyle = 'rgba(10,10,15,0.9)';
-              ctx.lineWidth = 1 / cam.zoom;
-              ctx.beginPath();
-              ctx.roundRect(badgeX, badgeY, badgeSize, badgeSize, 2 / cam.zoom);
-              ctx.fill();
-              ctx.stroke();
-              if (cam.zoom > 0.35) {
-                ctx.fillStyle = '#ffffff';
-                ctx.font = `bold ${Math.max(5, 5.5 / cam.zoom)}px system-ui`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(badge.label, badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 0.2 / cam.zoom);
-              }
-              ctx.restore();
-              badgeX += badgeSize + badgeGap;
-            }
-          }
-
-          // Name (only when zoomed in)
-          if (cam.zoom > 0.5) {
-            ctx.font = `bold ${Math.min(8, TILE_SIZE * 0.18)}px system-ui`;
-            ctx.fillStyle = '#fff';
-            ctx.globalAlpha = tileMatches ? 0.9 : 0.25 * 0.9;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(tile.name?.substring(0, 12) || '', x + TILE_SIZE / 2, y + TILE_SIZE - 2);
-          }
+          // Status dot, verification badges, and name overlays disabled for clean tile display
 
           // Highlight selected
           if (selectedTile === id) {
