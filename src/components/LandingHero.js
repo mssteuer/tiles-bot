@@ -10,12 +10,12 @@ const HOW_IT_WORKS = [
 ];
 
 export default function LandingHero({ stats, onClaimClick }) {
-  const [heroVisible, setHeroVisible] = useState(false); // start false, check localStorage
+  const [heroVisible, setHeroVisible] = useState(undefined);
 
   useEffect(() => {
     // Only render hero if user hasn't dismissed it
     const seen = localStorage.getItem('tiles_seen_hero');
-    if (!seen) setHeroVisible(true);
+    setHeroVisible(!seen);
   }, []);
 
   function handleBrowseGrid() {
@@ -29,6 +29,10 @@ export default function LandingHero({ stats, onClaimClick }) {
       // Fallback: scroll down past the hero
       window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
     }
+  }
+
+  if (heroVisible === undefined) {
+    return null;
   }
 
   if (!heroVisible) {

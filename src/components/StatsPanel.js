@@ -27,21 +27,13 @@ function formatUsd(value) {
   return `$${n.toFixed(4)}`;
 }
 
-export default function StatsPanel({ stats, onRefresh }) {
+export default function StatsPanel({ stats }) {
   const [open, setOpen] = React.useState(true);
   const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
   const [nowTs, setNowTs] = React.useState(Date.now());
 
   React.useEffect(() => {
-    if (!onRefresh) return undefined;
-
-    onRefresh();
-    const interval = setInterval(onRefresh, 30_000);
-    return () => clearInterval(interval);
-  }, [onRefresh]);
-
-  React.useEffect(() => {
-    const tick = setInterval(() => setNowTs(Date.now()), 30_000);
+    const tick = setInterval(() => setNowTs(Date.now()), 10_000);
     return () => clearInterval(tick);
   }, []);
 
@@ -52,9 +44,12 @@ export default function StatsPanel({ stats, onRefresh }) {
     overflow: 'hidden',
     fontSize: 13,
     color: '#94a3b8',
-    minWidth: 220,
-    maxWidth: 280,
-    flexShrink: 0,
+    width: '100%',
+    minWidth: 0,
+    maxWidth: '100%',
+    flexShrink: 1,
+    alignSelf: 'stretch',
+    boxSizing: 'border-box',
   };
 
   const headerStyle = {
@@ -149,7 +144,7 @@ export default function StatsPanel({ stats, onRefresh }) {
           )}
 
           <div style={{ color: '#374151', fontSize: 11, textAlign: 'right' }}>
-            Live via shared SSE + 30s refresh
+            Live updates via shared SSE
           </div>
         </div>
       )}
