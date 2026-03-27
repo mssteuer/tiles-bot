@@ -1,6 +1,31 @@
 'use client';
 import Link from 'next/link';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
+
+function WalletButton() {
+  const { address, isConnected } = useAccount();
+  const { connectors, connect } = useConnect();
+  const { disconnect } = useDisconnect();
+  if (isConnected) {
+    return (
+      <button onClick={() => disconnect()} style={{
+        background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 8,
+        color: '#94a3b8', padding: '6px 12px', fontSize: 12, cursor: 'pointer',
+      }}>
+        {address?.slice(0, 6)}…{address?.slice(-4)}
+      </button>
+    );
+  }
+  const mm = connectors.find(c => c.name === 'MetaMask') || connectors[0];
+  return (
+    <button onClick={() => connect({ connector: mm })} style={{
+      background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 8,
+      color: '#94a3b8', padding: '6px 12px', fontSize: 12, cursor: 'pointer',
+    }}>
+      🦊 Connect
+    </button>
+  );
+}
 
 export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
   const pct = stats.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(1) : '0.0';
@@ -33,7 +58,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
         <button className="claim-btn" onClick={() => onClaimClick(nextAvailableTileId ?? 0)}>
           Claim a Tile
         </button>
-        <ConnectButton accountStatus="avatar" chainStatus="none" showBalance={false} />
+        <WalletButton />
       </div>
     </header>
   );
