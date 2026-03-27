@@ -65,6 +65,7 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE tiles ADD COLUMN github_gist_id TEXT`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN x_verified INTEGER NOT NULL DEFAULT 0`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN x_handle_verified TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN x_tweet_url TEXT`); } catch {}
 }
 
 // ─── Read helpers ────────────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ function rowToTile(row) {
     githubGistId: row.github_gist_id || null,
     xVerified: row.x_verified === 1,
     xHandleVerified: row.x_handle_verified || null,
+    xTweetUrl: row.x_tweet_url || null,
   };
 }
 
@@ -370,11 +372,11 @@ export function clearGithubVerification(id) {
 /**
  * Store X/Twitter verification proof for a tile.
  */
-export function setXVerification(id, xHandle) {
+export function setXVerification(id, xHandle, tweetUrl) {
   const db = getDb();
   const result = db.prepare(
-    'UPDATE tiles SET x_verified = 1, x_handle_verified = ? WHERE id = ?'
-  ).run(xHandle, id);
+    'UPDATE tiles SET x_verified = 1, x_handle_verified = ?, x_tweet_url = ? WHERE id = ?'
+  ).run(xHandle, tweetUrl || null, id);
   return result.changes > 0;
 }
 
