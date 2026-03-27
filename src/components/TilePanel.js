@@ -656,6 +656,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState(tile.image_url || null);
   const [formData, setFormData] = useState({
     name: tile.name || '',
     description: tile.description || '',
@@ -671,7 +673,6 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     address.toLowerCase() === tile.owner.toLowerCase();
 
   function handleEditStart() {
-    // Refresh form with latest tile data
     setFormData({
       name: tile.name || '',
       description: tile.description || '',
@@ -681,8 +682,52 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
       avatar: tile.avatar || '🤖',
       color: tile.color || '#3b82f6',
     });
+    setImagePreview(tile.image_url || null);
     setSaveMsg('');
     setEditing(true);
+  }
+
+  async function handleImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveMsg('Error: Image too large (max 5MB)');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setSaveMsg('Error: Please upload a PNG, JPG, or WebP image');
+      return;
+    }
+
+    setUploadingImage(true);
+    setSaveMsg('');
+
+    try {
+      const formPayload = new FormData();
+      formPayload.append('image', file);
+
+      const res = await fetch(`/api/tiles/${tile.id}/image`, {
+        method: 'POST',
+        headers: { 'x-wallet': address },
+        body: formPayload,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Upload failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      setImagePreview(data.imageUrl + '?t=' + Date.now());
+      setSaveMsg('✓ Image uploaded');
+      setTimeout(() => setSaveMsg(''), 3000);
+    } catch (err) {
+      setSaveMsg(`Error: ${err.message}`);
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   function handleCancel() {
@@ -878,6 +923,50 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                     onChange={e => setFormData(f => ({ ...f, color: e.target.value }))}
                     style={{ ...inputStyle, flex: 1, fontFamily: 'monospace' }}
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Tile Image Upload */}
+            <div>
+              <label style={labelStyle}>Tile Image</label>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{
+                  width: 80, height: 80, borderRadius: 8,
+                  border: '2px dashed #2a2a3e',
+                  overflow: 'hidden',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: '#0a0a0f',
+                  flexShrink: 0,
+                }}>
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Tile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: 32 }}>{formData.avatar || '🤖'}</span>
+                  )}
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{
+                    display: 'inline-block',
+                    background: uploadingImage ? '#333' : '#1a1a2e',
+                    border: '1px solid #2a2a3e',
+                    borderRadius: 6,
+                    padding: '8px 14px',
+                    fontSize: 12,
+                    color: '#94a3b8',
+                    cursor: uploadingImage ? 'not-allowed' : 'pointer',
+                    textAlign: 'center',
+                  }}>
+                    {uploadingImage ? 'Uploading...' : imagePreview ? '📷 Change Image' : '📷 Upload Image'}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  <span style={{ fontSize: 10, color: '#555' }}>PNG, JPG, or WebP • Max 5MB • Auto-crops to square</span>
                 </div>
               </div>
             </div>
