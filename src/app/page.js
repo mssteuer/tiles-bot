@@ -1,5 +1,6 @@
 'use client';
 
+
 import { useState, useEffect, useCallback } from 'react';
 import Grid from '../components/Grid';
 import TilePanel from '../components/TilePanel';
@@ -7,7 +8,7 @@ import Header from '../components/Header';
 import LandingHero from '../components/LandingHero';
 import FilterBar from '../components/FilterBar';
 import ClaimModal from '../components/ClaimModal';
-import { getDismissedState, setDismissedState, shouldShowLandingHero } from '../lib/onboarding';
+import StatsPanel from '../components/StatsPanel';
 
 const GRID_PX = 256 * 32;
 const DEFAULT_ZOOM = 0.15;
@@ -27,6 +28,7 @@ const DEMO_AGENTS = [
   { name: 'Eliza 💬', avatar: '💬', category: 'social', color: '#ec4899', url: 'https://eliza.ai' },
 ];
 
+// Positions near center (row ~128, col ~128)
 function getDemoPositions() {
   const cx = 128, cy = 128;
   const offsets = [
@@ -56,6 +58,7 @@ async function seedDemoData() {
   const demoWallet = 'demo-seed-wallet';
   const positions = getDemoPositions();
 
+  // Seed named agents
   for (let i = 0; i < DEMO_AGENTS.length; i++) {
     const agent = DEMO_AGENTS[i];
     const tileId = positions[i];
@@ -77,6 +80,7 @@ async function seedDemoData() {
             url: agent.url,
           }),
         });
+        // Set online via heartbeat
         await fetch(`/api/tiles/${tileId}/heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -88,6 +92,7 @@ async function seedDemoData() {
     }
   }
 
+  // Seed ~50 random agents
   const randomPositions = getRandomPositions(50, positions);
   for (let i = 0; i < randomPositions.length; i++) {
     const tileId = randomPositions[i];
@@ -113,6 +118,7 @@ async function seedDemoData() {
             url: '#',
           }),
         });
+        // Random online/offline
         if (Math.random() > 0.5) {
           await fetch(`/api/tiles/${tileId}/heartbeat`, {
             method: 'POST',
@@ -133,21 +139,83 @@ async function fetchGrid() {
   return res.json();
 }
 
+async function fetchStatsSnapshot() {
+  const res = await fetch('/api/stats');
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export default function Home() {
   const [tiles, setTiles] = useState({});
   const [selectedTile, setSelectedTile] = useState(null);
-  const [stats, setStats] = useState({ claimed: 0, total: 65536, price: 1.0 });
+  const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [filterCategory, setFilterCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
+  // SSE: real-time tile updates — re-sync on (re)connect and patch local grid on claim events
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setOnboardingDismissed(getDismissedState(window.localStorage));
+    let closed = false;
+
+    async function refreshGridAndStats() {
+      const [grid, statsSnapshot] = await Promise.all([fetchGrid(), fetchStatsSnapshot()]);
+      if (closed) return;
+
+      if (grid) {
+        setTiles(grid.tiles);
+      }
+
+      const nextStats = statsSnapshot || grid?.stats;
+      if (nextStats) {
+        setStats(nextStats);
+        if (nextStats.nextAvailableTileId != null) {
+          setNextAvailableTileId(nextStats.nextAvailableTileId);
+        }
+      }
+    }
+
+    const es = new EventSource('/api/events');
+
+    es.onopen = () => {
+      refreshGridAndStats();
+    };
+
+    es.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        if (event.type === 'tile_claimed') {
+          setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
+          setStats(prev => {
+            const claimed = event.claimedCount ?? (prev.claimed + 1);
+            return {
+              ...prev,
+              claimed,
+              currentPrice: event.currentPrice ?? prev.currentPrice,
+              nextAvailableTileId: event.nextAvailableTileId ?? prev.nextAvailableTileId,
+              recentlyClaimed: event.recentlyClaimed ?? prev.recentlyClaimed,
+              topHolders: event.topHolders ?? prev.topHolders,
+            };
+          });
+          if (event.nextAvailableTileId != null) {
+            setNextAvailableTileId(event.nextAvailableTileId);
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    es.onerror = () => {
+      console.warn('SSE connection error in page.js');
+    };
+
+    return () => {
+      closed = true;
+      es.close();
+    };
   }, []);
 
   useEffect(() => {
@@ -161,11 +229,11 @@ export default function Home() {
         const refreshed = await fetchGrid();
         if (cancelled || !refreshed) return;
         setTiles(refreshed.tiles);
-        setStats({ claimed: refreshed.stats.claimed, total: refreshed.stats.total, price: refreshed.stats.currentPrice });
+        setStats({ ...refreshed.stats });
         if (refreshed.stats.nextAvailableTileId != null) setNextAvailableTileId(refreshed.stats.nextAvailableTileId);
       } else {
         setTiles(data.tiles);
-        setStats({ claimed: data.stats.claimed, total: data.stats.total, price: data.stats.currentPrice });
+        setStats({ ...data.stats });
         if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
       }
     })();
@@ -176,29 +244,20 @@ export default function Home() {
   const handleZoomOut = useCallback(() => setZoom(z => Math.max(0.03, z / 1.3)), []);
   const handleZoomReset = useCallback(() => setZoom(DEFAULT_ZOOM), []);
 
-  const dismissOnboarding = useCallback(() => {
-    setOnboardingDismissed(true);
-    if (typeof window !== 'undefined') {
-      setDismissedState(window.localStorage, true);
-    }
-  }, []);
-
   const handleClaimClick = useCallback((tileId) => {
-    dismissOnboarding();
+    // If tile is already claimed, just select it; otherwise open claim modal
     if (tiles[tileId]) {
       setSelectedTile(tileId);
     } else {
-      setClaimModalTile(tileId ?? nextAvailableTileId);
+      setClaimModalTile(tileId ?? null);
     }
-  }, [dismissOnboarding, tiles, nextAvailableTileId]);
+  }, [tiles]);
 
   const handleTileClick = useCallback((tileId) => {
-    dismissOnboarding();
     setSelectedTile(tileId);
+    // If unclaimed, also open claim modal
     if (!tiles[tileId]) setClaimModalTile(tileId);
-  }, [dismissOnboarding, tiles]);
-
-  const showLandingHero = shouldShowLandingHero({ selectedTile, onboardingDismissed });
+  }, [tiles]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -211,13 +270,17 @@ export default function Home() {
             const data = await fetchGrid();
             if (data) {
               setTiles(data.tiles);
-              setStats({ claimed: data.stats.claimed, total: data.stats.total, price: data.stats.currentPrice });
-              if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
+              setStats({ ...data.stats });
             }
           }}
         />
       )}
-      <Header stats={stats} onClaimClick={(tileId) => handleClaimClick(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
+      <Header stats={stats} onClaimClick={(tileId) => setClaimModalTile(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
+      {/* Landing Hero — above the grid for first-time visitors */}
+      <LandingHero
+        stats={stats}
+        onClaimClick={() => setClaimModalTile(nextAvailableTileId)}
+      />
       <FilterBar
         onFilterChange={setFilterCategory}
         onSearchChange={setSearchQuery}
@@ -227,7 +290,7 @@ export default function Home() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div id="grid-section" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Grid
           tiles={tiles}
           onTileClick={handleTileClick}
@@ -246,13 +309,11 @@ export default function Home() {
               setTiles(prev => ({ ...prev, [id]: { ...prev[id], ...updatedTile } }));
             }}
           />
-        ) : showLandingHero ? (
-          <LandingHero
-            stats={stats}
-            onClaimClick={() => handleClaimClick(nextAvailableTileId)}
-            onDismiss={dismissOnboarding}
-          />
-        ) : null}
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, overflowY: 'auto', background: '#07071a', width: '100%', maxWidth: 360, boxSizing: 'border-box' }}>
+            <StatsPanel stats={stats} />
+          </div>
+        )}
       </div>
     </div>
   );

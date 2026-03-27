@@ -252,13 +252,43 @@ export function getNextAvailableTileId() {
   return TOTAL_TILES - 1; // all claimed (shouldn't happen)
 }
 
+// ─── Stats helpers ────────────────────────────────────────────────────────────
+
+// All tiles in DB are claimed (no row = unclaimed). Status tracks online/offline heartbeat.
+export function getRecentlyClaimed(limit = 10) {
+  const db = getDb();
+  return db.prepare(
+    'SELECT id, name, owner, claimed_at FROM tiles ORDER BY claimed_at DESC LIMIT ?'
+  ).all(limit);
+}
+
+export function getTopHolders(limit = 10) {
+  const db = getDb();
+  return db.prepare(
+    'SELECT owner, COUNT(*) as count FROM tiles GROUP BY owner ORDER BY count DESC LIMIT ?'
+  ).all(limit);
+}
+
+// Precompute the full bonding-curve revenue once at module load.
+// 65,536 iterations is trivial here and avoids recalculating the same sum on every request.
+const ESTIMATED_SOLD_OUT_REVENUE = (() => {
+  let total = 0;
+  for (let minted = 0; minted < TOTAL_TILES; minted++) {
+    total += Math.exp(Math.log(11111) * minted / TOTAL_TILES) / 100;
+  }
+  return total;
+})();
+
+export function getEstimatedSoldOutRevenue() {
+  return ESTIMATED_SOLD_OUT_REVENUE;
+}
+
 // ─── Admin / sync helpers ─────────────────────────────────────────────────────
 
 /**
- * Delete a claimed tile row.
- * Used to roll back the local DB claim if the on-chain mint fails.
+ * Roll back a DB claim if the on-chain tx fails (removes the tile row so it can be re-claimed).
  */
-export function deleteTile(id) {
+export function unclaimTile(id) {
   const db = getDb();
   db.prepare('DELETE FROM tiles WHERE id = ?').run(id);
 }

@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
 import { withX402 } from 'x402-next';
-import { claimTile, deleteTile, getCurrentPrice, setTileTxHash, TOTAL_TILES } from '@/lib/db';
+import {
+  claimTile,
+  getClaimedCount,
+  getCurrentPrice,
+  getNextAvailableTileId,
+  getRecentlyClaimed,
+  getTopHolders,
+  setTileTxHash,
+  unclaimTile,
+  TOTAL_TILES,
+} from '@/lib/db';
+import { broadcast } from '@/lib/sse-broadcast';
 
 // Treasury address that receives USDC payments (set in env or default to placeholder)
 const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000';
@@ -77,27 +88,41 @@ async function claimHandler(request, { params }) {
     txHash = await callOnChainClaim(tileId);
   } catch (err) {
     const msg = err?.message || '';
-
-    // Roll back the local DB insert so the tile doesn't get orphaned in SQLite.
-    deleteTile(tileId);
-
-    if (
+    const isAlreadyClaimed =
       msg.includes('already claimed') ||
       msg.includes('AlreadyClaimed') ||
-      msg.includes('ERC721: token already minted') ||
-      msg.includes('revert')
-    ) {
-      console.error(`[claim] Contract revert for tile #${tileId}:`, msg);
+      msg.includes('ERC721: token already minted');
+    const isExplicitRevert = msg.includes('revert');
+
+    // Only roll back the DB row when the contract call clearly failed before minting.
+    // Network/RPC timeouts can happen after broadcast, and deleting the DB record in
+    // those cases would desync the app from on-chain ownership state.
+    if (isAlreadyClaimed || isExplicitRevert) {
+      unclaimTile(tileId);
+    }
+
+    if (isAlreadyClaimed) {
+      console.error(`[claim] Contract reports tile #${tileId} already claimed:`, msg);
       return NextResponse.json(
         { error: 'Tile already claimed on-chain', detail: msg },
         { status: 409 }
       );
     }
 
-    console.error(`[claim] On-chain claim failed for tile #${tileId}:`, err);
+    if (isExplicitRevert) {
+      console.error(`[claim] Contract revert before mint for tile #${tileId}:`, msg);
+      return NextResponse.json(
+        { error: 'On-chain claim transaction reverted', detail: msg },
+        { status: 500 }
+      );
+    }
+
+    // For ambiguous errors (RPC/network/timeout), keep the DB row intact to avoid
+    // wiping a claim that may already have been broadcast or confirmed on-chain.
+    console.error(`[claim] Ambiguous on-chain claim error for tile #${tileId}:`, err);
     return NextResponse.json(
-      { error: 'On-chain claim transaction failed', detail: msg },
-      { status: 500 }
+      { error: 'On-chain claim status uncertain', detail: msg },
+      { status: 502 }
     );
   }
 
@@ -106,6 +131,26 @@ async function claimHandler(request, { params }) {
     setTileTxHash(tileId, txHash);
     tile.txHash = txHash;
   }
+
+  // Broadcast real-time update to all connected SSE clients
+  broadcast({
+    type: 'tile_claimed',
+    tileId,
+    tile,
+    claimedCount: getClaimedCount(),
+    currentPrice: getCurrentPrice(),
+    nextAvailableTileId: getNextAvailableTileId(),
+    recentlyClaimed: getRecentlyClaimed(10).map(row => ({
+      id: row.id,
+      name: row.name || `Tile #${row.id}`,
+      owner: row.owner,
+      claimedAt: row.claimed_at,
+    })),
+    topHolders: getTopHolders(10).map(row => ({
+      owner: row.owner,
+      count: row.count,
+    })),
+  });
 
   return NextResponse.json({ tile, pricePaid: price, txHash }, { status: 201 });
 }

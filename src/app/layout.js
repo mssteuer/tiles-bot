@@ -13,6 +13,12 @@ export const metadata = {
   },
 };
 
+// Correct App Router pattern for viewport (avoids duplicate <head> elements)
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">

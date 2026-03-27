@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 
 function getSizedImageUrl(url, size) {
@@ -180,17 +180,47 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
     display: 'block',
   };
 
+  // Reactive mobile detection — updates on resize, SSR-safe
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    setIsMobile(mq.matches);
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const panelStyle = isMobile
+    ? {
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        maxHeight: '80vh',
+        overflowY: 'auto',
+        background: '#0f0f1a',
+        borderTop: '1px solid #1a1a2e',
+        borderLeft: 'none',
+        padding: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+        zIndex: 100,
+        borderRadius: '12px 12px 0 0',
+      }
+    : {
+        width: 320,
+        background: '#0f0f1a',
+        borderLeft: '1px solid #1a1a2e',
+        padding: 24,
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 20,
+      };
+
   return (
-    <div style={{
-      width: 320,
-      background: '#0f0f1a',
-      borderLeft: '1px solid #1a1a2e',
-      padding: 24,
-      overflowY: 'auto',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 20,
-    }}>
+    <div style={panelStyle}>
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: '#555' }}>
@@ -392,7 +422,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
                   src={getSizedImageUrl(tile.imageUrl, 256)}
                   alt={tile.name || 'Tile image'}
                   style={{
-                    width: 128, height: 128, borderRadius: 16,
+                    width: 256, height: 256, borderRadius: 16,
                     objectFit: 'cover', display: 'block',
                     margin: '0 auto 12px', border: '1px solid #2a2a3e',
                   }}
