@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
-export default function Header({ stats, onClaimClick }) {
+export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
   const pct = ((stats.claimed / stats.total) * 100).toFixed(1);
 
   return (
@@ -26,15 +27,13 @@ export default function Header({ stats, onClaimClick }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
         <Link href="/faq" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>FAQ</Link>
         <a href="/SKILL.md" target="_blank" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>SKILL.md</a>
         <Stat label="Claimed" value={`${stats.claimed.toLocaleString()} / ${stats.total.toLocaleString()}`} />
         <Stat label="Filled" value={`${pct}%`} />
         <Stat label="Current Price" value={`$${parseFloat(stats.price).toFixed(4)}`} accent />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <ProgressBar pct={parseFloat(pct)} />
-        </div>
+        <ProgressBar pct={parseFloat(pct)} />
         <button style={{
           background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
           border: 'none',
@@ -46,12 +45,18 @@ export default function Header({ stats, onClaimClick }) {
           cursor: 'pointer',
           transition: 'transform 0.1s',
         }}
-        onClick={onClaimClick}
+        onClick={() => onClaimClick(nextAvailableTileId ?? 0)}
         onMouseDown={e => e.target.style.transform = 'scale(0.97)'}
         onMouseUp={e => e.target.style.transform = 'scale(1)'}
         >
           Claim a Tile
         </button>
+        {/* RainbowKit ConnectButton handles connect/disconnect/switch network */}
+        <ConnectButton
+          accountStatus="address"
+          chainStatus="icon"
+          showBalance={false}
+        />
       </div>
     </header>
   );
