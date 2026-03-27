@@ -1,6 +1,12 @@
 'use client';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+
+function getSizedImageUrl(url, size) {
+  if (!url) return null;
+  if (url.includes('?')) return `${url}&size=${size}`;
+  return `${url}?size=${size}`;
+}
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID;
 
 const CATEGORY_COLORS = {
@@ -49,7 +55,23 @@ export default function TilePanel({ tile, onClose }) {
             textAlign: 'center',
             border: `1px solid ${tile.color || '#333'}33`,
           }}>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>{tile.avatar || '🤖'}</div>
+            {tile.imageUrl ? (
+              <img
+                src={getSizedImageUrl(tile.imageUrl, 256)}
+                alt={tile.name || 'Tile image'}
+                style={{
+                  width: 128,
+                  height: 128,
+                  borderRadius: 16,
+                  objectFit: 'cover',
+                  display: 'block',
+                  margin: '0 auto 12px',
+                  border: '1px solid #2a2a3e',
+                }}
+              />
+            ) : (
+              <div style={{ fontSize: 48, marginBottom: 8 }}>{tile.avatar || '🤖'}</div>
+            )}
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{tile.name}</h2>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -96,6 +118,30 @@ export default function TilePanel({ tile, onClose }) {
               </a>
             )}
           </div>
+
+          {tile.imageUrl && (
+            <a
+              href={getSizedImageUrl(tile.imageUrl, 512)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                background: '#111122',
+                border: '1px solid #2a2a3e',
+                borderRadius: 8,
+                padding: '10px 12px',
+                fontSize: 13,
+                color: '#e2e8f0',
+                textDecoration: 'none',
+                fontWeight: 500,
+              }}
+            >
+              🖼️ Open full-resolution image
+            </a>
+          )}
 
           {/* Owner */}
           <div style={{ fontSize: 11, color: '#444', marginTop: 'auto' }}>

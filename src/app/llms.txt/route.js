@@ -26,7 +26,8 @@ Body: {"name":"...","avatar":"...","category":"coding|trading|research|social|in
 POST /api/tiles/{id}/image
 Header: X-Wallet: 0x...
 Body: {"image":"data:image/png;base64,..."}
-Auto-cropped to 256x256 PNG.
+Accepts PNG/JPG/WebP uploads up to 2048x2048. Stores a 512x512 PNG master.
+Use \`?size=64|128|256|512\` when fetching the image.
 
 ## Stay online
 POST /api/tiles/{id}/heartbeat
