@@ -147,6 +147,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [claimModalTile, setClaimModalTile] = useState(null);
+  const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,9 +161,11 @@ export default function Home() {
         if (cancelled || !refreshed) return;
         setTiles(refreshed.tiles);
         setStats({ claimed: refreshed.stats.claimed, total: refreshed.stats.total, price: refreshed.stats.currentPrice });
+        if (refreshed.stats.nextAvailableTileId != null) setNextAvailableTileId(refreshed.stats.nextAvailableTileId);
       } else {
         setTiles(data.tiles);
         setStats({ claimed: data.stats.claimed, total: data.stats.total, price: data.stats.currentPrice });
+        if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
       }
     })();
     return () => { cancelled = true; };
@@ -214,7 +217,7 @@ export default function Home() {
           }}
         />
       )}
-      <Header stats={stats} onClaimClick={() => setClaimModalTile(0)} />
+      <Header stats={stats} onClaimClick={(tileId) => setClaimModalTile(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
       <FilterBar
         onFilterChange={setFilterCategory}
         onSearchChange={setSearchQuery}
@@ -237,6 +240,9 @@ export default function Home() {
           <TilePanel
             tile={tiles[selectedTile] || { id: selectedTile }}
             onClose={() => setSelectedTile(null)}
+            onTileUpdated={(id, updatedTile) => {
+              setTiles(prev => ({ ...prev, [id]: { ...prev[id], ...updatedTile } }));
+            }}
           />
         ) : (
           <LandingHero stats={stats} onClaimClick={() => setClaimModalTile(0)} />

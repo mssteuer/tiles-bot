@@ -2,14 +2,18 @@
 
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { base, baseSepolia } from 'wagmi/chains';
+import { http } from 'wagmi';
 
 const IS_TESTNET = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
 
 export const wagmiConfig = getDefaultConfig({
   appName: 'tiles.bot — Million Bot Homepage',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'tiles-bot-default',
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
   chains: IS_TESTNET ? [baseSepolia] : [base],
-  ssr: false,
+  transports: IS_TESTNET
+    ? { [baseSepolia.id]: http() }
+    : { [base.id]: http() },
+  ssr: true,
 });
 
 export const TARGET_CHAIN = IS_TESTNET ? baseSepolia : base;
