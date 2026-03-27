@@ -149,6 +149,23 @@ export default function Home() {
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
 
+  // SSE: real-time tile updates — no manual refresh needed
+  useEffect(() => {
+    const es = new EventSource('/api/events');
+    es.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        if (event.type === 'tile_claimed') {
+          setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
+          setStats(prev => ({ ...prev, claimed: (prev.claimed || 0) + 1 }));
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+    return () => es.close();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
