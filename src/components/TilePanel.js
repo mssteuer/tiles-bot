@@ -687,14 +687,35 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     setEditing(true);
   }
 
+  // Compress image client-side before uploading (handles huge phone camera photos)
+  function compressImage(file, maxDim = 1024, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          const ratio = Math.min(maxDim / w, maxDim / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Compression failed')),
+          'image/jpeg', quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
+      img.src = url;
+    });
+  }
+
   async function handleImageUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      setSaveMsg('Error: Image too large (max 5MB)');
-      return;
-    }
 
     if (!file.type.startsWith('image/')) {
       setSaveMsg('Error: Please upload a PNG, JPG, or WebP image');
@@ -705,8 +726,13 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     setSaveMsg('');
 
     try {
+      // Compress client-side — handles 20MB phone photos gracefully
+      const compressed = file.size > 2 * 1024 * 1024
+        ? await compressImage(file, 1024, 0.85)
+        : file;
+
       const formPayload = new FormData();
-      formPayload.append('image', file);
+      formPayload.append('image', compressed, file.name);
 
       const res = await fetch(`/api/tiles/${tile.id}/image`, {
         method: 'POST',

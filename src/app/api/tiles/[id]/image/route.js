@@ -4,6 +4,7 @@ import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import sharp from 'sharp';
+import { isFilebaseConfigured, uploadToFilebase } from '@/lib/filebase';
 
 const IMAGES_DIR = process.env.IMAGES_DIR || path.join(process.cwd(), 'public', 'tile-images');
 const STORAGE_SIZE = 512;
@@ -102,17 +103,33 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Invalid image format. Use PNG, JPG, or WebP.' }, { status: 400 });
   }
 
+  // Always save locally (for fast serving / fallback)
   if (!existsSync(IMAGES_DIR)) {
     await mkdir(IMAGES_DIR, { recursive: true });
   }
 
   const { filePath, imageUrl } = getImagePaths(id);
   await writeFile(filePath, processedBuffer);
-  updateTileMetadata(id, { imageUrl });
+
+  // Upload to Filebase/IPFS if configured
+  let ipfs = null;
+  if (isFilebaseConfigured()) {
+    try {
+      ipfs = await uploadToFilebase(processedBuffer, `tiles/${id}.png`, 'image/png');
+      console.log(`[image] Tile ${id} pinned to IPFS: ${ipfs.cid}`);
+    } catch (err) {
+      console.error(`[image] Filebase upload failed for tile ${id}:`, err.message);
+      // Non-fatal — local image still works
+    }
+  }
+
+  const finalImageUrl = ipfs?.gateway || imageUrl;
+  updateTileMetadata(id, { imageUrl: finalImageUrl, ipfsCid: ipfs?.cid || null });
 
   return NextResponse.json({
     ok: true,
-    imageUrl,
+    imageUrl: finalImageUrl,
+    ipfs: ipfs ? { cid: ipfs.cid, gateway: ipfs.gateway, s3Url: ipfs.s3Url } : null,
     sizes: {
       default: `${imageUrl}?size=512`,
       grid: `${imageUrl}?size=64`,
