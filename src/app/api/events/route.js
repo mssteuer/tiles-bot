@@ -1,8 +1,7 @@
-import { addSseClient, removeSseClient } from '@/lib/sse-broadcast';
+import { addSseClient, removeSseClient, encodeSseMessage } from '@/lib/sse-broadcast';
 
 export const dynamic = 'force-dynamic';
 
-const encoder = new TextEncoder();
 const KEEPALIVE_MS = 30000;
 
 /**
@@ -14,20 +13,18 @@ const KEEPALIVE_MS = 30000;
  * if the app is later scaled to multiple Node.js workers.
  */
 export async function GET() {
-  let clientId;
   let keepAliveTimer;
+  let clientId = null;
 
   const stream = new ReadableStream({
     start(controller) {
       clientId = addSseClient(controller);
 
-      controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify({ type: 'connected' })}\n\n`)
-      );
+      controller.enqueue(encodeSseMessage({ type: 'connected' }));
 
       keepAliveTimer = setInterval(() => {
         try {
-          controller.enqueue(encoder.encode(': keep-alive\n\n'));
+          controller.enqueue(encodeSseMessage(null, { comment: 'keep-alive' }));
         } catch {
           clearInterval(keepAliveTimer);
           removeSseClient(clientId);
@@ -36,7 +33,7 @@ export async function GET() {
     },
     cancel() {
       if (keepAliveTimer) clearInterval(keepAliveTimer);
-      removeSseClient(clientId);
+      if (clientId !== null) removeSseClient(clientId);
     },
   });
 
