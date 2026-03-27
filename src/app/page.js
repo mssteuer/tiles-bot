@@ -1,7 +1,7 @@
 'use client';
 
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Grid from '../components/Grid';
 import TilePanel from '../components/TilePanel';
 import Header from '../components/Header';
@@ -140,6 +140,7 @@ async function fetchGrid() {
 
 export default function Home() {
   const [tiles, setTiles] = useState({});
+  const tilesRef = useRef({});
   const [selectedTile, setSelectedTile] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, price: 1.0 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -149,6 +150,10 @@ export default function Home() {
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
 
+  useEffect(() => {
+    tilesRef.current = tiles;
+  }, [tiles]);
+
   // SSE: real-time tile updates — no manual refresh needed
   useEffect(() => {
     const es = new EventSource('/api/events');
@@ -156,12 +161,23 @@ export default function Home() {
       try {
         const event = JSON.parse(e.data);
         if (event.type === 'tile_claimed') {
-          setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
-          setStats(prev => ({ ...prev, claimed: (prev.claimed || 0) + 1 }));
+          setTiles(prev => {
+            const tileWasAlreadyPresent = Boolean(prev[event.tileId] || tilesRef.current[event.tileId]);
+            setStats(currentStats => ({
+              ...currentStats,
+              claimed: tileWasAlreadyPresent
+                ? (currentStats.claimed || 0)
+                : Math.min((currentStats.claimed || 0) + 1, currentStats.total || 65536),
+            }));
+            return { ...prev, [event.tileId]: event.tile };
+          });
         }
       } catch {
         // ignore parse errors
       }
+    };
+    es.onerror = (err) => {
+      console.warn('[sse] EventSource connection issue, browser will retry automatically', err);
     };
     return () => es.close();
   }, []);

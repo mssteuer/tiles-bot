@@ -10,6 +10,25 @@
 const encoder = new TextEncoder();
 const clients = new Map();
 let nextId = 0;
+let nextEventId = 0;
+
+/**
+ * Encode an SSE message payload.
+ * Supports regular data events and comment-only keep-alives.
+ *
+ * Note: We emit monotonically increasing event ids so reconnecting clients can
+ * provide Last-Event-ID later if we choose to handle replay semantics.
+ */
+export function encodeSseMessage(event, options = {}) {
+  if (options.comment) {
+    return encoder.encode(`: ${options.comment}\n\n`);
+  }
+
+  const lines = [`id: ${nextEventId++}`];
+  if (options.event) lines.push(`event: ${options.event}`);
+  lines.push(`data: ${JSON.stringify(event)}`);
+  return encoder.encode(`${lines.join('\n')}\n\n`);
+}
 
 /**
  * Register a new SSE client.
@@ -35,7 +54,7 @@ export function removeSseClient(id) {
  * @param {object} event — JSON-serializable event object
  */
 export function broadcast(event) {
-  const data = encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
+  const data = encodeSseMessage(event);
   for (const [id, controller] of clients) {
     try {
       controller.enqueue(data);
