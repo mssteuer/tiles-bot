@@ -51,21 +51,40 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
 
   const wrongChain = isConnected && chainId !== TARGET_CHAIN.id;
 
+  function extractError(e) {
+    if (!e) return 'Unknown error';
+    if (typeof e === 'string') return e;
+    if (typeof e === 'object') {
+      return e.shortMessage || e.message || e.details || JSON.stringify(e);
+    }
+    return String(e);
+  }
+
   async function handleApprove() {
     setStep('approve');
     setErrorMsg('');
     try {
+      // Approve a large amount so user doesn't need to re-approve
+      const MAX_UINT = 2n ** 256n - 1n;
       const hash = await writeContractAsync({
         address: USDC_ADDRESS,
         abi: ERC20_ABI,
         functionName: 'approve',
-        args: [CONTRACT_ADDRESS, price * 2n], // approve 2x for safety
+        args: [CONTRACT_ADDRESS, MAX_UINT],
       });
       setTxHash(hash);
+      // Give the chain a moment then refetch allowance
+      await new Promise(r => setTimeout(r, 2000));
       await refetchAllowance();
       setStep('claim');
     } catch (e) {
-      setErrorMsg(e.shortMessage || e.message || 'Approval failed');
+      const msg = extractError(e);
+      // User rejected = not an error worth showing
+      if (msg.includes('rejected') || msg.includes('denied') || msg.includes('cancel')) {
+        setStep('info');
+        return;
+      }
+      setErrorMsg(msg);
       setStep('error');
     }
   }
@@ -82,17 +101,24 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       });
       setTxHash(hash);
 
-      // Register with local DB
-      await fetch(`/api/tiles/${tileId}/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: address, txHash: hash, pricePaid: priceDisplay }),
-      });
+      // Register with local DB (best-effort, don't fail claim if this errors)
+      try {
+        await fetch(`/api/tiles/${tileId}/claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: address, txHash: hash, pricePaid: priceDisplay }),
+        });
+      } catch (_) {}
 
       setStep('success');
       if (onClaimed) onClaimed(tileId, address);
     } catch (e) {
-      setErrorMsg(e.shortMessage || e.message || 'Claim failed');
+      const msg = extractError(e);
+      if (msg.includes('rejected') || msg.includes('denied') || msg.includes('cancel')) {
+        setStep('info');
+        return;
+      }
+      setErrorMsg(msg);
       setStep('error');
     }
   }
