@@ -267,7 +267,7 @@ function VerifyXButton({ tile, address, onVerified }) {
   const [step, setStep] = useState('idle'); // idle | fetching-challenge | show-challenge | submitting | error | done
   const [challenge, setChallenge] = useState('');
   const [tweetUrl, setTweetUrl] = useState('');
-  const [xHandle, setXHandle] = useState(tile.xHandle || '');
+  const [xHandle, setXHandle] = useState(tile.xHandleVerified || '');
   const [errMsg, setErrMsg] = useState('');
 
   async function handleStart() {
@@ -394,7 +394,7 @@ function VerifyXButton({ tile, address, onVerified }) {
         {errMsg && <div style={{ color: '#f87171', fontSize: 11 }}>{errMsg}</div>}
         <div style={{ display: 'flex', gap: 6 }}>
           <button
-            onClick={() => { setStep('idle'); setErrMsg(''); setTweetUrl(''); setXHandle(tile.xHandle || ''); }}
+            onClick={() => { setStep('idle'); setErrMsg(''); setTweetUrl(''); setXHandle(tile.xHandleVerified || ''); }}
             style={{
               flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #334155',
               background: '#111122', color: '#94a3b8',
@@ -854,6 +854,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
                   <VerificationBadge verified={tile.xVerified} title={tile.xVerified ? 'X/Twitter identity verified' : 'X/Twitter identity not verified'} />
                 </a>
               )}
+              {/* Owner-only unverified GitHub nudge; keep this out of public social rows unless intentionally redesigning the panel. */}
               {(tile.githubUsername || isOwner) && (
                 tile.githubUsername ? (
                   <a href={`https://github.com/${tile.githubUsername}`} target="_blank" rel="noopener" style={{
