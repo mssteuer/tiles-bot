@@ -59,6 +59,12 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE tiles ADD COLUMN image_url TEXT`); } catch {}
   // Add tx_hash column if it doesn't exist (migration for existing DBs)
   try { db.exec(`ALTER TABLE tiles ADD COLUMN tx_hash TEXT`); } catch {}
+  // Add github_verified, x_verified columns (migration for existing DBs)
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN github_verified INTEGER NOT NULL DEFAULT 0`); } catch {}
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN github_username TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN github_gist_id TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN x_verified INTEGER NOT NULL DEFAULT 0`); } catch {}
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN x_handle_verified TEXT`); } catch {}
 }
 
 // ─── Read helpers ────────────────────────────────────────────────────────────
@@ -81,6 +87,11 @@ function rowToTile(row) {
     pricePaid: row.price_paid || null,
     imageUrl: row.image_url || null,
     txHash: row.tx_hash || null,
+    githubVerified: row.github_verified === 1,
+    githubUsername: row.github_username || null,
+    githubGistId: row.github_gist_id || null,
+    xVerified: row.x_verified === 1,
+    xHandleVerified: row.x_handle_verified || null,
   };
 }
 
@@ -333,6 +344,50 @@ export function getTilesByOwner(owner) {
  */
 export function getGridState() {
   return getAllTiles();
+}
+
+// ─── Verification helpers ─────────────────────────────────────────────────────
+
+/**
+ * Store GitHub verification proof for a tile.
+ */
+export function setGithubVerification(id, githubUsername, gistId) {
+  const db = getDb();
+  const result = db.prepare(
+    'UPDATE tiles SET github_verified = 1, github_username = ?, github_gist_id = ? WHERE id = ?'
+  ).run(githubUsername, gistId, id);
+  return result.changes > 0;
+}
+
+/**
+ * Clear GitHub verification for a tile.
+ */
+export function clearGithubVerification(id) {
+  const db = getDb();
+  db.prepare(
+    'UPDATE tiles SET github_verified = 0, github_username = NULL, github_gist_id = NULL WHERE id = ?'
+  ).run(id);
+}
+
+/**
+ * Store X/Twitter verification proof for a tile.
+ */
+export function setXVerification(id, xHandle) {
+  const db = getDb();
+  const result = db.prepare(
+    'UPDATE tiles SET x_verified = 1, x_handle_verified = ? WHERE id = ?'
+  ).run(xHandle, id);
+  return result.changes > 0;
+}
+
+/**
+ * Clear X/Twitter verification for a tile.
+ */
+export function clearXVerification(id) {
+  const db = getDb();
+  db.prepare(
+    'UPDATE tiles SET x_verified = 0, x_handle_verified = NULL WHERE id = ?'
+  ).run(id);
 }
 
 // Close DB gracefully on process exit
