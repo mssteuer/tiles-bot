@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseAbi } from 'viem';
 
@@ -20,11 +20,14 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
   const [step, setStep] = useState('preview'); // preview | approve | claim | success | error
   const [error, setError] = useState(null);
   const [currentPrice, setCurrentPrice] = useState(null);
+  const [claimedCount, setClaimedCount] = useState(0); // tracks how many we successfully claimed
+  const frozenTiles = useRef(null); // freeze tile list once claim starts
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
 
-  // Separate claimed vs unclaimed
+  // Separate claimed vs unclaimed — frozen once claim flow begins
   const { unclaimed, alreadyClaimed } = useMemo(() => {
+    if (frozenTiles.current) return frozenTiles.current;
     const unclaimed = [];
     const alreadyClaimed = [];
     for (const id of tileIds) {
@@ -52,6 +55,9 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
     if (!isConnected || unclaimed.length === 0) return;
 
     try {
+      // Freeze the tile lists so SSE updates don't shift tiles to "already claimed"
+      frozenTiles.current = { unclaimed: [...unclaimed], alreadyClaimed: [...alreadyClaimed] };
+      setClaimedCount(unclaimed.length);
       setStep('approve');
       setError(null);
 
@@ -90,6 +96,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
     } catch (err) {
       const msg = err?.shortMessage || err?.message || 'Transaction failed';
       if (msg.toLowerCase().includes('reject') || msg.toLowerCase().includes('denied')) {
+        frozenTiles.current = null; // unfreeze on user cancel
         setStep('preview');
         return;
       }
@@ -190,7 +197,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>
             <div style={{ color: '#22c55e', fontSize: 16, fontWeight: 600 }}>
-              {unclaimed.length} tiles claimed!
+              {claimedCount} tiles claimed!
             </div>
             <button onClick={onClose} style={{
               marginTop: 12, padding: '10px 24px', borderRadius: 8,
