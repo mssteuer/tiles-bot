@@ -11,8 +11,8 @@ export const wagmiConfig = getDefaultConfig({
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
   chains: IS_TESTNET ? [baseSepolia] : [base],
   transports: IS_TESTNET
-    ? { [baseSepolia.id]: http() }
-    : { [base.id]: http() },
+    ? { [baseSepolia.id]: http('https://sepolia.base.org') }
+    : { [base.id]: http('https://mainnet.base.org') },
   ssr: true,
 });
 
