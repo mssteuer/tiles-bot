@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import LandingHero from '../components/LandingHero';
 import FilterBar from '../components/FilterBar';
 import ClaimModal from '../components/ClaimModal';
+import StatsPanel from '../components/StatsPanel';
 
 const GRID_PX = 256 * 32;
 const DEFAULT_ZOOM = 0.15;
@@ -224,6 +225,11 @@ export default function Home() {
         />
       )}
       <Header stats={stats} onClaimClick={(tileId) => setClaimModalTile(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
+      {/* Landing Hero — above the grid for first-time visitors */}
+      <LandingHero
+        stats={stats}
+        onClaimClick={() => setClaimModalTile(nextAvailableTileId)}
+      />
       <FilterBar
         onFilterChange={setFilterCategory}
         onSearchChange={setSearchQuery}
@@ -253,7 +259,9 @@ export default function Home() {
             }}
           />
         ) : (
-          <LandingHero stats={stats} onClaimClick={() => setClaimModalTile(0)} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, overflowY: 'auto', background: '#07071a' }}>
+            <StatsPanel />
+          </div>
         )}
       </div>
     </div>
