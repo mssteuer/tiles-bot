@@ -188,13 +188,20 @@ async function claimHandler(request, { params }) {
     txHash = await callOnChainClaim(tileId);
   } catch (err) {
     const msg = err?.message || '';
+    const isAlreadyClaimed =
+      msg.includes('already claimed') ||
+      msg.includes('AlreadyClaimed') ||
+      msg.includes('ERC721: token already minted');
+    const isExplicitRevert = msg.includes('revert');
 
-    // Roll back DB if the error is clearly pre-mint
-    if (isAlreadyClaimedError(msg) || msg.includes('revert') || err?.code === 'SERVER_WALLET_NOT_READY') {
+    // Only roll back the DB row when the contract call clearly failed before minting.
+    // Network/RPC timeouts can happen after broadcast, and deleting the DB record in
+    // those cases would desync the app from on-chain ownership state.
+    if (isAlreadyClaimed || isExplicitRevert) {
       unclaimTile(tileId);
     }
 
-    if (isAlreadyClaimedError(msg)) {
+    if (isAlreadyClaimed) {
       console.error(`[claim] Contract reports tile #${tileId} already claimed:`, msg);
       return NextResponse.json(
         { error: 'Tile already claimed on-chain', detail: msg },
@@ -202,40 +209,16 @@ async function claimHandler(request, { params }) {
       );
     }
 
-    if (err?.code === 'SERVER_WALLET_NOT_READY') {
-      console.error(`[claim] Server wallet readiness check failed for tile #${tileId}:`, err.meta || msg);
-      return NextResponse.json(
-        {
-          error: 'Server wallet is not ready for on-chain claim',
-          detail: msg,
-          readiness: err.meta,
-        },
-        { status: 500 }
-      );
-    }
-
-    if (isReceiptTimeoutError(err)) {
-      // For timeouts: don't roll back (tx may already be broadcast on-chain)
-      console.error(`[claim] Timed out waiting for receipt for tile #${tileId}:`, err);
-      return NextResponse.json(
-        {
-          error: 'Timed out waiting for on-chain claim confirmation',
-          detail: msg,
-          timeoutMs: RECEIPT_TIMEOUT_MS,
-        },
-        { status: 500 }
-      );
-    }
-
-    if (msg.includes('revert')) {
-      console.error(`[claim] Contract revert for tile #${tileId}:`, msg);
+    if (isExplicitRevert) {
+      console.error(`[claim] Contract revert before mint for tile #${tileId}:`, msg);
       return NextResponse.json(
         { error: 'On-chain claim transaction reverted', detail: msg },
         { status: 500 }
       );
     }
 
-    // Ambiguous errors: keep DB row to avoid desyncing with on-chain state
+    // For ambiguous errors (RPC/network/timeout), keep the DB row intact to avoid
+    // wiping a claim that may already have been broadcast or confirmed on-chain.
     console.error(`[claim] Ambiguous on-chain claim error for tile #${tileId}:`, err);
     return NextResponse.json(
       { error: 'On-chain claim status uncertain', detail: msg },

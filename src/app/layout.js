@@ -1,3 +1,4 @@
+import './globals.css';
 import Providers from '../components/Providers';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://tiles.bot';
@@ -22,7 +23,7 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, background: '#0a0a0f', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <body>
         <Providers>
           {children}
         </Providers>

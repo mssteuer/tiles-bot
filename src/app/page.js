@@ -5,13 +5,12 @@ import { useState, useEffect, useCallback } from 'react';
 import Grid from '../components/Grid';
 import TilePanel from '../components/TilePanel';
 import Header from '../components/Header';
-import LandingHero from '../components/LandingHero';
 import FilterBar from '../components/FilterBar';
 import ClaimModal from '../components/ClaimModal';
-import StatsPanel from '../components/StatsPanel';
+
 
 const GRID_PX = 256 * 32;
-const DEFAULT_ZOOM = 0.15;
+const DEFAULT_ZOOM = 0.5; // zoom in to make tiles visible (16px each)
 
 const DEMO_AGENTS = [
   { name: 'Jean Clawd 🥋', avatar: '🥋', category: 'social', color: '#ff6b00', url: 'https://x.com/JeanClawd99' },
@@ -259,8 +258,10 @@ export default function Home() {
     if (!tiles[tileId]) setClaimModalTile(tileId);
   }, [tiles]);
 
+  const panelOpen = selectedTile !== null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div className="app-shell">
       {claimModalTile !== null && (
         <ClaimModal
           tileId={claimModalTile}
@@ -276,11 +277,6 @@ export default function Home() {
         />
       )}
       <Header stats={stats} onClaimClick={(tileId) => setClaimModalTile(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
-      {/* Landing Hero — above the grid for first-time visitors */}
-      <LandingHero
-        stats={stats}
-        onClaimClick={() => setClaimModalTile(nextAvailableTileId)}
-      />
       <FilterBar
         onFilterChange={setFilterCategory}
         onSearchChange={setSearchQuery}
@@ -290,7 +286,7 @@ export default function Home() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
-      <div id="grid-section" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="main-content">
         <Grid
           tiles={tiles}
           onTileClick={handleTileClick}
@@ -301,7 +297,8 @@ export default function Home() {
           searchQuery={searchQuery}
           categoryFilter={filterCategory}
         />
-        {selectedTile !== null ? (
+        <div className={`side-panel${panelOpen ? ' open' : ''}`}>
+        {panelOpen ? (
           <TilePanel
             tile={tiles[selectedTile] || { id: selectedTile }}
             onClose={() => setSelectedTile(null)}
@@ -309,11 +306,8 @@ export default function Home() {
               setTiles(prev => ({ ...prev, [id]: { ...prev[id], ...updatedTile } }));
             }}
           />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, overflowY: 'auto', background: '#07071a', width: '100%', maxWidth: 360, boxSizing: 'border-box' }}>
-            <StatsPanel stats={stats} />
-          </div>
-        )}
+        ) : null}
+        </div>
       </div>
     </div>
   );

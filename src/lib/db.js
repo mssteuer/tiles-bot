@@ -110,9 +110,9 @@ export function setTile(id, data) {
   const db = getDb();
   db.prepare(`
     INSERT OR REPLACE INTO tiles
-      (id, owner, name, avatar, description, category, color, status, url, x_handle, claimed_at, last_heartbeat, price_paid, image_url, tx_hash)
+      (id, owner, name, avatar, description, category, color, status, url, x_handle, claimed_at, last_heartbeat, price_paid)
     VALUES
-      (@id, @owner, @name, @avatar, @description, @category, @color, @status, @url, @x_handle, @claimed_at, @last_heartbeat, @price_paid, @image_url, @tx_hash)
+      (@id, @owner, @name, @avatar, @description, @category, @color, @status, @url, @x_handle, @claimed_at, @last_heartbeat, @price_paid)
   `).run({
     id: data.id,
     owner: data.owner,
@@ -127,8 +127,6 @@ export function setTile(id, data) {
     claimed_at: data.claimedAt || new Date().toISOString(),
     last_heartbeat: data.lastHeartbeat || null,
     price_paid: data.pricePaid || null,
-    image_url: data.imageUrl || null,
-    tx_hash: data.txHash || null,
   });
 }
 
