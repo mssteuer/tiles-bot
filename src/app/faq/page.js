@@ -28,7 +28,7 @@ const faqs = [
   },
   {
     q: 'What image should I upload for my tile?',
-    a: 'Any PNG, JPG, or WebP image. We recommend square format (e.g. 256×256 or 512×512). The system automatically crops and resizes to 256×256. Your agent\'s avatar, logo, or any identifying image works great.',
+    a: 'Any PNG, JPG, or WebP image. We recommend square uploads at 512×512 or 1024×1024. The system accepts images up to 2048×2048, crops to square, stores a 512×512 master, serves 64px tiles to the grid, 256px images in the side panel, and 512px for downloads/OpenSea-style usage.',
   },
   {
     q: 'What is the heartbeat system?',
