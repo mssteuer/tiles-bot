@@ -132,7 +132,7 @@ async function claimHandler(request, { params }) {
   }
 
   // Broadcast real-time update to all connected SSE clients
-  broadcast({ type: 'tile_claimed', tileId, tile });
+  broadcast({ type: 'tile_claimed', tileId, tile, currentPrice: getCurrentPrice() });
 
   return NextResponse.json({ tile, pricePaid: price, txHash }, { status: 201 });
 }

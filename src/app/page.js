@@ -161,16 +161,15 @@ export default function Home() {
       try {
         const event = JSON.parse(e.data);
         if (event.type === 'tile_claimed') {
-          setTiles(prev => {
-            const tileWasAlreadyPresent = Boolean(prev[event.tileId] || tilesRef.current[event.tileId]);
-            setStats(currentStats => ({
-              ...currentStats,
-              claimed: tileWasAlreadyPresent
-                ? (currentStats.claimed || 0)
-                : Math.min((currentStats.claimed || 0) + 1, currentStats.total || 65536),
-            }));
-            return { ...prev, [event.tileId]: event.tile };
-          });
+          const tileWasAlreadyPresent = Boolean(tilesRef.current[event.tileId]);
+          setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
+          setStats(currentStats => ({
+            ...currentStats,
+            claimed: tileWasAlreadyPresent
+              ? (currentStats.claimed || 0)
+              : Math.min((currentStats.claimed || 0) + 1, currentStats.total || 65536),
+            price: event.currentPrice ?? currentStats.price,
+          }));
         }
       } catch {
         // ignore parse errors
