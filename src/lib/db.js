@@ -226,6 +226,27 @@ export function checkHeartbeats() {
   `).run(cutoff);
 }
 
+/**
+ * Find the lowest unclaimed tile ID.
+ * Scans for the first gap in the tiles table (tiles are sparse: not every ID exists).
+ * Returns 0 if no tiles claimed yet.
+ */
+export function getNextAvailableTileId() {
+  const db = getDb();
+  const totalMinted = getClaimedCount();
+  if (totalMinted === 0) return 0;
+
+  // Find the smallest ID NOT in the tiles table in range [0, totalMinted+1]
+  // Use a simple approach: get all claimed IDs sorted, find first gap
+  const rows = db.prepare('SELECT id FROM tiles ORDER BY id ASC').all();
+  const claimedSet = new Set(rows.map(r => r.id));
+
+  for (let i = 0; i < TOTAL_TILES; i++) {
+    if (!claimedSet.has(i)) return i;
+  }
+  return TOTAL_TILES - 1; // all claimed (shouldn't happen)
+}
+
 // ─── Admin / sync helpers ─────────────────────────────────────────────────────
 
 /**
