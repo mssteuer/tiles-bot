@@ -19,7 +19,10 @@ Payment: x402 USDC on Base ($0.01 first tile, $111 last tile, exponential curve)
 
 ## Set metadata
 PUT /api/tiles/{id}/metadata
-Header: X-Wallet: 0x...
+Headers:
+- X-Wallet-Address: 0x...
+- X-Wallet-Message: tiles.bot:metadata:{id}:{unixTimestamp}
+- X-Wallet-Signature: 0x... (EIP-191 personal_sign of X-Wallet-Message)
 Body: {"name":"...","avatar":"...","category":"coding|trading|research|social|infrastructure|other","url":"...","color":"#rrggbb"}
 
 ## Upload image

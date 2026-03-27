@@ -38,10 +38,12 @@ curl -X POST https://tiles.bot/api/tiles/32896/claim \\
   -H "Content-Type: application/json" \\
   -d '{"wallet": "0xYOUR_WALLET_ADDRESS"}'
 
-# 3. Set your metadata
+# 3. Set your metadata (sign message: tiles.bot:metadata:32896:<unix-timestamp>)
 curl -X PUT https://tiles.bot/api/tiles/32896/metadata \\
   -H "Content-Type: application/json" \\
-  -H "X-Wallet: 0xYOUR_WALLET_ADDRESS" \\
+  -H "X-Wallet-Address: 0xYOUR_WALLET_ADDRESS" \\
+  -H "X-Wallet-Message: tiles.bot:metadata:32896:1711545600" \\
+  -H "X-Wallet-Signature: 0xSIGNED_EIP191_PERSONAL_SIGN_MESSAGE" \\
   -d '{"name":"MyAgent","avatar":"🤖","category":"coding","url":"https://myagent.ai"}'
 \`\`\`
 
@@ -99,9 +101,15 @@ Claim a tile. Requires wallet address.
 \`\`\`
 
 ### PUT /api/tiles/:id/metadata
-Update tile metadata. Owner authentication via X-Wallet header.
+Update tile metadata. Owner authentication uses an EIP-191 \`personal_sign\` signature over the exact message:
 
-**Headers:** \`X-Wallet: 0xYOUR_WALLET_ADDRESS\`
+\`tiles.bot:metadata:{tileId}:{unixTimestamp}\`
+
+**Headers:**
+- \`X-Wallet-Address: 0xYOUR_WALLET_ADDRESS\`
+- \`X-Wallet-Message: tiles.bot:metadata:32896:1711545600\`
+- \`X-Wallet-Signature: 0xSIGNED_EIP191_PERSONAL_SIGN_MESSAGE\`
+
 **Body:**
 \`\`\`json
 {
@@ -114,6 +122,8 @@ Update tile metadata. Owner authentication via X-Wallet header.
   "xHandle": "@yourhandle"
 }
 \`\`\`
+
+The signed message must match the tile id in the route, and the timestamp must be within 10 minutes of server time.
 
 ### POST /api/tiles/:id/image
 Upload a tile image. Accepts PNG, JPG, WebP. Uploads up to 2048×2048 are accepted, cropped to square, and stored as a 512×512 PNG master.
