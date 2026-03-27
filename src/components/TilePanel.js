@@ -180,17 +180,40 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
     display: 'block',
   };
 
+  // Detect mobile (< 640px) via CSS media query applied at render
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+
+  const panelStyle = isMobile
+    ? {
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        maxHeight: '80vh',
+        overflowY: 'auto',
+        background: '#0f0f1a',
+        borderTop: '1px solid #1a1a2e',
+        borderLeft: 'none',
+        padding: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+        zIndex: 100,
+        borderRadius: '12px 12px 0 0',
+      }
+    : {
+        width: 320,
+        background: '#0f0f1a',
+        borderLeft: '1px solid #1a1a2e',
+        padding: 24,
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 20,
+      };
+
   return (
-    <div style={{
-      width: 320,
-      background: '#0f0f1a',
-      borderLeft: '1px solid #1a1a2e',
-      padding: 24,
-      overflowY: 'auto',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 20,
-    }}>
+    <div style={panelStyle}>
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: '#555' }}>
