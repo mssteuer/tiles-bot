@@ -1,6 +1,5 @@
 'use client';
 
-
 import { useState, useEffect, useCallback } from 'react';
 import Grid from '../components/Grid';
 import TilePanel from '../components/TilePanel';
@@ -8,6 +7,7 @@ import Header from '../components/Header';
 import LandingHero from '../components/LandingHero';
 import FilterBar from '../components/FilterBar';
 import ClaimModal from '../components/ClaimModal';
+import { getDismissedState, setDismissedState, shouldShowLandingHero } from '../lib/onboarding';
 
 const GRID_PX = 256 * 32;
 const DEFAULT_ZOOM = 0.15;
@@ -27,7 +27,6 @@ const DEMO_AGENTS = [
   { name: 'Eliza 💬', avatar: '💬', category: 'social', color: '#ec4899', url: 'https://eliza.ai' },
 ];
 
-// Positions near center (row ~128, col ~128)
 function getDemoPositions() {
   const cx = 128, cy = 128;
   const offsets = [
@@ -57,7 +56,6 @@ async function seedDemoData() {
   const demoWallet = 'demo-seed-wallet';
   const positions = getDemoPositions();
 
-  // Seed named agents
   for (let i = 0; i < DEMO_AGENTS.length; i++) {
     const agent = DEMO_AGENTS[i];
     const tileId = positions[i];
@@ -79,7 +77,6 @@ async function seedDemoData() {
             url: agent.url,
           }),
         });
-        // Set online via heartbeat
         await fetch(`/api/tiles/${tileId}/heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -91,7 +88,6 @@ async function seedDemoData() {
     }
   }
 
-  // Seed ~50 random agents
   const randomPositions = getRandomPositions(50, positions);
   for (let i = 0; i < randomPositions.length; i++) {
     const tileId = randomPositions[i];
@@ -117,7 +113,6 @@ async function seedDemoData() {
             url: '#',
           }),
         });
-        // Random online/offline
         if (Math.random() > 0.5) {
           await fetch(`/api/tiles/${tileId}/heartbeat`, {
             method: 'POST',
@@ -148,6 +143,12 @@ export default function Home() {
   const [viewMode, setViewMode] = useState('grid');
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setOnboardingDismissed(getDismissedState(window.localStorage));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,20 +176,29 @@ export default function Home() {
   const handleZoomOut = useCallback(() => setZoom(z => Math.max(0.03, z / 1.3)), []);
   const handleZoomReset = useCallback(() => setZoom(DEFAULT_ZOOM), []);
 
+  const dismissOnboarding = useCallback(() => {
+    setOnboardingDismissed(true);
+    if (typeof window !== 'undefined') {
+      setDismissedState(window.localStorage, true);
+    }
+  }, []);
+
   const handleClaimClick = useCallback((tileId) => {
-    // If tile is already claimed, just select it; otherwise open claim modal
+    dismissOnboarding();
     if (tiles[tileId]) {
       setSelectedTile(tileId);
     } else {
-      setClaimModalTile(tileId ?? null);
+      setClaimModalTile(tileId ?? nextAvailableTileId);
     }
-  }, [tiles]);
+  }, [dismissOnboarding, tiles, nextAvailableTileId]);
 
   const handleTileClick = useCallback((tileId) => {
+    dismissOnboarding();
     setSelectedTile(tileId);
-    // If unclaimed, also open claim modal
     if (!tiles[tileId]) setClaimModalTile(tileId);
-  }, [tiles]);
+  }, [dismissOnboarding, tiles]);
+
+  const showLandingHero = shouldShowLandingHero({ selectedTile, onboardingDismissed });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -202,11 +212,12 @@ export default function Home() {
             if (data) {
               setTiles(data.tiles);
               setStats({ claimed: data.stats.claimed, total: data.stats.total, price: data.stats.currentPrice });
+              if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
             }
           }}
         />
       )}
-      <Header stats={stats} onClaimClick={(tileId) => setClaimModalTile(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
+      <Header stats={stats} onClaimClick={(tileId) => handleClaimClick(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
       <FilterBar
         onFilterChange={setFilterCategory}
         onSearchChange={setSearchQuery}
@@ -235,9 +246,13 @@ export default function Home() {
               setTiles(prev => ({ ...prev, [id]: { ...prev[id], ...updatedTile } }));
             }}
           />
-        ) : (
-          <LandingHero stats={stats} onClaimClick={() => setClaimModalTile(0)} />
-        )}
+        ) : showLandingHero ? (
+          <LandingHero
+            stats={stats}
+            onClaimClick={() => handleClaimClick(nextAvailableTileId)}
+            onDismiss={dismissOnboarding}
+          />
+        ) : null}
       </div>
     </div>
   );
