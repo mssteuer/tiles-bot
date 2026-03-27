@@ -413,21 +413,32 @@ export function addConnection(idA, idB, label) {
   const from_id = Math.min(idA, idB);
   const to_id = Math.max(idA, idB);
 
-  // Count existing connections for both tiles
-  const countA = db.prepare(
-    'SELECT COUNT(*) as n FROM tile_connections WHERE from_id = ? OR to_id = ?'
-  ).get(idA, idA)?.n || 0;
-  const countB = db.prepare(
-    'SELECT COUNT(*) as n FROM tile_connections WHERE from_id = ? OR to_id = ?'
-  ).get(idB, idB)?.n || 0;
+  // Wrap count check + insert in a transaction to prevent TOCTOU race condition.
+  // Without this, two concurrent POSTs could both pass the limit check and both insert.
+  const insertTx = db.transaction(() => {
+    const countA = db.prepare(
+      'SELECT COUNT(*) as n FROM tile_connections WHERE from_id = ? OR to_id = ?'
+    ).get(idA, idA)?.n || 0;
+    const countB = db.prepare(
+      'SELECT COUNT(*) as n FROM tile_connections WHERE from_id = ? OR to_id = ?'
+    ).get(idB, idB)?.n || 0;
 
-  if (countA >= MAX_CONNECTIONS_PER_TILE || countB >= MAX_CONNECTIONS_PER_TILE) {
-    throw new Error(`Max ${MAX_CONNECTIONS_PER_TILE} connections per tile`);
-  }
+    if (countA >= MAX_CONNECTIONS_PER_TILE || countB >= MAX_CONNECTIONS_PER_TILE) {
+      throw new Error(`Max ${MAX_CONNECTIONS_PER_TILE} connections per tile`);
+    }
 
-  db.prepare(
-    'INSERT OR IGNORE INTO tile_connections (from_id, to_id, label) VALUES (?, ?, ?)'
-  ).run(from_id, to_id, label || null);
+    // Use plain INSERT (no OR IGNORE) — route already checks connectionExists().
+    // If a duplicate somehow slips through, let the unique constraint throw rather than silently swallow it.
+    const result = db.prepare(
+      'INSERT INTO tile_connections (from_id, to_id, label) VALUES (?, ?, ?)'
+    ).run(from_id, to_id, label || null);
+
+    if (result.changes === 0) {
+      throw new Error('Connection already exists');
+    }
+  });
+
+  insertTx();
   return { ok: true, from_id, to_id };
 }
 

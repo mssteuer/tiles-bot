@@ -89,7 +89,7 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const result = addConnection(tileId, target, cleanLabel);
+    addConnection(tileId, target, cleanLabel);
     return NextResponse.json({
       ok: true,
       from: tileId,
@@ -126,7 +126,7 @@ export async function DELETE(request, { params }) {
   const body = await request.json().catch(() => null);
   const { targetId } = body || {};
   const target = parseInt(targetId, 10);
-  if (isNaN(target)) {
+  if (isNaN(target) || target < 0 || target >= TOTAL_TILES) {
     return NextResponse.json({ error: 'Invalid targetId' }, { status: 400 });
   }
 
