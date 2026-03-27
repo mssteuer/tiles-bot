@@ -56,7 +56,7 @@ export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, on
       flexWrap: 'wrap',
     }}>
       {/* Category pills — scrollable on mobile */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
         {categories.map((cat) => (
           <button
             key={cat}

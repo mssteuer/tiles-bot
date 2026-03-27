@@ -421,7 +421,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated }) {
             }}>
               {tile.imageUrl ? (
                 <img
-                  src={getSizedImageUrl(tile.imageUrl, 256)}
+                  src={getSizedImageUrl(tile.imageUrl, 128)}
                   alt={tile.name || 'Tile image'}
                   style={{
                     width: 128, height: 128, borderRadius: 16,
