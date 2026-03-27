@@ -267,12 +267,16 @@ export function getTopHolders(limit = 10) {
   ).all(limit);
 }
 
-export function getEstimatedSoldOutRevenue() {
+const ESTIMATED_SOLD_OUT_REVENUE = (() => {
   let total = 0;
   for (let minted = 0; minted < TOTAL_TILES; minted++) {
     total += Math.exp(Math.log(11111) * minted / TOTAL_TILES) / 100;
   }
   return total;
+})();
+
+export function getEstimatedSoldOutRevenue() {
+  return ESTIMATED_SOLD_OUT_REVENUE;
 }
 
 // ─── Admin / sync helpers ─────────────────────────────────────────────────────

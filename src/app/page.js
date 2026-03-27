@@ -148,7 +148,7 @@ async function fetchStatsSnapshot() {
 export default function Home() {
   const [tiles, setTiles] = useState({});
   const [selectedTile, setSelectedTile] = useState(null);
-  const [stats, setStats] = useState({ claimed: 0, total: 65536, price: 1.0 });
+  const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [filterCategory, setFilterCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -156,7 +156,20 @@ export default function Home() {
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
 
-  // SSE: real-time tile updates — re-sync on (re)connect and after claim events
+  const refreshStats = useCallback(async () => {
+    try {
+      const statsSnapshot = await fetchStatsSnapshot();
+      if (!statsSnapshot) return;
+      setStats(statsSnapshot);
+      if (statsSnapshot.nextAvailableTileId != null) {
+        setNextAvailableTileId(statsSnapshot.nextAvailableTileId);
+      }
+    } catch {
+      console.warn('Failed to refresh stats snapshot');
+    }
+  }, []);
+
+  // SSE: real-time tile updates — re-sync on (re)connect and patch local grid on claim events
   useEffect(() => {
     let closed = false;
 
@@ -166,21 +179,12 @@ export default function Home() {
 
       if (grid) {
         setTiles(grid.tiles);
-        setStats({
-          claimed: grid.stats.claimed,
-          total: grid.stats.total,
-          price: grid.stats.currentPrice,
-        });
+        setStats(grid.stats);
         if (grid.stats.nextAvailableTileId != null) {
           setNextAvailableTileId(grid.stats.nextAvailableTileId);
         }
       } else if (statsSnapshot) {
-        setStats(prev => ({
-          ...prev,
-          claimed: statsSnapshot.claimed,
-          total: statsSnapshot.total,
-          price: statsSnapshot.currentPrice,
-        }));
+        setStats(statsSnapshot);
         if (statsSnapshot.nextAvailableTileId != null) {
           setNextAvailableTileId(statsSnapshot.nextAvailableTileId);
         }
@@ -198,11 +202,27 @@ export default function Home() {
         const event = JSON.parse(e.data);
         if (event.type === 'tile_claimed') {
           setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
-          refreshFromServer();
+          setStats(prev => {
+            const claimed = event.claimedCount ?? (prev.claimed + 1);
+            return {
+              ...prev,
+              claimed,
+              currentPrice: event.currentPrice ?? prev.currentPrice,
+              nextAvailableTileId: event.nextAvailableTileId ?? prev.nextAvailableTileId,
+            };
+          });
+          if (event.nextAvailableTileId != null) {
+            setNextAvailableTileId(event.nextAvailableTileId);
+          }
+          refreshStats();
         }
       } catch {
         // ignore parse errors
       }
+    };
+
+    es.onerror = () => {
+      console.warn('SSE connection error in page.js');
     };
 
     return () => {
@@ -222,11 +242,11 @@ export default function Home() {
         const refreshed = await fetchGrid();
         if (cancelled || !refreshed) return;
         setTiles(refreshed.tiles);
-        setStats({ claimed: refreshed.stats.claimed, total: refreshed.stats.total, price: refreshed.stats.currentPrice });
+        setStats({ ...refreshed.stats });
         if (refreshed.stats.nextAvailableTileId != null) setNextAvailableTileId(refreshed.stats.nextAvailableTileId);
       } else {
         setTiles(data.tiles);
-        setStats({ claimed: data.stats.claimed, total: data.stats.total, price: data.stats.currentPrice });
+        setStats({ ...data.stats });
         if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
       }
     })();
@@ -263,7 +283,7 @@ export default function Home() {
             const data = await fetchGrid();
             if (data) {
               setTiles(data.tiles);
-              setStats({ claimed: data.stats.claimed, total: data.stats.total, price: data.stats.currentPrice });
+              setStats({ ...data.stats });
             }
           }}
         />
@@ -304,7 +324,7 @@ export default function Home() {
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, overflowY: 'auto', background: '#07071a' }}>
-            <StatsPanel />
+            <StatsPanel stats={stats} onRefresh={refreshStats} />
           </div>
         )}
       </div>

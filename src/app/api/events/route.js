@@ -11,7 +11,6 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
   let clientId;
-  let keepAliveTimer;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -19,19 +18,8 @@ export async function GET() {
 
       // Initial connected heartbeat
       controller.enqueue(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
-
-      // Keep-alive ping every 25s to prevent nginx proxy_read_timeout from closing the connection
-      keepAliveTimer = setInterval(() => {
-        try {
-          controller.enqueue(`: keep-alive\n\n`);
-        } catch {
-          clearInterval(keepAliveTimer);
-          removeSseClient(clientId);
-        }
-      }, KEEPALIVE_MS);
     },
     cancel() {
-      if (keepAliveTimer) clearInterval(keepAliveTimer);
       if (clientId !== undefined) removeSseClient(clientId);
     },
   });
