@@ -10,7 +10,7 @@ export async function GET() {
     auth: { type: 'none' },
     api: {
       type: 'openapi',
-      url: '/api/openapi.json',
+      url: '/openapi.json',
       is_user_authenticated: false,
     },
     logo_url: '/logo.png',
