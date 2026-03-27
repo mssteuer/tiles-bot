@@ -18,11 +18,99 @@ const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000
 
 // Network: 'base' for mainnet, 'base-sepolia' for testnet
 const X402_NETWORK = process.env.X402_NETWORK || 'base-sepolia';
+const RECEIPT_TIMEOUT_MS = 30_000;
+
+function getContractChainName() {
+  // CONTRACT_CHAIN is preferred; falls back to x402 network
+  return process.env.CONTRACT_CHAIN || process.env.X402_NETWORK || 'base-sepolia';
+}
+
+async function getContractChain() {
+  const chainName = getContractChainName();
+  const chains = await import('viem/chains');
+  const chain = chains[chainName];
+  if (!chain) {
+    throw new Error(`[claim] Unsupported contract chain: ${chainName}`);
+  }
+  return chain;
+}
+
+function isAlreadyClaimedError(message) {
+  return (
+    message.includes('already claimed') ||
+    message.includes('AlreadyClaimed') ||
+    message.includes('ERC721: token already minted')
+  );
+}
+
+function isReceiptTimeoutError(error) {
+  const message = error?.message || '';
+  return message.includes('timed out') || message.includes('timeout');
+}
+
+/**
+ * Pre-flight check: server wallet must have USDC balance + allowance before calling claim().
+ * Throws with error.code = 'SERVER_WALLET_NOT_READY' and error.meta if not ready.
+ */
+async function checkServerWalletClaimReadiness(publicClient, contractAddress, account, tileId) {
+  const { getContract, parseAbi } = await import('viem');
+
+  const READINESS_ABI = parseAbi([
+    'function usdc() view returns (address)',
+    'function currentPrice() view returns (uint256)',
+    'function allowance(address owner, address spender) view returns (uint256)',
+    'function balanceOf(address account) view returns (uint256)',
+  ]);
+
+  const contract = getContract({
+    address: contractAddress,
+    abi: READINESS_ABI,
+    client: publicClient,
+  });
+
+  const usdcAddress = await contract.read.usdc();
+  const [requiredAmount, allowance, balance] = await Promise.all([
+    contract.read.currentPrice(),
+    publicClient.readContract({
+      address: usdcAddress,
+      abi: READINESS_ABI,
+      functionName: 'allowance',
+      args: [account.address, contractAddress],
+    }),
+    publicClient.readContract({
+      address: usdcAddress,
+      abi: READINESS_ABI,
+      functionName: 'balanceOf',
+      args: [account.address],
+    }),
+  ]);
+
+  if (balance < requiredAmount || allowance < requiredAmount) {
+    const reasons = [];
+    if (balance < requiredAmount) reasons.push(`insufficient USDC balance (${balance} < ${requiredAmount})`);
+    if (allowance < requiredAmount) reasons.push(`missing USDC approval (${allowance} < ${requiredAmount})`);
+
+    const error = new Error(
+      `[claim] Server wallet not ready for on-chain claim of tile #${tileId}: ${reasons.join('; ')}. ` +
+      `SERVER_WALLET_PRIVATE_KEY wallet must hold USDC and approve ${contractAddress} before claim().`
+    );
+    error.code = 'SERVER_WALLET_NOT_READY';
+    error.meta = {
+      usdcAddress,
+      contractAddress,
+      wallet: account.address,
+      requiredAmount: requiredAmount.toString(),
+      allowance: allowance.toString(),
+      balance: balance.toString(),
+    };
+    throw error;
+  }
+}
 
 /**
  * Call the on-chain claim() function using the server wallet.
- * Returns the tx hash, or null if SERVER_WALLET_PRIVATE_KEY is not configured.
- * Throws if the contract call fails (e.g. tile already claimed on-chain → 409).
+ * Returns the confirmed tx hash, or null if SERVER_WALLET_PRIVATE_KEY is not configured.
+ * Waits for receipt confirmation within RECEIPT_TIMEOUT_MS.
  */
 async function callOnChainClaim(tileId) {
   if (!process.env.SERVER_WALLET_PRIVATE_KEY) {
@@ -33,8 +121,7 @@ async function callOnChainClaim(tileId) {
     return null;
   }
 
-  const { createWalletClient, http, parseAbi } = await import('viem');
-  const { base } = await import('viem/chains');
+  const { createWalletClient, createPublicClient, http, parseAbi } = await import('viem');
   const { privateKeyToAccount } = await import('viem/accounts');
 
   const CLAIM_ABI = parseAbi(['function claim(uint256 tokenId) external']);
@@ -45,12 +132,15 @@ async function callOnChainClaim(tileId) {
     return null;
   }
 
+  const chain = await getContractChain();
   const account = privateKeyToAccount(process.env.SERVER_WALLET_PRIVATE_KEY);
-  const walletClient = createWalletClient({
-    account,
-    chain: base,
-    transport: http(),
-  });
+  const transport = http();
+
+  const walletClient = createWalletClient({ account, chain, transport });
+  const publicClient = createPublicClient({ chain, transport });
+
+  // Pre-flight: verify server wallet has USDC balance + allowance
+  await checkServerWalletClaimReadiness(publicClient, contractAddress, account, tileId);
 
   const txHash = await walletClient.writeContract({
     address: contractAddress,
@@ -58,6 +148,15 @@ async function callOnChainClaim(tileId) {
     functionName: 'claim',
     args: [BigInt(tileId)],
   });
+
+  // Wait for on-chain confirmation
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash: txHash,
+    timeout: RECEIPT_TIMEOUT_MS,
+  });
+  if (receipt.status !== 'success') {
+    throw new Error(`[claim] Transaction failed on-chain: ${txHash}`);
+  }
 
   return txHash;
 }
@@ -82,26 +181,20 @@ async function claimHandler(request, { params }) {
     return NextResponse.json({ error: 'Tile already claimed or invalid' }, { status: 409 });
   }
 
-  // Call the smart contract to actually mint the NFT on-chain
+  // Call the smart contract to actually mint the NFT on-chain.
+  // If this fails, roll back the DB claim so the tile can be re-claimed.
   let txHash = null;
   try {
     txHash = await callOnChainClaim(tileId);
   } catch (err) {
     const msg = err?.message || '';
-    const isAlreadyClaimed =
-      msg.includes('already claimed') ||
-      msg.includes('AlreadyClaimed') ||
-      msg.includes('ERC721: token already minted');
-    const isExplicitRevert = msg.includes('revert');
 
-    // Only roll back the DB row when the contract call clearly failed before minting.
-    // Network/RPC timeouts can happen after broadcast, and deleting the DB record in
-    // those cases would desync the app from on-chain ownership state.
-    if (isAlreadyClaimed || isExplicitRevert) {
+    // Roll back DB if the error is clearly pre-mint
+    if (isAlreadyClaimedError(msg) || msg.includes('revert') || err?.code === 'SERVER_WALLET_NOT_READY') {
       unclaimTile(tileId);
     }
 
-    if (isAlreadyClaimed) {
+    if (isAlreadyClaimedError(msg)) {
       console.error(`[claim] Contract reports tile #${tileId} already claimed:`, msg);
       return NextResponse.json(
         { error: 'Tile already claimed on-chain', detail: msg },
@@ -109,16 +202,40 @@ async function claimHandler(request, { params }) {
       );
     }
 
-    if (isExplicitRevert) {
-      console.error(`[claim] Contract revert before mint for tile #${tileId}:`, msg);
+    if (err?.code === 'SERVER_WALLET_NOT_READY') {
+      console.error(`[claim] Server wallet readiness check failed for tile #${tileId}:`, err.meta || msg);
+      return NextResponse.json(
+        {
+          error: 'Server wallet is not ready for on-chain claim',
+          detail: msg,
+          readiness: err.meta,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (isReceiptTimeoutError(err)) {
+      // For timeouts: don't roll back (tx may already be broadcast on-chain)
+      console.error(`[claim] Timed out waiting for receipt for tile #${tileId}:`, err);
+      return NextResponse.json(
+        {
+          error: 'Timed out waiting for on-chain claim confirmation',
+          detail: msg,
+          timeoutMs: RECEIPT_TIMEOUT_MS,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (msg.includes('revert')) {
+      console.error(`[claim] Contract revert for tile #${tileId}:`, msg);
       return NextResponse.json(
         { error: 'On-chain claim transaction reverted', detail: msg },
         { status: 500 }
       );
     }
 
-    // For ambiguous errors (RPC/network/timeout), keep the DB row intact to avoid
-    // wiping a claim that may already have been broadcast or confirmed on-chain.
+    // Ambiguous errors: keep DB row to avoid desyncing with on-chain state
     console.error(`[claim] Ambiguous on-chain claim error for tile #${tileId}:`, err);
     return NextResponse.json(
       { error: 'On-chain claim status uncertain', detail: msg },
@@ -156,19 +273,11 @@ async function claimHandler(request, { params }) {
 }
 
 // Wrap with x402 payment verification using dynamic pricing from bonding curve.
-// withX402 will:
-//   1. If no X-PAYMENT header: return 402 with payment requirements (amount + recipient)
-//   2. If X-PAYMENT header present: verify USDC payment via x402 facilitator
-//   3. Only call claimHandler if payment is valid; settle payment after 200 response
-//
-// Price is fetched dynamically from getCurrentPrice() (exponential bonding curve:
-// starts at ~$0.01 USDC, asymptotes toward $111 as all 65,536 tiles are claimed).
 export const POST = withX402(
   claimHandler,
   PAY_TO_ADDRESS,
   async () => {
     const usdPrice = getCurrentPrice();
-    // Format as USD string with 2 decimal places (x402 accepts "$1.23" format)
     const priceUsd = `$${usdPrice.toFixed(2)}`;
     return {
       price: priceUsd,
