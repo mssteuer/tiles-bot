@@ -124,7 +124,7 @@ export async function POST(request, { params }) {
   }
 
   const finalImageUrl = ipfs?.gateway || imageUrl;
-  updateTileMetadata(id, { imageUrl: finalImageUrl, ipfsCid: ipfs?.cid || null });
+  updateTileMetadata(id, { imageUrl: finalImageUrl });
 
   return NextResponse.json({
     ok: true,
