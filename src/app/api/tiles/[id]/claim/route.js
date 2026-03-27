@@ -77,27 +77,42 @@ async function claimHandler(request, { params }) {
   try {
     txHash = await callOnChainClaim(tileId);
   } catch (err) {
-    // Roll back the DB entry — tile must be re-claimable after a failed on-chain tx
-    unclaimTile(tileId);
-
     const msg = err?.message || '';
-    if (
+    const isAlreadyClaimed =
       msg.includes('already claimed') ||
       msg.includes('AlreadyClaimed') ||
-      msg.includes('ERC721: token already minted') ||
-      msg.includes('revert')
-    ) {
-      console.error(`[claim] Contract revert for tile #${tileId}:`, msg);
+      msg.includes('ERC721: token already minted');
+    const isExplicitRevert = msg.includes('revert');
+
+    // Only roll back the DB row when the contract call clearly failed before minting.
+    // Network/RPC timeouts can happen after broadcast, and deleting the DB record in
+    // those cases would desync the app from on-chain ownership state.
+    if (isAlreadyClaimed || isExplicitRevert) {
+      unclaimTile(tileId);
+    }
+
+    if (isAlreadyClaimed) {
+      console.error(`[claim] Contract reports tile #${tileId} already claimed:`, msg);
       return NextResponse.json(
         { error: 'Tile already claimed on-chain', detail: msg },
         { status: 409 }
       );
     }
-    // For other contract errors (gas, network, etc.), surface as 500
-    console.error(`[claim] On-chain claim failed for tile #${tileId}:`, err);
+
+    if (isExplicitRevert) {
+      console.error(`[claim] Contract revert before mint for tile #${tileId}:`, msg);
+      return NextResponse.json(
+        { error: 'On-chain claim transaction reverted', detail: msg },
+        { status: 500 }
+      );
+    }
+
+    // For ambiguous errors (RPC/network/timeout), keep the DB row intact to avoid
+    // wiping a claim that may already have been broadcast or confirmed on-chain.
+    console.error(`[claim] Ambiguous on-chain claim error for tile #${tileId}:`, err);
     return NextResponse.json(
-      { error: 'On-chain claim transaction failed', detail: msg },
-      { status: 500 }
+      { error: 'On-chain claim status uncertain', detail: msg },
+      { status: 502 }
     );
   }
 
