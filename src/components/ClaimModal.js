@@ -76,7 +76,11 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       // Give the chain a moment then refetch allowance
       await new Promise(r => setTimeout(r, 2000));
       await refetchAllowance();
-      setStep('claim');
+      // Auto-proceed to claim after approval
+      setStep('info');
+      // Small delay so React re-renders before we trigger claim
+      await new Promise(r => setTimeout(r, 100));
+      await handleClaim();
     } catch (e) {
       const msg = extractError(e);
       // User rejected = not an error worth showing
