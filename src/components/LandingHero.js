@@ -52,7 +52,7 @@ export default function LandingHero({ stats, onClaimClick }) {
         </span>
         <span>·</span>
         <span>
-          <span style={{ color: '#8b5cf6', fontWeight: 700 }}>${parseFloat(stats?.price ?? 0).toFixed(4)}</span>
+          <span style={{ color: '#8b5cf6', fontWeight: 700 }}>${parseFloat(stats?.currentPrice ?? 0).toFixed(4)}</span>
           {' per tile'}
         </span>
         <button
@@ -69,14 +69,14 @@ export default function LandingHero({ stats, onClaimClick }) {
             cursor: 'pointer',
           }}
         >
-          Claim a Tile — ${parseFloat(stats?.price ?? 0).toFixed(4)}
+          Claim a Tile — ${parseFloat(stats?.currentPrice ?? 0).toFixed(4)}
         </button>
       </div>
     );
   }
 
   // First-time visitor hero
-  const price = parseFloat(stats?.price ?? 0).toFixed(4);
+  const price = parseFloat(stats?.currentPrice ?? 0).toFixed(4);
 
   return (
     <div style={{
