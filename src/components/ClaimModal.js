@@ -93,15 +93,17 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
     setStep('claim');
     setErrorMsg('');
     try {
+      console.log('[tiles.bot] Sending claim tx for tile', tileId);
       const hash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: MBH_ABI,
         functionName: 'claim',
         args: [BigInt(tileId)],
       });
+      console.log('[tiles.bot] Claim tx hash:', hash);
       setTxHash(hash);
 
-      // Register with local DB (best-effort, don't fail claim if this errors)
+      // Register with local DB (best-effort)
       try {
         await fetch(`/api/tiles/${tileId}/claim`, {
           method: 'POST',
@@ -113,12 +115,20 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       setStep('success');
       if (onClaimed) onClaimed(tileId, address);
     } catch (e) {
+      console.error('[tiles.bot] Claim error:', e);
       const msg = extractError(e);
       if (msg.includes('rejected') || msg.includes('denied') || msg.includes('cancel')) {
         setStep('info');
         return;
       }
-      setErrorMsg(msg);
+      // If revert, show a more helpful message
+      if (msg.includes('revert') || msg.includes('Tile already claimed')) {
+        setErrorMsg('This tile may already be claimed on-chain. Try a different tile.');
+      } else if (msg.includes('transfer failed') || msg.includes('USDC')) {
+        setErrorMsg('USDC transfer failed — check your USDC balance on Base and that the approval went through.');
+      } else {
+        setErrorMsg(msg);
+      }
       setStep('error');
     }
   }
