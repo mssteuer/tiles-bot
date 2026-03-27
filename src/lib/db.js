@@ -197,8 +197,12 @@ export function claimTile(id, wallet, pricePaid) {
   if (id < 0 || id >= TOTAL_TILES) return null;
 
   // Check if already claimed before insert.
-  const existing = db.prepare('SELECT id FROM tiles WHERE id = ?').get(id);
-  if (existing) return null;
+  // Demo-seed tiles can be overwritten by real claims.
+  const existing = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(id);
+  if (existing && existing.owner !== 'demo-seed-wallet') return null;
+  if (existing && existing.owner === 'demo-seed-wallet') {
+    db.prepare('DELETE FROM tiles WHERE id = ?').run(id);
+  }
 
   const tile = {
     id,
