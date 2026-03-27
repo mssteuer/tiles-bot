@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withX402 } from 'x402-next';
-import { claimTile, getCurrentPrice, setTileTxHash, TOTAL_TILES } from '@/lib/db';
+import { claimTile, getCurrentPrice, setTileTxHash, unclaimTile, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
 // Treasury address that receives USDC payments (set in env or default to placeholder)
@@ -77,8 +77,9 @@ async function claimHandler(request, { params }) {
   try {
     txHash = await callOnChainClaim(tileId);
   } catch (err) {
-    // If the contract call fails, roll back the DB entry by checking for "already claimed" errors.
-    // Common revert messages from the MillionBotHomepage contract:
+    // Roll back the DB entry — tile must be re-claimable after a failed on-chain tx
+    unclaimTile(tileId);
+
     const msg = err?.message || '';
     if (
       msg.includes('already claimed') ||
