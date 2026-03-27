@@ -657,7 +657,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [imagePreview, setImagePreview] = useState(tile.image_url || null);
+  const [imagePreview, setImagePreview] = useState(tile.imageUrl || null);
   const [formData, setFormData] = useState({
     name: tile.name || '',
     description: tile.description || '',
@@ -682,7 +682,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
       avatar: tile.avatar || '🤖',
       color: tile.color || '#3b82f6',
     });
-    setImagePreview(tile.image_url || null);
+    setImagePreview(tile.imageUrl || null);
     setSaveMsg('');
     setEditing(true);
   }
