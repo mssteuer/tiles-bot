@@ -20,7 +20,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
     address: CONTRACT_ADDRESS,
     abi: MBH_ABI,
     functionName: 'currentPrice',
-    enabled: !!CONTRACT_ADDRESS,
+    query: { enabled: !!CONTRACT_ADDRESS },
   });
 
   // Read USDC allowance
@@ -29,7 +29,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [address, CONTRACT_ADDRESS],
-    enabled: !!address && !!CONTRACT_ADDRESS,
+    query: { enabled: !!address && !!CONTRACT_ADDRESS },
   });
 
   // Read USDC balance
@@ -38,15 +38,16 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [address],
-    enabled: !!address,
+    query: { enabled: !!address },
   });
 
   const { writeContractAsync } = useWriteContract();
 
   const price = onChainPrice ? onChainPrice : parseUnits('0.01', 6); // fallback $0.01
   const priceDisplay = formatUnits(price, 6);
-  const hasAllowance = allowance && allowance >= price;
-  const hasBalance = usdcBalance && usdcBalance >= price;
+  const hasAllowance = allowance !== undefined && allowance >= price;
+  // Treat undefined (still loading) as sufficient — don't block on load
+  const hasBalance = usdcBalance === undefined || usdcBalance >= price;
 
   const wrongChain = isConnected && chainId !== TARGET_CHAIN.id;
 
