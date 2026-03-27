@@ -28,7 +28,8 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
     const unclaimed = [];
     const alreadyClaimed = [];
     for (const id of tileIds) {
-      if (tiles[id]) alreadyClaimed.push(id);
+      const t = tiles[id];
+      if (t && t.owner && t.owner !== 'demo-seed-wallet') alreadyClaimed.push(id);
       else unclaimed.push(id);
     }
     return { unclaimed, alreadyClaimed };
