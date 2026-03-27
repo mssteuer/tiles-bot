@@ -483,6 +483,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
   const lastTouchDist = useRef(null);
   const handleTouchStart = useCallback((e) => {
     if (e.touches.length === 2) {
+      isDragging.current = false;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       lastTouchDist.current = Math.hypot(dx, dy);
