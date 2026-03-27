@@ -20,6 +20,81 @@ const CATEGORY_COLORS = {
 const HB_GREEN = 5 * 60 * 1000;   // 5 minutes
 const HB_YELLOW = 30 * 60 * 1000; // 30 minutes
 
+// ── Heat map ──────────────────────────────────────────────────────────────────
+// Activity score: 0 (cold) → 1 (hot). Factors:
+//   - Recent heartbeat (0–0.50): recency within last hour
+//   - Has name/description/category (0–0.20): metadata richness
+//   - Has image (0.10): visual presence
+//   - Has social verification (0–0.20): G/X badges
+//   - Tile age bonus (0–0.10): older tiles get slight credit (committed, not flash-claimed)
+function getTileActivityScore(tile) {
+  if (!tile) return 0;
+  let score = 0;
+  const now = Date.now();
+
+  // Heartbeat recency (max 0.50)
+  if (tile.lastHeartbeat) {
+    const age = now - tile.lastHeartbeat;
+    const ONE_HOUR = 60 * 60 * 1000;
+    if (age <= HB_GREEN) {
+      score += 0.50; // pulsing green = maximum
+    } else if (age <= HB_YELLOW) {
+      score += 0.35; // yellow warm
+    } else if (age <= ONE_HOUR) {
+      score += 0.20 * (1 - (age - HB_YELLOW) / (ONE_HOUR - HB_YELLOW));
+    }
+    // >1h: no heartbeat bonus
+  }
+
+  // Metadata richness (max 0.20)
+  let metaScore = 0;
+  if (tile.name && tile.name !== `Tile #${tile.id}`) metaScore += 0.08;
+  if (tile.description && tile.description.length > 10) metaScore += 0.06;
+  if (tile.category) metaScore += 0.03;
+  if (tile.url) metaScore += 0.03;
+  score += Math.min(0.20, metaScore);
+
+  // Image (0.10)
+  if (tile.imageUrl) score += 0.10;
+
+  // Social verification (max 0.20)
+  if (tile.githubVerified) score += 0.10;
+  if (tile.xVerified) score += 0.10;
+
+  // Tile age bonus (max 0.10) — tiles older than 7 days get full credit
+  if (tile.claimedAt) {
+    const ageDays = (now - new Date(tile.claimedAt).getTime()) / (1000 * 60 * 60 * 24);
+    score += Math.min(0.10, ageDays / 7 * 0.10);
+  }
+
+  return Math.min(1, score);
+}
+
+// Map score [0,1] → RGBA color string (cold blue → warm yellow → hot red)
+function heatmapColor(score, alpha = 0.72) {
+  // 0.0–0.3: blue (#3b82f6) → cyan-ish
+  // 0.3–0.6: cyan → yellow (#facc15)
+  // 0.6–1.0: yellow → red (#ef4444)
+  let r, g, b;
+  if (score < 0.3) {
+    const t = score / 0.3;
+    r = Math.round(59 + t * (34 - 59));     // 59→34
+    g = Math.round(130 + t * (197 - 130));  // 130→197
+    b = Math.round(246 + t * (94 - 246));   // 246→94
+  } else if (score < 0.6) {
+    const t = (score - 0.3) / 0.3;
+    r = Math.round(34 + t * (250 - 34));    // 34→250
+    g = Math.round(197 + t * (204 - 197));  // 197→204
+    b = Math.round(94 + t * (21 - 94));     // 94→21
+  } else {
+    const t = (score - 0.6) / 0.4;
+    r = Math.round(250 + t * (239 - 250));  // 250→239
+    g = Math.round(204 + t * (68 - 204));   // 204→68
+    b = Math.round(21 + t * (68 - 21));     // 21→68
+  }
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 // Image cache: tileId -> HTMLImageElement or 'loading' or 'error'
 const imageCache = {};
 
@@ -73,7 +148,7 @@ function getFirstMatchingTile(tiles, searchQuery, categoryFilter) {
     .sort((a, b) => a.id - b.id)[0] || null;
 }
 
-export default function Grid({ tiles, connections, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter }) {
+export default function Grid({ tiles, connections, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -143,6 +218,10 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
       if (tile.imageUrl) loadTileImage(tile);
     });
   }, [tiles]);
+
+  // heatmapMode ref for draw callback
+  const heatmapModeRef = useRef(heatmapMode);
+  useEffect(() => { heatmapModeRef.current = heatmapMode; }, [heatmapMode]);
 
   // Draw function (called in animation loop)
   const draw = useCallback(() => {
@@ -348,6 +427,100 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
       }
     }
 
+    // ── Heat map overlay ──────────────────────────────────────────────────
+    if (heatmapModeRef.current) {
+      ctx.save();
+      for (let row = minRow; row <= maxRow; row++) {
+        for (let col = minCol; col <= maxCol; col++) {
+          const id = row * GRID_SIZE + col;
+          const tile = tiles[id];
+          if (!tile) continue;
+
+          const score = getTileActivityScore(tile);
+          if (score < 0.01) continue; // skip cold tiles (unclaimed or zero activity)
+
+          const x = col * TILE_SIZE;
+          const y = row * TILE_SIZE;
+
+          // Semi-transparent color overlay — covers the tile
+          const overlayAlpha = 0.55 + score * 0.35; // 0.55–0.90
+          ctx.fillStyle = heatmapColor(score, overlayAlpha);
+          ctx.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+
+          // Glow halo for hot tiles (score >= 0.6)
+          if (score >= 0.6) {
+            const glowAlpha = (score - 0.6) / 0.4 * 0.7; // 0–0.7
+            ctx.save();
+            ctx.shadowColor = heatmapColor(score, 1);
+            ctx.shadowBlur = 14 / cam.zoom * score;
+            ctx.fillStyle = heatmapColor(score, glowAlpha * 0.3);
+            ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
+            ctx.restore();
+          }
+
+          // Score text when zoomed in (score > 0.3)
+          if (cam.zoom > 0.6 && score > 0.15) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.font = `bold ${Math.min(7, TILE_SIZE * 0.2)}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${Math.round(score * 100)}`, x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+            ctx.restore();
+          }
+        }
+      }
+      ctx.restore();
+
+      // ── Heat map legend (screen-space, fixed bottom-left) ──────────────
+      ctx.restore(); // exit world-space
+      ctx.save();
+      const legendW = 160;
+      const legendH = 14;
+      const legendX = 16;
+      const legendY = h - 54;
+
+      // Background pill
+      ctx.fillStyle = 'rgba(10,10,15,0.80)';
+      ctx.beginPath();
+      ctx.roundRect(legendX - 8, legendY - 22, legendW + 16, legendH + 36, 8);
+      ctx.fill();
+
+      // Label
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'bold 11px system-ui';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText('Activity', legendX, legendY - 16);
+
+      // Gradient bar
+      const grad = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
+      grad.addColorStop(0,    heatmapColor(0,    1));
+      grad.addColorStop(0.3,  heatmapColor(0.3,  1));
+      grad.addColorStop(0.6,  heatmapColor(0.6,  1));
+      grad.addColorStop(1,    heatmapColor(1,    1));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(legendX, legendY, legendW, legendH, 4);
+      ctx.fill();
+
+      // Tick labels
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '9px system-ui';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText('Cold', legendX, legendY + legendH + 3);
+      ctx.textAlign = 'right';
+      ctx.fillText('Hot', legendX + legendW, legendY + legendH + 3);
+      ctx.restore();
+
+      // Re-enter world-space for connection lines
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.scale(cam.zoom, cam.zoom);
+      ctx.translate(-cam.x, -cam.y);
+    }
+
     // ── Connection lines (neighbor network) ──────────────────────────────
     const conns = connectionsRef.current;
     if (conns && conns.length > 0 && cam.zoom > 0.05) {
@@ -428,7 +601,7 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
 
     ctx.restore();
-  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter]); // camera via ref, connections via ref
+  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter, heatmapMode]); // camera via ref, connections via ref, heatmapMode via ref
 
   // Animation loop for pulsing glow
   useEffect(() => {
