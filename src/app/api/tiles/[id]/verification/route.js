@@ -260,23 +260,15 @@ async function handleXVerification(tileId, tile, body) {
     return NextResponse.json({ error: 'Invalid tweet URL format. Expected: https://x.com/username/status/TWEET_ID' }, { status: 400 });
   }
 
-  const tweetAuthorFromUrl = tweetUrlMatch[1].toLowerCase();
   const tweetId = tweetUrlMatch[2];
   const cleanHandle = xHandle.startsWith('@') ? xHandle.slice(1).toLowerCase() : xHandle.toLowerCase();
-
-  // Author in URL must match the claimed handle
-  if (tweetAuthorFromUrl !== cleanHandle) {
-    return NextResponse.json(
-      { error: `Tweet URL author "${tweetAuthorFromUrl}" does not match claimed handle "${cleanHandle}"` },
-      { status: 422 }
-    );
-  }
 
   // Expected challenge string
   const expectedChallenge = `tiles.bot:verify:x:${tileId}:${tile.owner.toLowerCase()}`;
 
   // Fetch tweet via Twitter oEmbed API (no auth, public tweets only)
   let tweetText;
+  let canonicalHandle;
   try {
     const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(tweetUrl)}&omit_script=true`;
     const oembedRes = await fetch(oembedUrl, {
@@ -291,6 +283,17 @@ async function handleXVerification(tileId, tile, body) {
     }
 
     const oembedData = await oembedRes.json();
+    canonicalHandle = oembedData.author_url?.split('/').filter(Boolean).pop()?.toLowerCase() || null;
+    if (!canonicalHandle) {
+      return NextResponse.json({ error: 'Could not determine tweet author from Twitter response' }, { status: 502 });
+    }
+    if (canonicalHandle !== cleanHandle) {
+      return NextResponse.json(
+        { error: `Tweet author does not match claimed handle (tweet is by @${canonicalHandle}, claimed @${cleanHandle})` },
+        { status: 422 }
+      );
+    }
+
     // oEmbed returns HTML like: <p>some text</p>&mdash; @handle
     // Strip HTML tags to get raw text
     tweetText = (oembedData.html || '').replace(/<[^>]+>/g, ' ').replace(/&mdash;/g, '—').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
@@ -310,16 +313,16 @@ async function handleXVerification(tileId, tile, body) {
     );
   }
 
-  // Store X verification
-  setXVerification(tileId, cleanHandle, tweetUrl);
+  // Store X verification using the canonical handle returned by Twitter
+  setXVerification(tileId, canonicalHandle, tweetUrl);
 
   return NextResponse.json({
     ok: true,
     tileId,
     verified: 'x',
-    xHandle: cleanHandle,
+    xHandle: canonicalHandle,
     tweetUrl,
     tweetId,
-    message: `X/Twitter identity verified for tile #${tileId}. Verified as @${cleanHandle}.`,
+    message: `X/Twitter identity verified for tile #${tileId}. Verified as @${canonicalHandle}.`,
   });
 }
