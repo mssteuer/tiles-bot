@@ -311,7 +311,8 @@ function HomeInner() {
   const handleTileClick = useCallback((tileId) => {
     setSelectedTile(tileId);
     // If unclaimed, also open claim modal
-    if (!tiles[tileId]) setClaimModalTile(tileId);
+    const t = tiles[tileId];
+    if (!t || t.owner === 'demo-seed-wallet') setClaimModalTile(tileId);
   }, [tiles]);
 
   const panelOpen = selectedTile !== null;
