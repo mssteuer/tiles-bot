@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyMessage } from 'viem';
-import { getTile, TOTAL_TILES } from '@/lib/db';
+import { getTile, TOTAL_TILES, updateTileWebhook } from '@/lib/db';
 import { buildTileTokenMetadata, getSiteUrl } from '@/lib/openseaMetadata';
 
 // Contract ABI verification (task #490 req #5):
@@ -99,6 +99,18 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const updated = updateTileMetadata(tileId, body);
+  // Handle webhookUrl separately (stored in its own column, not in metadata JSON)
+  if (body.webhookUrl !== undefined) {
+    const webhookUrl = body.webhookUrl || null;
+    // Basic URL validation — must be https:// or null (clear)
+    if (webhookUrl !== null && !webhookUrl.startsWith('https://')) {
+      return NextResponse.json({ error: 'webhookUrl must be an https:// URL or empty string to clear' }, { status: 400 });
+    }
+    updateTileWebhook(tileId, webhookUrl);
+  }
+
+  // Strip webhookUrl from body before passing to updateTileMetadata (it's a separate column)
+  const { webhookUrl: _wh, ...metadataFields } = body;
+  const updated = Object.keys(metadataFields).length > 0 ? updateTileMetadata(tileId, metadataFields) : getTile(tileId);
   return NextResponse.json({ ok: true, tile: updated });
 }
