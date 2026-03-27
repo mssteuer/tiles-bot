@@ -50,7 +50,17 @@ function getHeartbeatGlowColor(lastHeartbeat) {
   return null; // >30 min: no glow
 }
 
-export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomChange, viewMode }) {
+function tileMatchesFilter(tile, searchQuery, categoryFilter) {
+  const matchesCategory = !categoryFilter || categoryFilter === 'All' || categoryFilter === 'all' ||
+    tile.category === categoryFilter.toLowerCase();
+  const matchesSearch = !searchQuery ||
+    tile.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    tile.owner?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    tile.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  return matchesCategory && matchesSearch;
+}
+
+export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -124,6 +134,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
     const container = containerRef.current;
     if (!canvas || !container) return;
 
+    const hasActiveFilter = (searchQuery && searchQuery.length > 0) || (categoryFilter && categoryFilter !== 'All' && categoryFilter !== 'all');
     const cam = cameraRef.current;
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
@@ -193,6 +204,8 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
 
         if (tile) {
           const baseColor = tile.color || CATEGORY_COLORS[tile.category] || '#333';
+          const tileMatches = !hasActiveFilter || tileMatchesFilter(tile, searchQuery, categoryFilter);
+          if (!tileMatches) ctx.globalAlpha = 0.25;
 
           // ── Heartbeat glow halo ──────────────────────────────────────
           if (tile.lastHeartbeat) {
@@ -271,6 +284,9 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
             ctx.lineWidth = 3 / cam.zoom;
             ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
           }
+
+          // Reset alpha after dimming non-matching tile
+          if (!tileMatches) ctx.globalAlpha = 1;
         }
 
         // Hover highlight
@@ -290,7 +306,7 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
     ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
 
     ctx.restore();
-  }, [tiles, hoveredTile, selectedTile, viewMode]); // camera via ref
+  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter]); // camera via ref
 
   // Animation loop for pulsing glow
   useEffect(() => {
@@ -488,7 +504,10 @@ export default function Grid({ tiles, onTileClick, selectedTile, zoom, onZoomCha
 
   // ─── List view ───────────────────────────────────────────────────────────
   if (viewMode === 'list') {
-    const tileList = Object.values(tiles).sort((a, b) => a.id - b.id);
+    const hasActiveFilter = (searchQuery && searchQuery.length > 0) || (categoryFilter && categoryFilter !== 'All' && categoryFilter !== 'all');
+    const tileList = Object.values(tiles)
+      .filter(tile => !hasActiveFilter || tileMatchesFilter(tile, searchQuery, categoryFilter))
+      .sort((a, b) => a.id - b.id);
     return (
       <div style={{ flex: 1, overflowY: 'auto', background: '#0a0a0f', padding: '8px 16px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
