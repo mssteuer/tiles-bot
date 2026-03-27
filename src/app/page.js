@@ -1,7 +1,8 @@
 'use client';
 
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Grid from '../components/Grid';
 import TilePanel from '../components/TilePanel';
 import Header from '../components/Header';
@@ -167,10 +168,19 @@ async function fetchBlocks() {
   }
 }
 
-export default function Home() {
+function HomeInner() {
+  const searchParams = useSearchParams();
   const [tiles, setTiles] = useState({});
   const [connections, setConnections] = useState([]);
-  const [selectedTile, setSelectedTile] = useState(null);
+  // Pre-select tile from ?tile=<id> query param (used by /tiles/:id redirect)
+  const [selectedTile, setSelectedTile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('tile');
+      const n = p !== null ? parseInt(p, 10) : null;
+      return Number.isInteger(n) && n >= 0 && n < 65536 ? n : null;
+    }
+    return null;
+  });
   const [blocks, setBlocks] = useState([]);
   const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
@@ -181,6 +191,17 @@ export default function Home() {
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
+
+  // Sync ?tile= query param → selectedTile (handles client-side navigation)
+  useEffect(() => {
+    const tileParam = searchParams ? searchParams.get('tile') : null;
+    if (tileParam !== null) {
+      const n = parseInt(tileParam, 10);
+      if (Number.isInteger(n) && n >= 0 && n < 65536) {
+        setSelectedTile(n);
+      }
+    }
+  }, [searchParams]);
 
   // SSE: real-time tile updates — re-sync on (re)connect and patch local grid on claim events
   useEffect(() => {
@@ -366,5 +387,13 @@ export default function Home() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeInner />
+    </Suspense>
   );
 }
