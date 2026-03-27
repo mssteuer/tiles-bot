@@ -7,6 +7,7 @@ import TilePanel from '../components/TilePanel';
 import Header from '../components/Header';
 import FilterBar from '../components/FilterBar';
 import ClaimModal from '../components/ClaimModal';
+import BlockClaimModal from '../components/BlockClaimModal';
 
 
 const GRID_PX = 256 * 32;
@@ -153,12 +154,25 @@ async function fetchConnections() {
   } catch {
     return [];
   }
+
+async function fetchBlocks() {
+  try {
+    const res = await fetch('/api/blocks');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.blocks || [];
+  } catch {
+    return [];
+  }
+}
 }
 
 export default function Home() {
   const [tiles, setTiles] = useState({});
   const [connections, setConnections] = useState([]);
   const [selectedTile, setSelectedTile] = useState(null);
+  const [blocks, setBlocks] = useState([]);
+  const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [filterCategory, setFilterCategory] = useState('All');
@@ -173,13 +187,15 @@ export default function Home() {
     let closed = false;
 
     async function refreshGridAndStats() {
-      const [grid, statsSnapshot, conns] = await Promise.all([fetchGrid(), fetchStatsSnapshot(), fetchConnections()]);
+      const [grid, statsSnapshot, conns, blockList] = await Promise.all([fetchGrid(), fetchStatsSnapshot(), fetchConnections(), fetchBlocks()]);
       if (closed) return;
 
       if (grid) {
         setTiles(grid.tiles);
+        if (grid.blocks) setBlocks(grid.blocks);
       }
 
+      setBlocks(prev => blockList.length ? blockList : prev);
       setConnections(conns);
 
       const nextStats = statsSnapshot || grid?.stats;
@@ -200,7 +216,9 @@ export default function Home() {
     es.onmessage = (e) => {
       try {
         const event = JSON.parse(e.data);
-        if (event.type === 'tile_claimed') {
+        if (event.type === 'block_claimed') {
+          fetchBlocks().then(bl => setBlocks(bl));
+        } else if (event.type === 'tile_claimed') {
           setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
           setStats(prev => {
             const claimed = event.claimedCount ?? (prev.claimed + 1);
@@ -235,18 +253,20 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const data = await fetchGrid();
+      const [data, blockList0] = await Promise.all([fetchGrid(), fetchBlocks()]);
       if (cancelled || !data) return;
 
       if (data.stats.claimed === 0) {
         await seedDemoData();
-        const refreshed = await fetchGrid();
+        const [refreshed, bl] = await Promise.all([fetchGrid(), fetchBlocks()]);
         if (cancelled || !refreshed) return;
         setTiles(refreshed.tiles);
+        setBlocks(data.blocks || bl);
         setStats({ ...refreshed.stats });
         if (refreshed.stats.nextAvailableTileId != null) setNextAvailableTileId(refreshed.stats.nextAvailableTileId);
       } else {
         setTiles(data.tiles);
+        setBlocks(data.blocks || blockList0);
         setStats({ ...data.stats });
         if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
       }
@@ -291,6 +311,19 @@ export default function Home() {
           }}
         />
       )}
+      {blockClaimTopLeft !== null && (
+        <BlockClaimModal
+          topLeftId={blockClaimTopLeft}
+          tiles={tiles}
+          onClose={() => setBlockClaimTopLeft(null)}
+          onClaimed={async () => {
+            setBlockClaimTopLeft(null);
+            const [data, bl] = await Promise.all([fetchGrid(), fetchBlocks()]);
+            if (data) { setTiles(data.tiles); setStats({ ...data.stats }); }
+            setBlocks(data?.blocks || bl);
+          }}
+        />
+      )}
       <Header stats={stats} onClaimClick={(tileId) => setClaimModalTile(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
       <FilterBar
         onFilterChange={setFilterCategory}
@@ -306,9 +339,11 @@ export default function Home() {
       <div className="main-content">
         <Grid
           tiles={tiles}
+          blocks={blocks}
           connections={connections}
           onConnectionsChange={setConnections}
           onTileClick={handleTileClick}
+          onBlockClaimRequest={setBlockClaimTopLeft}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}

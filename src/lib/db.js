@@ -78,6 +78,30 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE tiles ADD COLUMN x_verified INTEGER NOT NULL DEFAULT 0`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN x_handle_verified TEXT`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN x_tweet_url TEXT`); } catch {}
+  // Block tiles — each tile can belong to at most one block
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN block_id INTEGER`); } catch {}
+  // Block metadata table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_blocks (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      block_size  INTEGER NOT NULL CHECK(block_size IN (2, 3)),
+      top_left_id INTEGER NOT NULL UNIQUE,
+      owner       TEXT NOT NULL,
+      name        TEXT,
+      avatar      TEXT,
+      description TEXT,
+      category    TEXT,
+      color       TEXT,
+      url         TEXT,
+      image_url   TEXT,
+      status      TEXT NOT NULL DEFAULT 'offline',
+      last_heartbeat INTEGER,
+      claimed_at  TEXT NOT NULL,
+      tile_ids    TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_blocks_owner ON tile_blocks(owner);
+    CREATE INDEX IF NOT EXISTS idx_blocks_top_left ON tile_blocks(top_left_id);
+  `);
 }
 
 // ─── Read helpers ────────────────────────────────────────────────────────────
@@ -495,6 +519,136 @@ export function getAllConnections() {
   const db = getDb();
   return db.prepare('SELECT from_id, to_id, label FROM tile_connections').all()
     .map(r => ({ fromId: r.from_id, toId: r.to_id, label: r.label || null }));
+}
+
+// ─── Block tile helpers ───────────────────────────────────────────────────────
+
+// Grid dimensions (matches frontend)
+const GRID_SIZE = 256;
+
+/**
+ * Compute tile IDs for a block given top-left tile ID and block size.
+ * Returns an array of IDs in row-major order, or null if out of bounds.
+ */
+export function getBlockTileIds(topLeftId, blockSize) {
+  const col = topLeftId % GRID_SIZE;
+  const row = Math.floor(topLeftId / GRID_SIZE);
+  if (col + blockSize > GRID_SIZE || row + blockSize > GRID_SIZE) return null;
+  const ids = [];
+  for (let r = 0; r < blockSize; r++) {
+    for (let c = 0; c < blockSize; c++) {
+      ids.push((row + r) * GRID_SIZE + (col + c));
+    }
+  }
+  return ids;
+}
+
+/**
+ * Claim a block of tiles (2x2 or 3x3). All tiles must be unclaimed.
+ * Returns { blockId, blockSize, topLeftId, tileIds, owner, claimedAt } or throws.
+ */
+export function claimBlock(topLeftId, blockSize, wallet) {
+  const db = getDb();
+  if (blockSize !== 2 && blockSize !== 3) throw new Error('block_size must be 2 or 3');
+
+  const tileIds = getBlockTileIds(topLeftId, blockSize);
+  if (!tileIds) throw new Error('Block extends outside grid boundaries');
+
+  const claimBlockTx = db.transaction(() => {
+    for (const id of tileIds) {
+      const existing = db.prepare('SELECT id FROM tiles WHERE id = ?').get(id);
+      if (existing) throw new Error(`Tile #${id} is already claimed`);
+    }
+
+    const now = new Date().toISOString();
+
+    const blockInsert = db.prepare(`
+      INSERT INTO tile_blocks (block_size, top_left_id, owner, status, claimed_at, tile_ids)
+      VALUES (@block_size, @top_left_id, @owner, 'offline', @claimed_at, @tile_ids)
+    `).run({
+      block_size: blockSize,
+      top_left_id: topLeftId,
+      owner: wallet,
+      claimed_at: now,
+      tile_ids: JSON.stringify(tileIds),
+    });
+
+    const blockId = blockInsert.lastInsertRowid;
+
+    for (let i = 0; i < tileIds.length; i++) {
+      const id = tileIds[i];
+      const price = getCurrentPrice();
+      db.prepare(`
+        INSERT INTO tiles (id, owner, name, status, claimed_at, price_paid, block_id)
+        VALUES (@id, @owner, @name, 'offline', @claimed_at, @price_paid, @block_id)
+      `).run({
+        id,
+        owner: wallet,
+        name: i === 0 ? `Block #${topLeftId}` : null,
+        claimed_at: now,
+        price_paid: price,
+        block_id: blockId,
+      });
+    }
+
+    return {
+      blockId: Number(blockId),
+      blockSize,
+      topLeftId,
+      tileIds,
+      owner: wallet,
+      claimedAt: now,
+    };
+  });
+
+  return claimBlockTx();
+}
+
+function blockRowToObj(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    blockSize: r.block_size,
+    topLeftId: r.top_left_id,
+    owner: r.owner,
+    name: r.name || `Block #${r.top_left_id}`,
+    avatar: r.avatar || null,
+    description: r.description || null,
+    category: r.category || null,
+    color: r.color || null,
+    url: r.url || null,
+    imageUrl: r.image_url || null,
+    status: r.status,
+    lastHeartbeat: r.last_heartbeat || null,
+    claimedAt: r.claimed_at,
+    tileIds: JSON.parse(r.tile_ids),
+  };
+}
+
+export function getAllBlocks() {
+  const db = getDb();
+  return db.prepare('SELECT * FROM tile_blocks').all().map(blockRowToObj);
+}
+
+export function getBlock(blockId) {
+  const db = getDb();
+  return blockRowToObj(db.prepare('SELECT * FROM tile_blocks WHERE id = ?').get(blockId));
+}
+
+export function updateBlockMetadata(blockId, metadata) {
+  const db = getDb();
+  const allowed = ['name', 'avatar', 'description', 'category', 'color', 'url', 'imageUrl'];
+  const updates = {};
+  for (const key of allowed) {
+    if (metadata[key] !== undefined) {
+      const colMap = { imageUrl: 'image_url' };
+      updates[colMap[key] || key] = metadata[key];
+    }
+  }
+  if (Object.keys(updates).length === 0) return getBlock(blockId);
+  const setClauses = Object.keys(updates).map(col => `${col} = @${col}`).join(', ');
+  db.prepare(`UPDATE tile_blocks SET ${setClauses} WHERE id = @id`).run({ ...updates, id: blockId });
+  return getBlock(blockId);
 }
 
 // Close DB gracefully on process exit
