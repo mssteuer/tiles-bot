@@ -27,6 +27,7 @@ function getClient() {
 /**
  * Upload image to Filebase (S3-compatible, auto-pins to IPFS).
  * After upload, HEAD the object to retrieve the IPFS CID from metadata.
+ * Retries up to 6 times with increasing delay (Filebase pins asynchronously).
  */
 export async function uploadToFilebase(buffer, key, contentType = 'image/png') {
   const s3 = getClient();
@@ -38,20 +39,28 @@ export async function uploadToFilebase(buffer, key, contentType = 'image/png') {
     ContentType: contentType,
   }));
 
-  // Filebase populates CID asynchronously — HEAD to retrieve it
+  // Filebase populates CID asynchronously — poll HeadObject until it appears
   let cid = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const delays = [500, 1000, 2000, 3000, 5000, 5000]; // ~16.5s total max wait
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    await new Promise(r => setTimeout(r, delays[attempt]));
     try {
       const head = await s3.send(new HeadObjectCommand({
         Bucket: FILEBASE_BUCKET,
         Key: key,
       }));
       cid = head.Metadata?.cid || null;
-      if (cid) break;
-    } catch {
-      // ignore, retry
+      if (cid) {
+        console.log(`[filebase] CID retrieved on attempt ${attempt + 1}: ${cid}`);
+        break;
+      }
+    } catch (err) {
+      console.log(`[filebase] HeadObject attempt ${attempt + 1} failed: ${err.message}`);
     }
-    if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+  }
+
+  if (!cid) {
+    console.warn(`[filebase] CID not available after ${delays.length} attempts for key: ${key}`);
   }
 
   return {
