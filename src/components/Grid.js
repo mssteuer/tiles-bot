@@ -148,7 +148,7 @@ function getFirstMatchingTile(tiles, searchQuery, categoryFilter) {
     .sort((a, b) => a.id - b.id)[0] || null;
 }
 
-export default function Grid({ tiles, connections, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode }) {
+export default function Grid({ tiles, connections, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, onBlockClaimRequest }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -177,6 +177,21 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
   // Connections ref (kept in sync with prop for draw callback)
   const connectionsRef = useRef(connections || []);
   useEffect(() => { connectionsRef.current = connections || []; }, [connections]);
+
+  // Block map ref: tileId → block object (for render lookup)
+  const blockMapRef = useRef({});
+  useEffect(() => {
+    const map = {};
+    if (blocks) {
+      for (const block of blocks) {
+        const tileIds = typeof block.tileIds === 'string' ? JSON.parse(block.tileIds) : (block.tileIds || []);
+        for (const tid of tileIds) {
+          map[tid] = block;
+        }
+      }
+    }
+    blockMapRef.current = map;
+  }, [blocks]);
 
   const screenToGrid = useCallback((sx, sy) => {
     const canvas = canvasRef.current;
@@ -292,12 +307,99 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     const now = Date.now();
     const pulse = 0.6 + 0.4 * Math.sin(pulsePhase.current); // 0.2–1.0
 
+    // Draw blocks first (as merged rectangles behind individual tiles)
+    const drawnBlockIds = new Set();
+    for (const block of (blocks || [])) {
+      const tileIds = typeof block.tileIds === 'string' ? JSON.parse(block.tileIds) : (block.tileIds || []);
+      if (!tileIds.length) continue;
+      const blockId = block.id;
+      if (drawnBlockIds.has(blockId)) continue;
+      drawnBlockIds.add(blockId);
+
+      const topLeftId = block.topLeftId ?? block.top_left_id;
+      const bs = block.blockSize ?? block.block_size ?? 2;
+      const tlCol = topLeftId % GRID_SIZE;
+      const tlRow = Math.floor(topLeftId / GRID_SIZE);
+      const bx = tlCol * TILE_SIZE;
+      const by = tlRow * TILE_SIZE;
+      const bw = bs * TILE_SIZE;
+      const bh = bs * TILE_SIZE;
+
+      // Skip blocks fully outside viewport
+      if (bx + bw < left * cam.zoom || bx > right || by + bh < top * cam.zoom || by > bottom) continue;
+
+      const blockColor = block.color || '#7c3aed'; // purple default
+
+      // Draw merged block background
+      ctx.save();
+      ctx.fillStyle = blockColor + '33';
+      ctx.fillRect(bx, by, bw, bh);
+
+      // Draw block image if available
+      const blockImgKey = `block:${blockId}:${bs === 2 ? 128 : 256}`;
+      if (block.imageUrl) {
+        let cachedBlockImg = imageCache[blockImgKey];
+        if (!cachedBlockImg) {
+          imageCache[blockImgKey] = 'loading';
+          const img = new window.Image();
+          img.src = block.imageUrl;
+          img.onload = () => { imageCache[blockImgKey] = img; };
+          img.onerror = () => { imageCache[blockImgKey] = 'error'; };
+        } else if (cachedBlockImg !== 'loading' && cachedBlockImg !== 'error') {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(bx + 2, by + 2, bw - 4, bh - 4);
+          ctx.clip();
+          ctx.drawImage(cachedBlockImg, bx + 2, by + 2, bw - 4, bh - 4);
+          ctx.restore();
+        }
+      } else {
+        // Avatar/emoji fallback
+        const emojiSize = Math.min(bw * 0.4, 24);
+        ctx.font = `${emojiSize}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(block.avatar || '⬜', bx + bw / 2, by + bh / 2);
+      }
+
+      // Purple border
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 2.5 / cam.zoom;
+      ctx.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+
+      // Size badge (2×2 / 3×3) in corner
+      if (cam.zoom > 0.15) {
+        const badgeText = `${bs}×${bs}`;
+        const badgePad = 2 / cam.zoom;
+        const badgeFontSize = Math.max(5, 7 / cam.zoom);
+        ctx.font = `bold ${badgeFontSize}px system-ui`;
+        const tw = ctx.measureText(badgeText).width;
+        const bpx = bx + bw - tw - badgePad * 2 - 2 / cam.zoom;
+        const bpy = by + 2 / cam.zoom;
+        ctx.fillStyle = '#7c3aed';
+        ctx.fillRect(bpx - badgePad, bpy, tw + badgePad * 2, badgeFontSize + badgePad * 2);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(badgeText, bpx, bpy + badgePad);
+      }
+
+      ctx.restore();
+    }
+
     for (let row = minRow; row <= maxRow; row++) {
       for (let col = minCol; col <= maxCol; col++) {
         const id = row * GRID_SIZE + col;
         const x = col * TILE_SIZE;
         const y = row * TILE_SIZE;
         const tile = tiles[id];
+
+        // Skip non-top-left tiles that belong to a block (block renders as merged rect above)
+        const tileBlock = blockMapRef.current[id];
+        if (tileBlock) {
+          const topLeftId = tileBlock.topLeftId ?? tileBlock.top_left_id;
+          if (id !== topLeftId) continue; // non-top-left block tile — skip individual render
+        }
 
         if (tile) {
           const baseColor = tile.color || CATEGORY_COLORS[tile.category] || '#333';
@@ -921,6 +1023,16 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
           onMouseLeave={() => { isDragging.current = false; isSelecting.current = false; setHoveredTile(null); setSelectionRect(null); }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (!onBlockClaimRequest) return;
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const tileId = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
+            if (tileId !== null && !tiles[tileId]) {
+              onBlockClaimRequest(tileId);
+            }
+          }}
           style={{ display: 'block', width: '100%', height: '100%' }}
         />
 
