@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-function timeAgo(isoString) {
+function timeAgo(isoString, nowTs) {
   if (!isoString) return 'unknown';
-  const diff = Date.now() - new Date(isoString).getTime();
-  const s = Math.floor(diff / 1000);
+  const diff = nowTs - new Date(isoString).getTime();
+  const s = Math.max(0, Math.floor(diff / 1000));
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ago`;
@@ -19,24 +19,55 @@ function truncateAddr(addr) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+function formatUsd(value) {
+  if (value == null || Number.isNaN(Number(value))) return '…';
+  const n = Number(value);
+  if (n >= 1000000) return `$${Math.round(n).toLocaleString()}`;
+  if (n >= 1) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return `$${n.toFixed(4)}`;
+}
+
 export default function StatsPanel() {
   const [open, setOpen] = useState(true);
   const [stats, setStats] = useState(null);
+  const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
+  const [nowTs, setNowTs] = useState(Date.now());
 
-  async function fetchStats() {
+  const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/stats');
+      const res = await fetch('/api/stats', { cache: 'no-store' });
       if (res.ok) setStats(await res.json());
     } catch {
       // silently fail
     }
-  }
+  }, []);
 
   useEffect(() => {
     fetchStats();
     const interval = setInterval(fetchStats, 30_000);
     return () => clearInterval(interval);
+  }, [fetchStats]);
+
+  useEffect(() => {
+    const tick = setInterval(() => setNowTs(Date.now()), 30_000);
+    return () => clearInterval(tick);
   }, []);
+
+  useEffect(() => {
+    const es = new EventSource('/api/events');
+    es.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        if (event.type === 'tile_claimed') {
+          fetchStats();
+          setNowTs(Date.now());
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+    return () => es.close();
+  }, [fetchStats]);
 
   const panelStyle = {
     background: '#0f0f1a',
@@ -72,7 +103,6 @@ export default function StatsPanel() {
 
   return (
     <div style={panelStyle}>
-      {/* Header / toggle */}
       <div style={headerStyle} onClick={() => setOpen(o => !o)}>
         <span style={{ fontWeight: 700, color: '#e2e8f0', fontSize: 13 }}>📊 Grid Stats</span>
         <span style={{ fontSize: 16, color: '#6366f1' }}>{open ? '▲' : '▼'}</span>
@@ -80,18 +110,23 @@ export default function StatsPanel() {
 
       {open && (
         <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Core metrics */}
           {stats ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div>
                 <span style={{ color: '#3b82f6', fontWeight: 700 }}>{stats.claimed.toLocaleString()}</span>
                 <span style={{ color: '#64748b' }}> / {stats.total.toLocaleString()} tiles claimed</span>
-                <span style={{ color: '#64748b' }}> ({((stats.claimed / stats.total) * 100).toFixed(2)}%)</span>
+                <span style={{ color: '#64748b' }}> ({claimedPct}%)</span>
               </div>
               <div>
                 Current price:{' '}
                 <span style={{ color: '#8b5cf6', fontWeight: 700 }}>
-                  ${Number(stats.currentPrice).toFixed(4)} USDC
+                  {formatUsd(stats.currentPrice)} USDC
+                </span>
+              </div>
+              <div>
+                Est. sold out:{' '}
+                <span style={{ color: '#f59e0b', fontWeight: 700 }}>
+                  {formatUsd(stats.estimatedSoldOutRevenue)}
                 </span>
               </div>
               <div>
@@ -103,12 +138,11 @@ export default function StatsPanel() {
             <div style={{ color: '#475569' }}>Loading…</div>
           )}
 
-          {/* Top Holders */}
           {stats?.topHolders?.length > 0 && (
             <div>
               <div style={sectionTitle}>Top Holders</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {stats.topHolders.slice(0, 5).map((h, i) => (
+                {stats.topHolders.map((h, i) => (
                   <div key={h.owner} style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#94a3b8' }}>
                       <span style={{ color: '#475569', marginRight: 4 }}>{i + 1}.</span>
@@ -121,7 +155,6 @@ export default function StatsPanel() {
             </div>
           )}
 
-          {/* Recently Claimed */}
           {stats?.recentlyClaimed?.length > 0 && (
             <div>
               <div style={sectionTitle}>Recently Claimed</div>
@@ -132,7 +165,7 @@ export default function StatsPanel() {
                       <span style={{ color: '#475569', marginRight: 4 }}>#{t.id}</span>
                       {t.name}
                     </span>
-                    <span style={{ color: '#64748b', flexShrink: 0 }}>{timeAgo(t.claimedAt)}</span>
+                    <span style={{ color: '#64748b', flexShrink: 0 }}>{timeAgo(t.claimedAt, nowTs)}</span>
                   </div>
                 ))}
               </div>
@@ -140,7 +173,7 @@ export default function StatsPanel() {
           )}
 
           <div style={{ color: '#374151', fontSize: 11, textAlign: 'right' }}>
-            Auto-refreshes every 30s
+            Live via SSE + 30s refresh
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders } from '@/lib/db';
+import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue } from '@/lib/db';
 
 export async function GET() {
   const claimed = getClaimedCount();
@@ -22,6 +22,7 @@ export async function GET() {
     nextAvailableTileId: getNextAvailableTileId(),
     // TODO: floor price from secondary market (OpenSea/Reservoir API)
     floorPrice: null,
+    estimatedSoldOutRevenue: getEstimatedSoldOutRevenue(),
     recentlyClaimed,
     topHolders,
   });
