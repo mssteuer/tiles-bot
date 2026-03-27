@@ -2,6 +2,15 @@ function normalizeBaseUrl(siteUrl) {
   return (siteUrl || 'https://tiles.bot').replace(/\/$/, '');
 }
 
+function getSiteUrl(request) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
+  if (configured) return normalizeBaseUrl(configured);
+
+  const forwardedProto = request?.headers?.get('x-forwarded-proto') || 'https';
+  const forwardedHost = request?.headers?.get('x-forwarded-host') || request?.headers?.get('host') || 'tiles.bot';
+  return `${forwardedProto}://${forwardedHost}`;
+}
+
 function resolveImageUrl(siteUrl, imageUrl) {
   const baseUrl = normalizeBaseUrl(siteUrl);
   if (!imageUrl) return `${baseUrl}/og-image.png`;
@@ -94,10 +103,17 @@ function buildOpenSeaAssetUrl({ contractAddress, tileId, chainId }) {
   return `${host}/assets/${networkPath}/${contractAddress}/${tileId}`;
 }
 
+function buildOpenSeaSellUrl({ contractAddress, tileId, chainId }) {
+  const assetUrl = buildOpenSeaAssetUrl({ contractAddress, tileId, chainId });
+  return assetUrl ? `${assetUrl}/sell` : null;
+}
+
 module.exports = {
   buildTileTokenMetadata,
   buildCollectionMetadata,
   buildOpenSeaAssetUrl,
+  buildOpenSeaSellUrl,
   getOpenSeaNetworkLabel,
+  getSiteUrl,
   isMainnetChain,
 };

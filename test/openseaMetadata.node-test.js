@@ -1,9 +1,11 @@
 const assert = require('node:assert/strict');
+const contractArtifact = require('../artifacts/contracts/MillionBotHomepage.sol/MillionBotHomepage.json');
 
 const {
   buildTileTokenMetadata,
   buildCollectionMetadata,
   buildOpenSeaAssetUrl,
+  buildOpenSeaSellUrl,
   getOpenSeaNetworkLabel,
   isMainnetChain,
 } = require('../src/lib/openseaMetadata.cjs');
@@ -11,7 +13,6 @@ const {
 function run() {
   const claimed = buildTileTokenMetadata({
     siteUrl: 'https://tiles.bot',
-    contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
     tileId: 123,
     tile: {
       id: 123,
@@ -38,7 +39,6 @@ function run() {
 
   const unclaimed = buildTileTokenMetadata({
     siteUrl: 'https://tiles.bot',
-    contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
     tileId: 511,
     tile: null,
   });
@@ -51,7 +51,6 @@ function run() {
 
   const collection = buildCollectionMetadata({
     siteUrl: 'https://tiles.bot',
-    contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
   });
 
   assert.equal(collection.name, 'tiles.bot');
@@ -70,6 +69,15 @@ function run() {
   );
 
   assert.equal(
+    buildOpenSeaSellUrl({
+      contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
+      tileId: 42,
+      chainId: '8453',
+    }),
+    'https://opensea.io/assets/base/0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E/42/sell'
+  );
+
+  assert.equal(
     buildOpenSeaAssetUrl({
       contractAddress: '0xaFD1932bc7e6021DF299E029E7Dfa2B6324f4b8E',
       tileId: 42,
@@ -80,6 +88,13 @@ function run() {
 
   assert.equal(getOpenSeaNetworkLabel('84532'), 'Base Sepolia');
   assert.equal(isMainnetChain('84532'), false);
+
+  const functionNames = contractArtifact.abi
+    .filter((entry) => entry.type === 'function')
+    .map((entry) => entry.name);
+
+  assert.ok(functionNames.includes('setBaseMetadataURI'));
+  assert.ok(functionNames.includes('tokenURI'));
 
   console.log('opensea metadata node tests: ok');
 }
