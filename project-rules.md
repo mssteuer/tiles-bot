@@ -70,10 +70,19 @@ Bad: `// ======= HANDLERS =======`
 Good: `// — Handlers`
 Agents confuse `====` and `----` with git merge conflict markers and corrupt files.
 
-## Testing
+## Testing — MANDATORY BROWSER QA
 - Contract tests: `npx hardhat test` (Mocha/Chai, in `test/`)
-- No frontend test framework currently — do browser QA with the browser tool
-- When doing browser QA: navigate to https://tiles.bot and verify visually
+- **Every task that touches UI MUST include browser QA using the browser tool before marking done.**
+- Browser QA is not optional and not a stretch goal — it is a required step in the acceptance checklist.
+- Steps for every UI task:
+  1. `npm run build` passes ✅
+  2. `sudo systemctl restart million-bot` ✅
+  3. Open https://tiles.bot in the browser tool (take a screenshot)
+  4. Verify the specific feature changed/added visually
+  5. Test any interactive elements (clicks, modals, form inputs)
+  6. Screenshot the final working state
+  7. Only mark CCC task done AFTER screenshots confirm it works
+- If the browser tool is unavailable, note this explicitly in the CCC task comment and do NOT mark done.
 
 ## Git & CCC
 - **Remote:** `https://github.com/mssteuer/tiles-bot.git`
