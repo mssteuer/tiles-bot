@@ -436,7 +436,7 @@ function VerifyXButton({ tile, address, onVerified }) {
  * - Tile owner sees pending incoming requests with accept/reject
  * - Existing connections shown for all viewers
  */
-function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange }) {
+function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onNavigateToTile }) {
   const { signMessageAsync } = useSignMessage();
   const [neighbors, setNeighbors] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -676,9 +676,21 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange }) {
                 background: '#111122', borderRadius: 6, padding: '5px 8px',
                 border: '1px solid #1a1a2e', fontSize: 11,
               }}>
-                <span style={{ fontSize: 14 }}>{n.avatar || '🤖'}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: '#e2e8f0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {n.imageUrl ? (
+                  <img
+                    src={n.imageUrl}
+                    alt=""
+                    style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 14, width: 28, textAlign: 'center', flexShrink: 0 }}>{n.avatar || '🤖'}</span>
+                )}
+                <div
+                  style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                  onClick={() => onNavigateToTile && onNavigateToTile(n.tileId)}
+                  title="Fly to this tile"
+                >
+                  <div style={{ color: '#93c5fd', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     #{n.tileId} {n.name || 'Unnamed'}
                   </div>
                   {n.label && <div style={{ color: '#64748b', fontSize: 10 }}>{n.label}</div>}
@@ -812,7 +824,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange }) {
   );
 }
 
-export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange }) {
+export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange, onNavigateToTile }) {
   const isClaimed = !!tile.name;
   const row = Math.floor(tile.id / 256);
   const col = tile.id % 256;
@@ -1617,6 +1629,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 address={address}
                 isOwner={isOwner}
                 onConnectionsChange={onConnectionsChange}
+                onNavigateToTile={onNavigateToTile}
               />
             )}
 
