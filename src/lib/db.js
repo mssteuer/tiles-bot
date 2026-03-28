@@ -229,6 +229,15 @@ export function getClaimedCount() {
   return row.cnt;
 }
 
+/**
+ * Get all claimed tile IDs (for sitemap generation).
+ */
+export function getClaimedTileIds() {
+  const db = getDb();
+  const rows = db.prepare('SELECT id FROM tiles ORDER BY id ASC').all();
+  return rows.map(r => r.id);
+}
+
 // Exponential bonding curve: price = e^(ln(11111) * totalMinted / 65536)
 export function getCurrentPrice() {
   const totalMinted = getClaimedCount();
@@ -1109,7 +1118,7 @@ export function getOnlineCount() {
 export function getRecentlyActive(limit = 10) {
   const db = getDb();
   return db.prepare(
-    `SELECT id, name, avatar, category, owner, last_heartbeat, status FROM tiles WHERE last_heartbeat IS NOT NULL ORDER BY last_heartbeat DESC LIMIT ?`
+    `SELECT id, name, avatar, category, owner, last_heartbeat, status FROM tiles WHERE last_heartbeat IS NOT NULL AND owner != '0x0000000000000000000000000000000000000000' ORDER BY last_heartbeat DESC LIMIT ?`
   ).all(limit);
 }
 
