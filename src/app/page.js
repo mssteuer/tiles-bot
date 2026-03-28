@@ -142,6 +142,13 @@ function HomeInner() {
           fetchBlocks().then(bl => setBlocks(bl));
         } else if (event.type === 'span_updated') {
           fetchSpans().then(sp => setSpans(sp));
+        } else if (event.type === 'tile_image_updated') {
+          // Update tile imageUrl so grid renders the image immediately (no refresh needed)
+          setTiles(prev => {
+            const existing = prev[event.tileId];
+            if (!existing) return prev;
+            return { ...prev, [event.tileId]: { ...existing, imageUrl: event.imageUrl } };
+          });
         } else if (event.type === 'tile_claimed') {
           setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
           setStats(prev => {

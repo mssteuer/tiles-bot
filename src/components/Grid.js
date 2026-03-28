@@ -108,8 +108,13 @@ function getSizedImageUrl(url, size) {
 function loadTileImage(tile) {
   const url = getSizedImageUrl(tile.imageUrl, 64);
   if (!url) return null;
-  const cacheKey = `${tile.id}:64`;
+  // Include URL in cache key so new images replace stale cached versions
+  const cacheKey = `${tile.id}:64:${tile.imageUrl}`;
   if (imageCache[cacheKey]) return imageCache[cacheKey];
+  // Clear any old cache entry for this tile
+  for (const k of Object.keys(imageCache)) {
+    if (k.startsWith(`${tile.id}:64:`) && k !== cacheKey) delete imageCache[k];
+  }
   imageCache[cacheKey] = 'loading';
   const img = new Image();
   img.onload = () => { imageCache[cacheKey] = img; };
@@ -586,7 +591,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           }
 
           // Try to draw image first
-          const cachedImg = tile.imageUrl ? imageCache[`${tile.id}:64`] : null;
+          const cachedImg = tile.imageUrl ? imageCache[`${tile.id}:64:${tile.imageUrl}`] : null;
           if (cachedImg && cachedImg !== 'loading' && cachedImg !== 'error') {
             ctx.save();
             ctx.beginPath();

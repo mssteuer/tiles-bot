@@ -5,6 +5,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { isFilebaseConfigured, uploadToFilebase } from '@/lib/filebase';
+import { broadcast } from '@/lib/sse-broadcast';
 
 const IMAGES_DIR = process.env.IMAGES_DIR || path.join(process.cwd(), 'public', 'tile-images');
 const STORAGE_SIZE = 512;
@@ -123,6 +124,9 @@ export async function POST(request, { params }) {
 
   const finalImageUrl = ipfs?.gateway || imageUrl;
   updateTileMetadata(id, { imageUrl: finalImageUrl });
+
+  // Broadcast so the grid renders the new image immediately
+  try { broadcast({ type: 'tile_image_updated', tileId: id, imageUrl: finalImageUrl }); } catch {}
 
   return NextResponse.json({
     ok: true,
