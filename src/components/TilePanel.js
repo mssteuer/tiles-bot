@@ -1120,8 +1120,12 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
 
   return (
     <div style={panelStyle}>
-      {/* Header row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Header row — sticky so close button is always reachable */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        position: 'sticky', top: 0, zIndex: 10,
+        background: '#0f0f1a', paddingBottom: 8, marginBottom: -8,
+      }}>
         <span style={{ fontSize: 12, color: '#555' }}>
           Tile #{tile.id} · ({col}, {row})
         </span>
@@ -1141,8 +1145,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             >✏️ Edit</button>
           )}
           <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: '#555', fontSize: 20, cursor: 'pointer',
-            lineHeight: 1,
+            background: 'none', border: 'none', color: '#888', fontSize: 24, cursor: 'pointer',
+            lineHeight: 1, padding: '4px 8px',
           }}>×</button>
         </div>
       </div>
