@@ -196,7 +196,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>
               {claimedRectangle.width}×{claimedRectangle.height} starting at tile #{claimedRectangle.topLeftId}
             </div>
-            <button onClick={() => onSpanClaimRequest(claimedRectangle.topLeftId, claimedRectangle.tileIds)} style={{
+            <button onClick={() => { onSpanClaimRequest(claimedRectangle.topLeftId, claimedRectangle.tileIds); onClose(); }} style={{
               padding: '10px 14px', borderRadius: 8, background: '#0ea5e9', color: '#fff', border: 'none', cursor: 'pointer',
             }}>
               🧩 Upload Spanning Image
