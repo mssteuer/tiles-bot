@@ -54,23 +54,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Transaction reverted on-chain' }, { status: 400 });
     }
 
-    // Verify the tx was sent to our contract
-    if (receipt.to?.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) {
-      return NextResponse.json({ error: 'Transaction not directed at tile contract' }, { status: 400 });
-    }
-
-    // Verify the sender matches the claimed wallet
-    if (receipt.from?.toLowerCase() !== wallet.toLowerCase()) {
-      return NextResponse.json(
-        { error: 'Transaction sender does not match wallet' },
-        { status: 403 }
-      );
-    }
-
-    // Extract Transfer events to confirm which tiles were actually minted
+    // Extract Transfer (mint) events from our contract's logs
+    // Note: receipt.to may be a smart wallet proxy (e.g. Coinbase Smart Wallet),
+    // so we filter logs by contract address instead of checking receipt.to
     const TRANSFER_ABI = parseAbi(['event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)']);
     const mintedTileIds = new Set();
     for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) continue;
       try {
         const decoded = decodeEventLog({ abi: TRANSFER_ABI, data: log.data, topics: log.topics });
         if (decoded.eventName === 'Transfer' && decoded.args.from === '0x0000000000000000000000000000000000000000') {
@@ -79,6 +69,10 @@ export async function POST(request) {
       } catch {
         // Not a Transfer event — skip
       }
+    }
+
+    if (mintedTileIds.size === 0) {
+      return NextResponse.json({ error: 'No tile mints found in this transaction for our contract' }, { status: 400 });
     }
 
     // Register only tiles that were actually minted in this tx
