@@ -14,125 +14,9 @@ import BlockClaimModal from '../components/BlockClaimModal';
 const GRID_PX = 256 * 32;
 const DEFAULT_ZOOM = 1.5; // zoom in to see tiles clearly (each tile ≈ 48px at 1.5x)
 
-const DEMO_AGENTS = [
-  { name: 'Jean Clawd 🥋', avatar: '🥋', category: 'social', color: '#ff6b00', url: 'https://x.com/JeanClawd99' },
-  { name: 'ClawFetch 🔍', avatar: '🔍', category: 'infrastructure', color: '#00d4ff', url: 'https://clawfetch.ai' },
-  { name: 'Zeki 🧠', avatar: '🧠', category: 'trading', color: '#a855f7', url: 'https://x.com/ZekiAgent' },
-  { name: 'Clawdei 🗿', avatar: '🗿', category: 'infrastructure', color: '#22c55e', url: 'https://x.com/clawdei_ai' },
-  { name: 'Dexter 🤖', avatar: '🤖', category: 'research', color: '#f59e0b', url: 'https://x.com/dexteraiagent' },
-  { name: 'SagittaAgent 🏹', avatar: '🏹', category: 'trading', color: '#ef4444', url: 'https://x.com/SagittaAAAgent' },
-  { name: 'Belial 😈', avatar: '😈', category: 'social', color: '#8b5cf6', url: 'https://x.com/unleashedBelial' },
-  { name: 'OpenClaw 🐾', avatar: '🐾', category: 'infrastructure', color: '#3b82f6', url: 'https://openclaw.ai' },
-  { name: 'Cursor Agent ⚡', avatar: '⚡', category: 'coding', color: '#f97316', url: 'https://cursor.sh' },
-  { name: 'Claude Code 🔨', avatar: '🔨', category: 'coding', color: '#6366f1', url: 'https://anthropic.com' },
-  { name: 'Devin 🌐', avatar: '🌐', category: 'coding', color: '#14b8a6', url: 'https://devin.ai' },
-  { name: 'Eliza 💬', avatar: '💬', category: 'social', color: '#ec4899', url: 'https://eliza.ai' },
-];
 
-// Positions near center (row ~128, col ~128)
-function getDemoPositions() {
-  const cx = 128, cy = 128;
-  const offsets = [
-    [0,0],[1,0],[0,1],[1,1],[-1,0],[2,0],[0,-1],[-1,1],[2,1],[-1,-1],[1,-1],[2,-1],
-  ];
-  return offsets.map(([dc, dr]) => (cy + dr) * 256 + (cx + dc));
-}
 
-function getRandomPositions(count, exclude) {
-  const used = new Set(exclude);
-  const positions = [];
-  while (positions.length < count) {
-    const id = Math.floor(Math.random() * 65536);
-    if (!used.has(id)) {
-      used.add(id);
-      positions.push(id);
-    }
-  }
-  return positions;
-}
 
-const RANDOM_NAMES = ['Nova','Spark','Echo','Atlas','Cipher','Flux','Helix','Ion','Nexus','Pulse','Qubit','Rune','Sigma','Vex','Warp','Zeta','Bolt','Drift','Fern','Glow','Haze','Jade','Kite','Lux','Mist','Neon','Orb','Pike','Rift','Sol','Thorn','Volt','Wisp','Xenon','Yaw','Zinc','Aura','Blip','Crux','Dusk','Ember','Frost','Glint','Halo','Ink','Jolt','Knot','Loop','Moth','Null'];
-const RANDOM_AVATARS = ['🤖','🦾','🧪','⚡','🌐','🔮','🎯','🧬','💎','🔧'];
-const RANDOM_CATEGORIES = ['coding','trading','research','social','infrastructure'];
-
-async function seedDemoData() {
-  const demoWallet = 'demo-seed-wallet';
-  const positions = getDemoPositions();
-
-  // Seed named agents
-  for (let i = 0; i < DEMO_AGENTS.length; i++) {
-    const agent = DEMO_AGENTS[i];
-    const tileId = positions[i];
-    try {
-      const claimRes = await fetch(`/api/tiles/${tileId}/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: demoWallet }),
-      });
-      if (claimRes.ok) {
-        await fetch(`/api/tiles/${tileId}/metadata`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-Wallet': demoWallet },
-          body: JSON.stringify({
-            name: agent.name,
-            avatar: agent.avatar,
-            category: agent.category,
-            color: agent.color,
-            url: agent.url,
-          }),
-        });
-        // Set online via heartbeat
-        await fetch(`/api/tiles/${tileId}/heartbeat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wallet: demoWallet }),
-        });
-      }
-    } catch {
-      // ignore individual failures
-    }
-  }
-
-  // Seed ~50 random agents
-  const randomPositions = getRandomPositions(50, positions);
-  for (let i = 0; i < randomPositions.length; i++) {
-    const tileId = randomPositions[i];
-    try {
-      const claimRes = await fetch(`/api/tiles/${tileId}/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: demoWallet }),
-      });
-      if (claimRes.ok) {
-        const name = RANDOM_NAMES[i % RANDOM_NAMES.length];
-        const avatar = RANDOM_AVATARS[Math.floor(Math.random() * RANDOM_AVATARS.length)];
-        const category = RANDOM_CATEGORIES[Math.floor(Math.random() * RANDOM_CATEGORIES.length)];
-        const hue = Math.floor(Math.random() * 360);
-        await fetch(`/api/tiles/${tileId}/metadata`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-Wallet': demoWallet },
-          body: JSON.stringify({
-            name: `${name} ${avatar}`,
-            avatar,
-            category,
-            color: `hsl(${hue}, 70%, 50%)`,
-            url: '#',
-          }),
-        });
-        // Random online/offline
-        if (Math.random() > 0.5) {
-          await fetch(`/api/tiles/${tileId}/heartbeat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ wallet: demoWallet }),
-          });
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }
-}
 
 async function fetchGrid() {
   const res = await fetch('/api/grid');
@@ -277,20 +161,10 @@ function HomeInner() {
       const [data, blockList0] = await Promise.all([fetchGrid(), fetchBlocks()]);
       if (cancelled || !data) return;
 
-      if (data.stats.claimed === 0) {
-        await seedDemoData();
-        const [refreshed, bl] = await Promise.all([fetchGrid(), fetchBlocks()]);
-        if (cancelled || !refreshed) return;
-        setTiles(refreshed.tiles);
-        setBlocks(data.blocks || bl);
-        setStats({ ...refreshed.stats });
-        if (refreshed.stats.nextAvailableTileId != null) setNextAvailableTileId(refreshed.stats.nextAvailableTileId);
-      } else {
-        setTiles(data.tiles);
-        setBlocks(data.blocks || blockList0);
-        setStats({ ...data.stats });
-        if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
-      }
+      setTiles(data.tiles);
+      setBlocks(data.blocks || blockList0);
+      setStats({ ...data.stats });
+      if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -310,9 +184,8 @@ function HomeInner() {
 
   const handleTileClick = useCallback((tileId) => {
     setSelectedTile(tileId);
-    // If unclaimed, also open claim modal
-    const t = tiles[tileId];
-    if (!t || t.owner === 'demo-seed-wallet') setClaimModalTile(tileId);
+    // If unclaimed, open claim modal
+    if (!tiles[tileId]) setClaimModalTile(tileId);
   }, [tiles]);
 
   const panelOpen = selectedTile !== null;

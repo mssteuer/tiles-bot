@@ -47,9 +47,7 @@ export async function POST(request, { params }) {
   // Auth: wallet must match owner
   const wallet = request.headers.get('x-wallet') || request.headers.get('x-address');
   if (!wallet || wallet.toLowerCase() !== tile.owner.toLowerCase()) {
-    if (tile.owner !== 'demo-seed-wallet') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   let imageBuffer;
