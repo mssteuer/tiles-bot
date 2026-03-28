@@ -9,6 +9,7 @@ import Header from '../components/Header';
 import FilterBar from '../components/FilterBar';
 import ClaimModal from '../components/ClaimModal';
 import BlockClaimModal from '../components/BlockClaimModal';
+import MultiTileSpanModal from '../components/MultiTileSpanModal';
 
 
 const GRID_PX = 256 * 32;
@@ -52,6 +53,17 @@ async function fetchBlocks() {
   }
 }
 
+async function fetchSpans() {
+  try {
+    const res = await fetch('/api/spans');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.spans || [];
+  } catch {
+    return [];
+  }
+}
+
 function HomeInner() {
   const searchParams = useSearchParams();
   const [tiles, setTiles] = useState({});
@@ -67,7 +79,9 @@ function HomeInner() {
     return null;
   });
   const [blocks, setBlocks] = useState([]);
+  const [spans, setSpans] = useState([]);
   const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
+  const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [filterCategory, setFilterCategory] = useState('All');
@@ -93,15 +107,17 @@ function HomeInner() {
     let closed = false;
 
     async function refreshGridAndStats() {
-      const [grid, statsSnapshot, conns, blockList] = await Promise.all([fetchGrid(), fetchStatsSnapshot(), fetchConnections(), fetchBlocks()]);
+      const [grid, statsSnapshot, conns, blockList, spanList] = await Promise.all([fetchGrid(), fetchStatsSnapshot(), fetchConnections(), fetchBlocks(), fetchSpans()]);
       if (closed) return;
 
       if (grid) {
         setTiles(grid.tiles);
         if (grid.blocks) setBlocks(grid.blocks);
+        if (grid.spans) setSpans(grid.spans);
       }
 
       setBlocks(prev => blockList.length ? blockList : prev);
+      setSpans(prev => spanList.length ? spanList : prev);
       setConnections(conns);
 
       const nextStats = statsSnapshot || grid?.stats;
@@ -124,6 +140,8 @@ function HomeInner() {
         const event = JSON.parse(e.data);
         if (event.type === 'block_claimed') {
           fetchBlocks().then(bl => setBlocks(bl));
+        } else if (event.type === 'span_updated') {
+          fetchSpans().then(sp => setSpans(sp));
         } else if (event.type === 'tile_claimed') {
           setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
           setStats(prev => {
@@ -170,12 +188,13 @@ function HomeInner() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [data, blockList0] = await Promise.all([fetchGrid(), fetchBlocks()]);
+      const [data, blockList0, spanList0] = await Promise.all([fetchGrid(), fetchBlocks(), fetchSpans()]);
       if (cancelled || !data) return;
 
       setTiles(data.tiles);
       if (data.pendingRequests) setPendingRequests(data.pendingRequests);
       setBlocks(data.blocks || blockList0);
+      setSpans(data.spans || spanList0);
       setStats({ ...data.stats });
       if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
     })();
@@ -232,6 +251,22 @@ function HomeInner() {
           }}
         />
       )}
+      {spanClaimTopLeft !== null && (
+        <MultiTileSpanModal
+          topLeftId={spanClaimTopLeft}
+          tiles={tiles}
+          onClose={() => setSpanClaimTopLeft(null)}
+          onCreated={async () => {
+            setSpanClaimTopLeft(null);
+            const [data, sp] = await Promise.all([fetchGrid(), fetchSpans()]);
+            if (data) {
+              setTiles(data.tiles);
+              setStats({ ...data.stats });
+              setSpans(data.spans || sp);
+            }
+          }}
+        />
+      )}
       <Header stats={stats} onClaimClick={(tileId) => setClaimModalTile(tileId ?? nextAvailableTileId)} nextAvailableTileId={nextAvailableTileId} />
       <FilterBar
         onFilterChange={setFilterCategory}
@@ -248,11 +283,13 @@ function HomeInner() {
         <Grid
           tiles={tiles}
           blocks={blocks}
+          spans={spans}
           connections={connections}
           pendingRequests={pendingRequests}
           onConnectionsChange={setConnections}
           onTileClick={handleTileClick}
           onBlockClaimRequest={setBlockClaimTopLeft}
+          onSpanClaimRequest={setSpanClaimTopLeft}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}
