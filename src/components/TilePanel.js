@@ -846,11 +846,15 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
       setIsOwner(true);
       return;
     }
-    // Fallback: on-chain ownerOf check (handles smart wallets where DB owner ≠ useAccount address)
+    // Reset immediately while checking on-chain (prevents stale flash from previous tile)
+    setIsOwner(false);
+    // On-chain ownerOf check (handles smart wallets where DB owner ≠ useAccount address)
+    let cancelled = false;
     fetch(`/api/tiles/${tile.id}/check-owner?wallet=${address}`)
       .then(r => r.json())
-      .then(d => setIsOwner(!!d.isOwner))
-      .catch(() => setIsOwner(false));
+      .then(d => { if (!cancelled) setIsOwner(!!d.isOwner); })
+      .catch(() => { if (!cancelled) setIsOwner(false); });
+    return () => { cancelled = true; };
   }, [address, tile.id, tile.owner]);
 
   function handleEditStart() {
