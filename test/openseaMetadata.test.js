@@ -27,6 +27,7 @@ describe('OpenSea metadata helpers', function () {
           owner: '0x1234567890abcdef1234567890abcdef12345678',
           url: 'https://agent.zero',
           xHandle: 'agentzero',
+          spanId: 77,
           imageUrl: '/uploads/123.png',
           claimedAt: '2026-03-27T00:00:00.000Z',
         },
@@ -39,6 +40,7 @@ describe('OpenSea metadata helpers', function () {
       assert.ok(metadata.attributes.some((item) => item.trait_type === 'Category' && item.value === 'research'));
       assert.ok(metadata.attributes.some((item) => item.trait_type === 'Status' && item.value === 'online'));
       assert.ok(metadata.attributes.some((item) => item.trait_type === 'X Handle' && item.value === '@agentzero'));
+      assert.ok(metadata.attributes.some((item) => item.trait_type === 'Block Group' && item.value === '77'));
       assert.ok(metadata.attributes.some((item) => item.trait_type === 'Row' && item.value === 0));
       assert.ok(metadata.attributes.some((item) => item.trait_type === 'Column' && item.value === 123));
     });

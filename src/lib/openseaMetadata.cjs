@@ -66,6 +66,10 @@ function buildTileAttributes(tileId, tile) {
     attributes.push({ trait_type: 'GitHub Verified', value: 'Yes' });
   }
 
+  if (tile.spanId) {
+    attributes.push({ trait_type: 'Block Group', value: String(tile.spanId) });
+  }
+
   return attributes;
 }
 

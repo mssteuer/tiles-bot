@@ -25,17 +25,19 @@ function run() {
       owner: '0x1234567890abcdef1234567890abcdef12345678',
       url: 'https://agent.zero',
       xHandle: 'agentzero',
+      spanId: 77,
       imageUrl: '/uploads/123.png',
       claimedAt: '2026-03-27T00:00:00.000Z',
     },
   });
 
-  assert.equal(claimed.name, 'Million Bot Tile #123 — Agent Zero');
+  assert.equal(claimed.name, 'Agent Zero');
   assert.equal(claimed.image, 'https://tiles.bot/uploads/123.png');
   assert.equal(claimed.external_url, 'https://tiles.bot/?tile=123');
   assert.ok(claimed.attributes.some((item) => item.trait_type === 'Category' && item.value === 'research'));
-  assert.ok(claimed.attributes.some((item) => item.trait_type === 'Row' && item.value === 0));
-  assert.ok(claimed.attributes.some((item) => item.trait_type === 'Column' && item.value === 123));
+  assert.ok(claimed.attributes.some((item) => item.trait_type === 'Block Group' && item.value === '77'));
+  assert.ok(claimed.attributes.some((item) => item.trait_type === 'X Coordinate' && item.value === 123));
+  assert.ok(claimed.attributes.some((item) => item.trait_type === 'Y Coordinate' && item.value === 0));
 
   const unclaimed = buildTileTokenMetadata({
     siteUrl: 'https://tiles.bot',
@@ -43,11 +45,11 @@ function run() {
     tile: null,
   });
 
-  assert.equal(unclaimed.name, 'Million Bot Tile #511');
+  assert.equal(unclaimed.name, 'Tile #511');
   assert.equal(unclaimed.image, 'https://tiles.bot/og-image.png');
-  assert.ok(unclaimed.attributes.some((item) => item.trait_type === 'Claimed' && item.value === 'No'));
-  assert.ok(unclaimed.attributes.some((item) => item.trait_type === 'Row' && item.value === 1));
-  assert.ok(unclaimed.attributes.some((item) => item.trait_type === 'Column' && item.value === 255));
+  assert.ok(unclaimed.attributes.some((item) => item.trait_type === 'Tile Number' && item.value === 511));
+  assert.ok(unclaimed.attributes.some((item) => item.trait_type === 'X Coordinate' && item.value === 255));
+  assert.ok(unclaimed.attributes.some((item) => item.trait_type === 'Y Coordinate' && item.value === 1));
 
   const collection = buildCollectionMetadata({
     siteUrl: 'https://tiles.bot',
