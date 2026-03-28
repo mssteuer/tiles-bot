@@ -173,7 +173,7 @@ function MobileHints() {
   );
 }
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, onBlockClaimRequest }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -416,6 +416,43 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     // Tiles
     const now = Date.now();
     const pulse = 0.6 + 0.4 * Math.sin(pulsePhase.current); // 0.2–1.0
+
+    // Draw rectangular image spans first
+    const drawnSpanIds = new Set();
+    for (const span of (spans || [])) {
+      const tileIds = typeof span.tileIds === 'string' ? JSON.parse(span.tileIds) : (span.tileIds || []);
+      if (!tileIds.length) continue;
+      if (drawnSpanIds.has(span.id)) continue;
+      drawnSpanIds.add(span.id);
+
+      const tlCol = span.topLeftId % GRID_SIZE;
+      const tlRow = Math.floor(span.topLeftId / GRID_SIZE);
+      const sx = tlCol * TILE_SIZE;
+      const sy = tlRow * TILE_SIZE;
+      const sw = span.width * TILE_SIZE;
+      const sh = span.height * TILE_SIZE;
+
+      const spanImgKey = `span:${span.id}`;
+      ctx.save();
+      ctx.fillStyle = 'rgba(14,165,233,0.10)';
+      ctx.fillRect(sx, sy, sw, sh);
+      if (span.imageUrl) {
+        let cachedSpanImg = imageCache[spanImgKey];
+        if (!cachedSpanImg) {
+          imageCache[spanImgKey] = 'loading';
+          const img = new window.Image();
+          img.src = span.imageUrl;
+          img.onload = () => { imageCache[spanImgKey] = img; };
+          img.onerror = () => { imageCache[spanImgKey] = 'error'; };
+        } else if (cachedSpanImg !== 'loading' && cachedSpanImg !== 'error') {
+          ctx.drawImage(cachedSpanImg, sx, sy, sw, sh);
+        }
+      }
+      ctx.strokeStyle = '#0ea5e9';
+      ctx.lineWidth = 2 / cam.zoom;
+      ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+      ctx.restore();
+    }
 
     // Draw blocks first (as merged rectangles behind individual tiles)
     const drawnBlockIds = new Set();
@@ -1182,11 +1219,16 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => {
             e.preventDefault();
-            if (!onBlockClaimRequest) return;
             const rect = canvasRef.current?.getBoundingClientRect();
             if (!rect) return;
             const tileId = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
-            if (tileId !== null && !tiles[tileId]) {
+            if (tileId === null) return;
+            if (e.shiftKey && onSpanClaimRequest && tiles[tileId]) {
+              onSpanClaimRequest(tileId);
+              return;
+            }
+            if (!onBlockClaimRequest) return;
+            if (!tiles[tileId]) {
               onBlockClaimRequest(tileId);
             }
           }}
