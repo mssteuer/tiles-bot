@@ -20,9 +20,8 @@ function getSpanDir(span) {
 
 function fitRectCanvas(image, targetWidth, targetHeight) {
   return image.resize(targetWidth, targetHeight, {
-    fit: 'contain',
+    fit: 'cover',
     position: 'centre',
-    background: { r: 0, g: 0, b: 0, alpha: 0 },
   });
 }
 
@@ -158,6 +157,10 @@ export async function POST(request, { params }) {
 
   try {
     broadcast({ type: 'span_updated', spanId: updated.id, topLeftId: updated.topLeftId, status: updated.status });
+    // Broadcast individual tile image updates so the grid renders them immediately
+    for (const { tileId, imageUrl } of tileSliceResults) {
+      broadcast({ type: 'tile_image_updated', tileId, imageUrl });
+    }
   } catch {}
 
   return NextResponse.json({
