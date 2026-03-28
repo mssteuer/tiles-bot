@@ -594,8 +594,8 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {/* Pending requests — shown to anyone viewing (accept/reject will verify ownership server-side) */}
-      {pendingRequests.length > 0 && (
+      {/* Pending requests (owner only — verified via on-chain ownerOf) */}
+      {isOwner && pendingRequests.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
@@ -837,9 +837,21 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     color: tile.color || '#3b82f6',
   });
 
-  // Check if connected wallet owns this tile
-  const isOwner = !!address && !!tile.owner &&
-    address.toLowerCase() === tile.owner.toLowerCase();
+  // Check if connected wallet owns this tile (supports smart wallets via on-chain check)
+  const [isOwner, setIsOwner] = useState(false);
+  useEffect(() => {
+    if (!address || tile.id == null) { setIsOwner(false); return; }
+    // Quick local check first
+    if (tile.owner && address.toLowerCase() === tile.owner.toLowerCase()) {
+      setIsOwner(true);
+      return;
+    }
+    // Fallback: on-chain ownerOf check (handles smart wallets where DB owner ≠ useAccount address)
+    fetch(`/api/tiles/${tile.id}/check-owner?wallet=${address}`)
+      .then(r => r.json())
+      .then(d => setIsOwner(!!d.isOwner))
+      .catch(() => setIsOwner(false));
+  }, [address, tile.id, tile.owner]);
 
   function handleEditStart() {
     setFormData({
