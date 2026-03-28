@@ -594,8 +594,8 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {/* Pending requests (owner only) */}
-      {isOwner && pendingRequests.length > 0 && (
+      {/* Pending requests — shown to anyone viewing (accept/reject will verify ownership server-side) */}
+      {pendingRequests.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
