@@ -45,6 +45,8 @@ function detectRectangle(tileIds) {
   };
 }
 
+const MAX_BATCH_TILES = 256; // 16×16 max span
+
 export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, onSpanClaimRequest }) {
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onClose(); };
@@ -60,7 +62,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  const { unclaimed, alreadyClaimed } = useMemo(() => {
+  const { unclaimed, alreadyClaimed, wasCapped } = useMemo(() => {
     if (frozenTiles.current) return frozenTiles.current;
     const unclaimed = [];
     const alreadyClaimed = [];
@@ -69,20 +71,37 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
       if (t && t.owner) alreadyClaimed.push(id);
       else unclaimed.push(id);
     }
-    return { unclaimed, alreadyClaimed };
+    const wasCapped = unclaimed.length > MAX_BATCH_TILES;
+    return { unclaimed: unclaimed.slice(0, MAX_BATCH_TILES), alreadyClaimed, wasCapped };
   }, [tileIds, tiles]);
 
   const claimedRectangle = useMemo(() => detectRectangle(unclaimed), [unclaimed]);
 
+  const [totalMinted, setTotalMinted] = useState(0);
+
   useEffect(() => {
     fetch('/api/stats')
       .then(r => r.json())
-      .then(d => setCurrentPrice(d.currentPrice || 0.01))
+      .then(d => {
+        setCurrentPrice(d.currentPrice || 0.01);
+        setTotalMinted(d.claimed || 0);
+      })
       .catch(() => setCurrentPrice(0.01));
   }, []);
 
-  const estimatedTotal = currentPrice !== null ? (currentPrice * unclaimed.length).toFixed(4) : '...';
-  const perTilePrice = currentPrice !== null ? currentPrice.toFixed(4) : '...';
+  // Progressive bonding curve: sum price for each sequential mint
+  const { estimatedTotal, perTilePrice } = useMemo(() => {
+    if (currentPrice === null) return { estimatedTotal: '...', perTilePrice: '...' };
+    let total = 0;
+    const TOTAL_TILES = 65536;
+    for (let i = 0; i < unclaimed.length; i++) {
+      total += Math.exp(Math.log(11111) * (totalMinted + i) / TOTAL_TILES) / 100;
+    }
+    return {
+      estimatedTotal: total.toFixed(4),
+      perTilePrice: currentPrice.toFixed(4),
+    };
+  }, [currentPrice, totalMinted, unclaimed.length]);
 
   const handleBatchClaim = async () => {
     if (!isConnected || unclaimed.length === 0) return;
@@ -181,17 +200,23 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
           )}
         </div>
 
+        {wasCapped && (
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 13, color: '#f87171' }}>
+            ⚠️ Selection capped to {MAX_BATCH_TILES} tiles (max {Math.sqrt(MAX_BATCH_TILES)}×{Math.sqrt(MAX_BATCH_TILES)} span). Select fewer tiles.
+          </div>
+        )}
+
         <div style={{ background: '#0f0f23', borderRadius: 8, padding: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>
-            <span>Price per tile:</span>
+            <span>Starting price:</span>
             <span>${perTilePrice} USDC</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 600, color: '#e2e8f0' }}>
-            <span>Estimated total:</span>
-            <span>~${estimatedTotal} USDC</span>
+            <span>Total ({unclaimed.length} tiles):</span>
+            <span>${estimatedTotal} USDC</span>
           </div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-            Actual cost may be slightly higher due to bonding curve increase per tile
+            Price increases per tile along the bonding curve
           </div>
         </div>
 
@@ -220,7 +245,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
               background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
               color: '#fff', border: 'none', fontSize: 16, fontWeight: 600, cursor: 'pointer',
             }}>
-              Claim {unclaimed.length} Tile{unclaimed.length !== 1 ? 's' : ''} (~${estimatedTotal} USDC)
+              Claim {unclaimed.length} Tile{unclaimed.length !== 1 ? 's' : ''} (${estimatedTotal} USDC)
             </button>
           )
         )}
