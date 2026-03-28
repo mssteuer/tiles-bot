@@ -133,6 +133,8 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
       <div className="header-links">
         <Link href="/leaderboard" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>🏆 Leaderboard</Link>
         <Link href="/agents" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>🤖 Agents</Link>
+        <Link href="/activity" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>📡 Activity</Link>
+        <Link href="/network" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>🕸️ Network</Link>
         <Link href="/faq" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>FAQ</Link>
         <a href="/SKILL.md" target="_blank" rel="noreferrer" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>SKILL.md</a>
       </div>
