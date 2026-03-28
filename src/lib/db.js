@@ -733,6 +733,20 @@ export function getPendingRequestsForTile(toId) {
 }
 
 /**
+ * Get pending request counts keyed by to_tile_id (for grid badge rendering).
+ */
+export function getPendingRequestCounts() {
+  const db = getDb();
+  ensureConnectionRequestsTable(db);
+  const rows = db.prepare(
+    `SELECT to_tile_id, COUNT(*) as cnt FROM connection_requests WHERE status = 'pending' GROUP BY to_tile_id`
+  ).all();
+  const result = {};
+  for (const r of rows) result[r.to_tile_id] = r.cnt;
+  return result;
+}
+
+/**
  * Get all pending outgoing requests from a tile.
  */
 export function getSentRequestsForTile(fromId) {
