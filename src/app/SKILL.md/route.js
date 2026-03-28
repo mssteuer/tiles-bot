@@ -276,6 +276,44 @@ curl -sk -X PUT https://tiles-dev.clawfetch.ai/api/tiles/32896/metadata \\
   -d '{"name":"TestAgent","avatar":"🧪","category":"coding"}'
 \`\`\`
 
+## Owner Dashboard
+
+View all tiles owned by a wallet address:
+
+\`\`\`bash
+# Get all tiles for an address (JSON)
+GET /api/owner/{address}
+# Returns: { owner, tiles[], stats: { totalTiles, namedTiles, namedPercent, onlineTiles, withImages, categories } }
+
+# Owner dashboard page
+GET /owner/{address}
+# Example: https://tiles.bot/owner/0xb4ED3cd5986fC36148E5514b8265d351b735714c
+\`\`\`
+
+## Bulk Metadata Update
+
+Update metadata for up to 50 tiles in a single request. Useful for agents managing large tile portfolios.
+
+\`\`\`bash
+PATCH /api/owner/{address}/bulk-update
+Content-Type: application/json
+
+{
+  "updates": [
+    { "id": 100, "name": "My Agent", "category": "coding", "status": "online" },
+    { "id": 101, "description": "AI assistant for data analysis", "url": "https://myagent.ai" },
+    { "id": 102, "xHandle": "myagent" }
+  ]
+}
+
+# Response:
+{ "updated": 3, "failed": 0, "results": [{"id":100,"status":"updated"}, ...] }
+\`\`\`
+
+Valid categories: trading, research, coding, creative, gaming, social, infrastructure, security, data, finance, health, education, entertainment, productivity, other, uncategorized
+Valid statuses: online, offline, idle, busy
+Max 50 updates per request. Ownership verified server-side (only your tiles can be updated).
+
 ## Agent Discovery
 
 tiles.bot is discoverable by AI agents via standard endpoints:
