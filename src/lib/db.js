@@ -101,8 +101,46 @@ function initSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_blocks_owner ON tile_blocks(owner);
     CREATE INDEX IF NOT EXISTS idx_blocks_top_left ON tile_blocks(top_left_id);
+
+    CREATE TABLE IF NOT EXISTS tile_spans (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      top_left_id      INTEGER NOT NULL UNIQUE,
+      owner            TEXT NOT NULL,
+      width            INTEGER NOT NULL CHECK(width BETWEEN 1 AND 16),
+      height           INTEGER NOT NULL CHECK(height BETWEEN 1 AND 16),
+      name             TEXT,
+      description      TEXT,
+      image_url        TEXT,
+      slice_image_urls TEXT,
+      claimed_at       TEXT NOT NULL,
+      tile_ids         TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_tile_spans_owner ON tile_spans(owner);
+    CREATE INDEX IF NOT EXISTS idx_tile_spans_top_left ON tile_spans(top_left_id);
   `);
+
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN span_id INTEGER`); } catch {}
 }
+
+export function getRectTileIds(topLeftId, width, height, gridSize = GRID_SIZE) {
+  if (!Number.isInteger(topLeftId) || topLeftId < 0 || topLeftId >= gridSize * gridSize) return null;
+  if (!Number.isInteger(width) || !Number.isInteger(height)) return null;
+  if (width < 1 || width > 16 || height < 1 || height > 16) return null;
+  if (width === 1 && height === 1) return null;
+
+  const col = topLeftId % gridSize;
+  const row = Math.floor(topLeftId / gridSize);
+  if (col + width > gridSize || row + height > gridSize) return null;
+
+  const ids = [];
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      ids.push((row + r) * gridSize + (col + c));
+    }
+  }
+  return ids;
+}
+
 
 // ─── Read helpers ────────────────────────────────────────────────────────────
 
@@ -124,6 +162,8 @@ function rowToTile(row) {
     pricePaid: row.price_paid || null,
     imageUrl: row.image_url || null,
     txHash: row.tx_hash || null,
+    blockId: row.block_id || null,
+    spanId: row.span_id || null,
     githubVerified: row.github_verified === 1,
     githubUsername: row.github_username || null,
     githubGistId: row.github_gist_id || null,
@@ -378,8 +418,125 @@ export function getTilesByOwner(owner) {
  * Get grid state as sparse array for efficient frontend rendering.
  * Returns only claimed tiles (not all 65,536 slots).
  */
+function tileSpanRowToObj(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    topLeftId: row.top_left_id,
+    owner: row.owner,
+    width: row.width,
+    height: row.height,
+    name: row.name || null,
+    description: row.description || null,
+    imageUrl: row.image_url || null,
+    sliceImageUrls: row.slice_image_urls ? JSON.parse(row.slice_image_urls) : {},
+    claimedAt: row.claimed_at,
+    tileIds: JSON.parse(row.tile_ids),
+  };
+}
+
+export function createTileSpan({ topLeftId, width, height, owner }) {
+  const db = getDb();
+
+  const tileCount = width * height;
+  if (tileCount < 2) throw new Error('Span must cover at least 2 tiles');
+
+  const tileIds = getRectTileIds(topLeftId, width, height);
+  if (!tileIds) {
+    throw new Error('Span dimensions must stay inside the grid and each side must be between 1 and 16');
+  }
+  if (tileCount > 256) throw new Error('Span cannot exceed 256 tiles');
+
+  const tx = db.transaction(() => {
+    const placeholders = tileIds.map(() => '?').join(',');
+    const rows = db.prepare(`SELECT id, owner, span_id FROM tiles WHERE id IN (${placeholders})`).all(...tileIds);
+
+    if (rows.length !== tileIds.length) {
+      throw new Error('All tiles in the span must already be claimed by the same wallet');
+    }
+
+    for (const row of rows) {
+      if (!row.owner || row.owner.toLowerCase() !== owner.toLowerCase()) {
+        throw new Error('All tiles in the span must be owned by the same wallet');
+      }
+      if (row.span_id) {
+        throw new Error(`Tile #${row.id} is already part of another span`);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const result = db.prepare(`
+      INSERT INTO tile_spans (top_left_id, owner, width, height, claimed_at, tile_ids, slice_image_urls)
+      VALUES (@top_left_id, @owner, @width, @height, @claimed_at, @tile_ids, @slice_image_urls)
+    `).run({
+      top_left_id: topLeftId,
+      owner,
+      width,
+      height,
+      claimed_at: now,
+      tile_ids: JSON.stringify(tileIds),
+      slice_image_urls: JSON.stringify({}),
+    });
+
+    const spanId = Number(result.lastInsertRowid);
+    db.prepare(`UPDATE tiles SET span_id = ? WHERE id IN (${placeholders})`).run(spanId, ...tileIds);
+    return getTileSpan(spanId);
+  });
+
+  return tx();
+}
+
+export function getTileSpan(spanId) {
+  const db = getDb();
+  return tileSpanRowToObj(db.prepare('SELECT * FROM tile_spans WHERE id = ?').get(spanId));
+}
+
+export function getTileSpanByTopLeft(topLeftId) {
+  const db = getDb();
+  return tileSpanRowToObj(db.prepare('SELECT * FROM tile_spans WHERE top_left_id = ?').get(topLeftId));
+}
+
+export function getTileSpanForTile(tileId) {
+  const tile = getTile(tileId);
+  if (!tile?.spanId) return null;
+  return getTileSpan(tile.spanId);
+}
+
+export function getAllTileSpans() {
+  const db = getDb();
+  return db.prepare('SELECT * FROM tile_spans ORDER BY id ASC').all().map(tileSpanRowToObj);
+}
+
+export function updateTileSpan(spanId, metadata) {
+  const db = getDb();
+  const existing = getTileSpan(spanId);
+  if (!existing) return null;
+
+  const updates = {};
+  if (metadata.name !== undefined) updates.name = metadata.name;
+  if (metadata.description !== undefined) updates.description = metadata.description;
+  if (metadata.imageUrl !== undefined) updates.image_url = metadata.imageUrl;
+  if (metadata.sliceImageUrls !== undefined) updates.slice_image_urls = JSON.stringify(metadata.sliceImageUrls || {});
+
+  if (Object.keys(updates).length > 0) {
+    const setClauses = Object.keys(updates).map(col => `${col} = @${col}`).join(', ');
+    db.prepare(`UPDATE tile_spans SET ${setClauses} WHERE id = @id`).run({ ...updates, id: spanId });
+  }
+
+  if (metadata.sliceImageUrls && typeof metadata.sliceImageUrls === 'object') {
+    for (const [tileId, imageUrl] of Object.entries(metadata.sliceImageUrls)) {
+      updateTileMetadata(Number(tileId), { imageUrl });
+    }
+  }
+
+  return getTileSpan(spanId);
+}
+
 export function getGridState() {
-  return getAllTiles();
+  return {
+    tiles: getAllTiles(),
+    spans: getAllTileSpans(),
+  };
 }
 
 // ─── Verification helpers ─────────────────────────────────────────────────────

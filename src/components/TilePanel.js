@@ -825,6 +825,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingSpanImage, setUploadingSpanImage] = useState(false);
   const [imagePreview, setImagePreview] = useState(tile.imageUrl || null);
   const [formData, setFormData] = useState({
     name: tile.name || '',
@@ -927,6 +928,52 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   function handleCancel() {
     setEditing(false);
     setSaveMsg('');
+  }
+
+  async function handleSpanImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file || !tile.spanId) return;
+
+    if (!file.type.startsWith('image/')) {
+      setSaveMsg('Error: Please upload a PNG, JPG, or WebP image');
+      return;
+    }
+
+    setUploadingSpanImage(true);
+    setSaveMsg('');
+    try {
+      const compressed = file.size > 4 * 1024 * 1024
+        ? await compressImage(file, 2048, 0.9)
+        : file;
+
+      const formPayload = new FormData();
+      formPayload.append('image', compressed, file.name);
+      formPayload.append('spanId', String(tile.spanId));
+      formPayload.append('topLeftId', String(tile.id));
+
+      const res = await fetch(`/api/spans/${tile.spanId}/image`, {
+        method: 'POST',
+        headers: { 'x-wallet': address },
+        body: formPayload,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Span upload failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      const tileSlice = data.slices?.find(slice => slice.tileId === tile.id);
+      if (tileSlice?.imageUrl) {
+        setImagePreview(tileSlice.imageUrl + '?t=' + Date.now());
+      }
+      setSaveMsg('✓ Span image uploaded and sliced across the rectangle');
+      setTimeout(() => setSaveMsg(''), 4000);
+    } catch (err) {
+      setSaveMsg(`Error: ${err.message}`);
+    } finally {
+      setUploadingSpanImage(false);
+    }
   }
 
   async function handleSave() {
@@ -1164,6 +1211,35 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 </div>
               </div>
             </div>
+
+            {tile.spanId && (
+              <div>
+                <label style={labelStyle}>Multi-Tile Span Image</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{
+                    display: 'inline-block',
+                    background: uploadingSpanImage ? '#333' : '#0c4a6e',
+                    border: '1px solid #0369a1',
+                    borderRadius: 6,
+                    padding: '8px 14px',
+                    fontSize: 12,
+                    color: '#e0f2fe',
+                    cursor: uploadingSpanImage ? 'not-allowed' : 'pointer',
+                    textAlign: 'center',
+                  }}>
+                    {uploadingSpanImage ? 'Uploading span…' : '🧩 Upload spanning image'}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleSpanImageUpload}
+                      disabled={uploadingSpanImage}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  <span style={{ fontSize: 10, color: '#555' }}>Max 10MB • Fits to rectangle ratio • Slices into individual NFT images automatically</span>
+                </div>
+              </div>
+            )}
 
             {/* Name */}
             <div>
