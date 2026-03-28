@@ -425,6 +425,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     // Draw rectangular image spans first
     const drawnSpanIds = new Set();
+    const tilesInSpans = new Set(); // tiles that belong to rendered spans — skip individual render
     for (const span of (spans || [])) {
       const tileIds = typeof span.tileIds === 'string' ? JSON.parse(span.tileIds) : (span.tileIds || []);
       if (!tileIds.length || span.status !== 'ready') continue;
@@ -437,6 +438,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       if (!ownershipIntact) continue;
 
       drawnSpanIds.add(span.id);
+      tileIds.forEach(tid => tilesInSpans.add(tid));
       const tlCol = span.topLeftId % GRID_SIZE;
       const tlRow = Math.floor(span.topLeftId / GRID_SIZE);
       const sx = tlCol * TILE_SIZE;
@@ -559,6 +561,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           const topLeftId = tileBlock.topLeftId ?? tileBlock.top_left_id;
           if (id !== topLeftId) continue; // non-top-left block tile — skip individual render
         }
+
+        // Skip tiles that belong to a rendered span — span already drew the image
+        if (tilesInSpans.has(id)) continue;
 
         if (tile) {
           const baseColor = tile.color || CATEGORY_COLORS[tile.category] || '#333';
