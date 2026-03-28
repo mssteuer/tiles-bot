@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { parseAbi } from 'viem';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
@@ -53,6 +53,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
   const frozenTiles = useRef(null);
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
 
   const { unclaimed, alreadyClaimed } = useMemo(() => {
     if (frozenTiles.current) return frozenTiles.current;
@@ -103,6 +104,11 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         functionName: 'batchClaim',
         args: [unclaimed.map(id => BigInt(id))],
       });
+
+      // Wait for the transaction to be mined before registering
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash: claimTx });
+      }
 
       for (const id of unclaimed) {
         try {
