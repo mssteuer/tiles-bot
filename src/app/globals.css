@@ -1,6 +1,27 @@
 /* tiles.bot global styles */
 * { box-sizing: border-box; }
 
+/* Spinner for loading buttons */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse-glow { 0%,100% { box-shadow: 0 0 8px rgba(59,130,246,0.3); } 50% { box-shadow: 0 0 20px rgba(59,130,246,0.6); } }
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.85;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+.btn-loading .spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
 body {
   margin: 0;
   padding: 0;

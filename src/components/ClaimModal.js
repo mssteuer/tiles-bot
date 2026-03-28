@@ -259,28 +259,30 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
               <button
                 onClick={handleApprove}
                 disabled={!hasBalance || step === 'approve'}
+                className={step === 'approve' ? 'btn-loading' : ''}
                 style={{
                   width: '100%', padding: '12px', borderRadius: 10, border: 'none',
                   background: hasBalance ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : '#333',
                   color: '#fff', fontWeight: 700, fontSize: 15, cursor: hasBalance ? 'pointer' : 'not-allowed',
-                  opacity: step === 'approve' ? 0.7 : 1,
                 }}
               >
-                {step === 'approve' ? 'Approving...' : '1. Approve USDC'}
+                {step === 'approve' && <span className="spinner" />}
+                {step === 'approve' ? 'Approving USDC…' : '1. Approve USDC'}
               </button>
             ) : (
               /* Step 2: Claim */
               <button
                 onClick={handleClaim}
                 disabled={!hasBalance || step === 'claim'}
+                className={step === 'claim' ? 'btn-loading' : ''}
                 style={{
                   width: '100%', padding: '12px', borderRadius: 10, border: 'none',
                   background: hasBalance ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : '#333',
                   color: '#fff', fontWeight: 700, fontSize: 15, cursor: hasBalance ? 'pointer' : 'not-allowed',
-                  opacity: step === 'claim' ? 0.7 : 1,
                 }}
               >
-                {step === 'claim' ? 'Claiming...' : `Claim for $${parseFloat(priceDisplay).toFixed(4)}`}
+                {step === 'claim' && <span className="spinner" />}
+                {step === 'claim' ? 'Claiming tile…' : `Claim for $${parseFloat(priceDisplay).toFixed(4)}`}
               </button>
             )}
 

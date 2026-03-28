@@ -239,8 +239,9 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
         )}
 
         {step === 'processing' && (
-          <div style={{ color: '#60a5fa', fontSize: 13, marginBottom: 12 }}>
-            Processing upload and polling span status{polling ? '…' : '.'}
+          <div className="btn-loading" style={{ color: '#60a5fa', fontSize: 13, marginBottom: 12, padding: '10px 14px', borderRadius: 8, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', textAlign: 'center' }}>
+            <span className="spinner" style={{ borderTopColor: '#60a5fa', borderColor: 'rgba(96,165,250,0.3)' }} />
+            Processing and slicing tiles{polling ? '…' : '.'}
           </div>
         )}
 
@@ -255,10 +256,14 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ background: 'transparent', border: '1px solid #374151', color: '#ddd', padding: '10px 16px', borderRadius: 8, cursor: 'pointer' }}>{step === 'ready' ? 'Done' : 'Cancel'}</button>
           {!createdSpan && (
-            <button onClick={handleCreate} disabled={!canCreate || working} style={{ background: !canCreate ? '#1f2937' : '#7c3aed', border: 'none', color: '#fff', padding: '10px 16px', borderRadius: 8, cursor: !canCreate ? 'not-allowed' : 'pointer' }}>{working ? 'Creating…' : 'Create Span'}</button>
+            <button onClick={handleCreate} disabled={!canCreate || working} className={working ? 'btn-loading' : ''} style={{ background: !canCreate ? '#1f2937' : '#7c3aed', border: 'none', color: '#fff', padding: '10px 16px', borderRadius: 8, cursor: !canCreate ? 'not-allowed' : 'pointer' }}>
+              {working && <span className="spinner" />}{working ? 'Creating span…' : 'Create Span'}
+            </button>
           )}
           {createdSpan && step !== 'ready' && (
-            <button onClick={handleUpload} disabled={!canUpload} style={{ background: !canUpload ? '#1f2937' : '#0ea5e9', border: 'none', color: '#fff', padding: '10px 16px', borderRadius: 8, cursor: !canUpload ? 'not-allowed' : 'pointer' }}>{uploading ? 'Uploading…' : 'Upload Image'}</button>
+            <button onClick={handleUpload} disabled={!canUpload} className={uploading ? 'btn-loading' : ''} style={{ background: !canUpload ? '#1f2937' : '#0ea5e9', border: 'none', color: '#fff', padding: '10px 16px', borderRadius: 8, cursor: !canUpload ? 'not-allowed' : 'pointer' }}>
+              {uploading && <span className="spinner" />}{uploading ? 'Uploading image…' : 'Upload Image'}
+            </button>
           )}
         </div>
       </div>
