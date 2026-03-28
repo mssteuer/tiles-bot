@@ -655,6 +655,171 @@ export function updateBlockMetadata(blockId, metadata) {
   return getBlock(blockId);
 }
 
+// ─── Connection request helpers ──────────────────────────────────────────────
+
+/**
+ * Ensure connection_requests table exists (idempotent migration).
+ */
+function ensureConnectionRequestsTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS connection_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_tile_id INTEGER NOT NULL,
+      to_tile_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','rejected')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      resolved_at TEXT,
+      UNIQUE(from_tile_id, to_tile_id),
+      CHECK(from_tile_id <> to_tile_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_conn_req_to ON connection_requests(to_tile_id, status);
+    CREATE INDEX IF NOT EXISTS idx_conn_req_from ON connection_requests(from_tile_id, status);
+  `);
+}
+
+// Run migration immediately
+ensureConnectionRequestsTable();
+
+/**
+ * Create a connection request from one tile to another.
+ * Throws if a pending request already exists or tiles are already connected.
+ */
+export function createConnectionRequest(fromId, toId) {
+  const db = getDb();
+  // Check if already connected
+  if (connectionExists(fromId, toId)) {
+    throw new Error('Tiles are already connected');
+  }
+  // Check for existing pending request in either direction
+  const existing = db.prepare(
+    `SELECT id FROM connection_requests
+     WHERE ((from_tile_id = ? AND to_tile_id = ?) OR (from_tile_id = ? AND to_tile_id = ?))
+     AND status = 'pending'`
+  ).get(fromId, toId, toId, fromId);
+  if (existing) {
+    throw new Error('A pending connection request already exists between these tiles');
+  }
+  const result = db.prepare(
+    `INSERT INTO connection_requests (from_tile_id, to_tile_id, status) VALUES (?, ?, 'pending')`
+  ).run(fromId, toId);
+  return { id: Number(result.lastInsertRowid), fromTileId: fromId, toTileId: toId, status: 'pending' };
+}
+
+/**
+ * Get all pending incoming requests for a tile (enriched with from_tile info).
+ */
+export function getPendingRequestsForTile(toId) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT cr.id, cr.from_tile_id, cr.to_tile_id, cr.status, cr.created_at,
+           t.name, t.avatar, t.category, t.status as tile_status, t.image_url, t.color
+    FROM connection_requests cr
+    LEFT JOIN tiles t ON t.id = cr.from_tile_id
+    WHERE cr.to_tile_id = ? AND cr.status = 'pending'
+    ORDER BY cr.created_at DESC
+  `).all(toId).map(r => ({
+    id: r.id,
+    fromTileId: r.from_tile_id,
+    toTileId: r.to_tile_id,
+    status: r.status,
+    createdAt: r.created_at,
+    fromTile: {
+      id: r.from_tile_id,
+      name: r.name || `Tile #${r.from_tile_id}`,
+      avatar: r.avatar || null,
+      category: r.category || null,
+      status: r.tile_status || 'offline',
+      imageUrl: r.image_url || null,
+      color: r.color || null,
+    },
+  }));
+}
+
+/**
+ * Get all pending outgoing requests from a tile.
+ */
+export function getSentRequestsForTile(fromId) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT cr.id, cr.from_tile_id, cr.to_tile_id, cr.status, cr.created_at,
+           t.name, t.avatar, t.category
+    FROM connection_requests cr
+    LEFT JOIN tiles t ON t.id = cr.to_tile_id
+    WHERE cr.from_tile_id = ? AND cr.status = 'pending'
+    ORDER BY cr.created_at DESC
+  `).all(fromId).map(r => ({
+    id: r.id,
+    fromTileId: r.from_tile_id,
+    toTileId: r.to_tile_id,
+    status: r.status,
+    createdAt: r.created_at,
+    toTile: {
+      id: r.to_tile_id,
+      name: r.name || `Tile #${r.to_tile_id}`,
+      avatar: r.avatar || null,
+      category: r.category || null,
+    },
+  }));
+}
+
+/**
+ * Get a single connection request by ID.
+ */
+export function getConnectionRequest(requestId) {
+  const db = getDb();
+  const r = db.prepare('SELECT * FROM connection_requests WHERE id = ?').get(requestId);
+  if (!r) return null;
+  return {
+    id: r.id,
+    fromTileId: r.from_tile_id,
+    toTileId: r.to_tile_id,
+    status: r.status,
+    createdAt: r.created_at,
+    resolvedAt: r.resolved_at,
+  };
+}
+
+/**
+ * Accept a connection request. Validates that ownerTileId matches the to_tile_id.
+ * Creates the actual connection and marks the request as accepted.
+ */
+export function acceptConnectionRequest(requestId, ownerTileId) {
+  const db = getDb();
+  const req = db.prepare('SELECT * FROM connection_requests WHERE id = ?').get(requestId);
+  if (!req) throw new Error('Connection request not found');
+  if (req.status !== 'pending') throw new Error('Request is no longer pending');
+  if (req.to_tile_id !== ownerTileId) throw new Error('Not authorized to accept this request');
+
+  const acceptTx = db.transaction(() => {
+    // Create the actual connection
+    addConnection(req.from_tile_id, req.to_tile_id, null);
+    // Mark request as accepted
+    db.prepare(
+      `UPDATE connection_requests SET status = 'accepted', resolved_at = datetime('now') WHERE id = ?`
+    ).run(requestId);
+  });
+
+  acceptTx();
+  return { fromTileId: req.from_tile_id, toTileId: req.to_tile_id };
+}
+
+/**
+ * Reject a connection request. Validates that ownerTileId matches the to_tile_id.
+ */
+export function rejectConnectionRequest(requestId, ownerTileId) {
+  const db = getDb();
+  const req = db.prepare('SELECT * FROM connection_requests WHERE id = ?').get(requestId);
+  if (!req) throw new Error('Connection request not found');
+  if (req.status !== 'pending') throw new Error('Request is no longer pending');
+  if (req.to_tile_id !== ownerTileId) throw new Error('Not authorized to reject this request');
+
+  db.prepare(
+    `UPDATE connection_requests SET status = 'rejected', resolved_at = datetime('now') WHERE id = ?`
+  ).run(requestId);
+  return { fromTileId: req.from_tile_id, toTileId: req.to_tile_id };
+}
+
 // Close DB gracefully on process exit
 process.on('exit', () => { if (_db) _db.close(); });
 process.on('SIGINT', () => { if (_db) { _db.close(); process.exit(0); } });
