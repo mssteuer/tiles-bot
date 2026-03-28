@@ -87,13 +87,33 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Signer does not match claimed wallet address' }, { status: 401 });
   }
 
-  // Ownership check: allow if signer matches DB owner OR if signer is the EOA
-  // behind a smart wallet (Coinbase Smart Wallet stores proxy address as owner).
-  // For now, accept any valid signature — the request is already visible to
-  // whoever is browsing the tile. Tighten with ERC-6492 verification later.
+  // Ownership check: DB match OR on-chain ownerOf match (handles smart wallets)
   const isDbOwner = recoveredAddress.toLowerCase() === tile.owner.toLowerCase();
   if (!isDbOwner) {
-    console.log(`[requests] Non-owner action: signer=${recoveredAddress}, dbOwner=${tile.owner} (likely smart wallet EOA)`);
+    // On-chain check: the connected wallet (which signs) may be the smart wallet
+    // that owns the NFT, while DB has a different address from the Transfer event
+    try {
+      const { createPublicClient, http, parseAbi } = await import('viem');
+      const chains = await import('viem/chains');
+      const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '8453';
+      const chain = chainId === '84532' ? chains.baseSepolia : chains.base;
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(chainId === '84532' ? 'https://sepolia.base.org' : 'https://mainnet.base.org'),
+      });
+      const OWNER_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
+      const onChainOwner = await publicClient.readContract({
+        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
+        abi: OWNER_ABI,
+        functionName: 'ownerOf',
+        args: [BigInt(tileId)],
+      });
+      if (onChainOwner.toLowerCase() !== recoveredAddress.toLowerCase()) {
+        return NextResponse.json({ error: 'Not tile owner (on-chain verification failed)' }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Not tile owner (on-chain check unavailable)' }, { status: 403 });
+    }
   }
 
   try {
