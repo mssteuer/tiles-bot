@@ -203,9 +203,33 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
         {(step === 'upload' || step === 'processing' || step === 'ready') && (
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 12, color: '#888', marginBottom: 6 }}>Upload spanning image</label>
-            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setUploadFile(e.target.files?.[0] || null)} disabled={uploading || step === 'processing' || step === 'ready'} />
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>PNG, JPG, or WebP. The image is fit into the full rectangle, then sliced per tile.</div>
+            {uploadFile && (
+              <div style={{ marginBottom: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid #2a2a3e' }}>
+                <img src={URL.createObjectURL(uploadFile)} alt="Preview" style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }} />
+              </div>
+            )}
+            <label style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: (uploading || step === 'processing' || step === 'ready') ? '#333' : '#1a1a2e',
+              border: '1px solid #2a2a3e',
+              borderRadius: 6,
+              padding: '8px 14px',
+              fontSize: 12,
+              color: '#94a3b8',
+              cursor: (uploading || step === 'processing' || step === 'ready') ? 'not-allowed' : 'pointer',
+            }}>
+              {uploadFile ? '📷 Change Image' : '📷 Choose Image'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                disabled={uploading || step === 'processing' || step === 'ready'}
+                style={{ display: 'none' }}
+              />
+            </label>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>PNG, JPG, or WebP. The image covers the full {width}×{height} rectangle, then sliced per tile.</div>
           </div>
         )}
 
