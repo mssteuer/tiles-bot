@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount, useWriteContract, useReadContract, useSwitchChain, useConnect, useDisconnect } from 'wagmi';
+import { useAccount, useWriteContract, useReadContract, useSwitchChain, useConnect, useDisconnect, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, MBH_ABI, ERC20_ABI, TARGET_CHAIN } from '@/lib/wagmi';
 
@@ -42,6 +42,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   });
 
   const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
 
   const price = onChainPrice ? onChainPrice : parseUnits('0.01', 6); // fallback $0.01
   const priceDisplay = formatUnits(price, 6);
@@ -107,8 +108,14 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       console.log('[tiles.bot] Claim tx hash:', hash);
       setTxHash(hash);
 
-      // Register with local DB via /register (no x402, verifies on-chain ownership)
-      // Retry a few times — chain confirmation may take a moment
+      // Wait for on-chain confirmation before registering in DB
+      if (publicClient) {
+        console.log('[tiles.bot] Waiting for tx confirmation...');
+        await publicClient.waitForTransactionReceipt({ hash });
+        console.log('[tiles.bot] Tx confirmed');
+      }
+
+      // Register with local DB via /register (verifies on-chain ownership)
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
