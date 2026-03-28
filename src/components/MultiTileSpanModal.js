@@ -19,6 +19,11 @@ function getRectTileIds(topLeftId, width, height) {
 }
 
 export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = null, onClose, onCreated }) {
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onClose]);
   const { address } = useAccount();
   const [width, setWidth] = useState(2);
   const [height, setHeight] = useState(1);
@@ -142,7 +147,7 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}
-      onClick={e => e.target === e.currentTarget && onClose()}
+      onClick={e => e.stopPropagation()} /* no backdrop dismiss — use × or Cancel */
     >
       <div style={{ width: 540, maxWidth: '95vw', background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 16, padding: 24, color: '#fff' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>

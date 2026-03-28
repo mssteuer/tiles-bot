@@ -1,11 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useReadContract, useSwitchChain, useConnect, useDisconnect, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, MBH_ABI, ERC20_ABI, TARGET_CHAIN } from '@/lib/wagmi';
 
 export default function ClaimModal({ tileId, onClose, onClaimed }) {
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onClose]);
+
   const { address, isConnected, chainId } = useAccount();
   const { switchChain } = useSwitchChain();
   const { connectors, connect, isPending: isConnecting } = useConnect();
@@ -162,7 +168,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   };
 
   return (
-    <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={overlayStyle} onClick={e => e.stopPropagation()} /* no backdrop dismiss — use ✕ or Cancel */>
       <div style={modalStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Claim Tile #{tileId}</h2>
