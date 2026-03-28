@@ -245,6 +245,16 @@ export function getCurrentPrice() {
   return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
 }
 
+// Progressive pricing: sum of bonding curve prices for N sequential mints
+export function getBatchPrice(count) {
+  const totalMinted = getClaimedCount();
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    total += Math.exp(Math.log(11111) * (totalMinted + i) / TOTAL_TILES) / 100;
+  }
+  return total;
+}
+
 export function claimTile(id, wallet, pricePaid) {
   const db = getDb();
   if (id < 0 || id >= TOTAL_TILES) return null;
