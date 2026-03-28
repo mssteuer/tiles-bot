@@ -46,6 +46,11 @@ function detectRectangle(tileIds) {
 }
 
 export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, onSpanClaimRequest }) {
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onClose]);
   const [step, setStep] = useState('preview');
   const [error, setError] = useState(null);
   const [currentPrice, setCurrentPrice] = useState(null);
@@ -140,7 +145,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
       position: 'fixed', inset: 0, zIndex: 9999,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
-    }} onClick={onClose}>
+    }} onClick={e => e.stopPropagation()} /* no backdrop dismiss — use × or Cancel */>
       <div style={{
         background: '#1a1a2e', border: '1px solid #2a2a4a', borderRadius: 16,
         padding: 24, maxWidth: 520, width: '95%', maxHeight: '80vh', overflowY: 'auto',
