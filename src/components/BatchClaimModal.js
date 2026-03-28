@@ -105,20 +105,19 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         args: [unclaimed.map(id => BigInt(id))],
       });
 
-      // Wait for the transaction to be mined before registering
+      // Wait for tx confirmation, then batch-register all tiles in one call
+      // (avoids per-tile ownerOf RPC lag that causes 404s)
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash: claimTx });
       }
 
-      for (const id of unclaimed) {
-        try {
-          await fetch(`/api/tiles/${id}/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ wallet: address, txHash: claimTx }),
-          });
-        } catch {}
-      }
+      try {
+        await fetch('/api/tiles/batch-register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: address, tileIds: unclaimed, txHash: claimTx }),
+        });
+      } catch {}
 
       setStep('success');
       if (onClaimed) onClaimed(unclaimed);
