@@ -27,10 +27,22 @@ function formatUsd(value) {
   return `$${n.toFixed(4)}`;
 }
 
+function formatUsdShort(value) {
+  if (value == null || Number.isNaN(Number(value))) return '…';
+  const n = Number(value);
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return `$${n.toFixed(4)}`;
+}
+
 export default function StatsPanel({ stats }) {
   const [open, setOpen] = React.useState(true);
   const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
   const [nowTs, setNowTs] = React.useState(Date.now());
+  const totalRevenue = stats?.totalRevenue ?? 0;
+  const estimatedMax = stats?.estimatedSoldOutRevenue ?? 0;
+  const revenuePct = estimatedMax > 0 ? Math.min((totalRevenue / estimatedMax) * 100, 100) : 0;
 
   React.useEffect(() => {
     const tick = setInterval(() => setNowTs(Date.now()), 10_000);
@@ -99,6 +111,25 @@ export default function StatsPanel({ stats }) {
                 <span style={{ color: '#f59e0b', fontWeight: 700 }}>
                   {formatUsd(stats.estimatedSoldOutRevenue)}
                 </span>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <div style={{ marginBottom: 4 }}>
+                  Revenue collected:{' '}
+                  <span style={{ color: '#22c55e', fontWeight: 700 }}>
+                    {formatUsdShort(totalRevenue)}
+                  </span>
+                  <span style={{ color: '#374151', fontSize: 11 }}> / {formatUsdShort(estimatedMax)} max</span>
+                </div>
+                <div style={{ width: '100%', height: 6, background: '#1a1a2e', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.max(revenuePct, revenuePct > 0 ? 1 : 0)}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #16a34a 0%, #22c55e 60%, #86efac 100%)',
+                    borderRadius: 3,
+                    transition: 'width 0.5s ease',
+                  }} />
+                </div>
+                <div style={{ color: '#374151', fontSize: 10, marginTop: 2 }}>{revenuePct.toFixed(3)}% of max revenue</div>
               </div>
               <div>
                 Next tile:{' '}
