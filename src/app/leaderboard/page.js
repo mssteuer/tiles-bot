@@ -217,6 +217,16 @@ function HolderRow({ holder, rank }) {
           {firstTile.category}
         </div>
       )}
+
+      {/* View all link */}
+      {holder.count > 1 && (
+        <Link href={`/owner/${holder.owner}`} style={{
+          fontSize: 11, color: '#3b82f6', textDecoration: 'none',
+          flexShrink: 0, whiteSpace: 'nowrap',
+        }}>
+          View all →
+        </Link>
+      )}
     </div>
   );
 }
