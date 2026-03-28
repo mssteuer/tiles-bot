@@ -238,6 +238,24 @@ export function getClaimedTileIds() {
   return rows.map(r => r.id);
 }
 
+/**
+ * Get all claimed tiles as full objects, sorted by ID.
+ * Excludes null/zero address tiles.
+ * Optional category filter.
+ */
+export function getClaimedTiles({ category = null } = {}) {
+  const db = getDb();
+  let sql = `SELECT * FROM tiles WHERE owner IS NOT NULL AND owner != '0x0000000000000000000000000000000000000000'`;
+  const params = [];
+  if (category && category !== 'all') {
+    sql += ` AND category = ?`;
+    params.push(category);
+  }
+  sql += ` ORDER BY claimed_at ASC`;
+  const rows = db.prepare(sql).all(...params);
+  return rows.map(rowToTile);
+}
+
 // Exponential bonding curve: price = e^(ln(11111) * totalMinted / 65536)
 export function getCurrentPrice() {
   const totalMinted = getClaimedCount();
