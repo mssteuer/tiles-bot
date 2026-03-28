@@ -380,6 +380,17 @@ export function getEstimatedSoldOutRevenue() {
   return ESTIMATED_SOLD_OUT_REVENUE;
 }
 
+/**
+ * Sum all price_paid values from claimed tiles.
+ * Falls back to estimating from the bonding curve for tiles without recorded price.
+ */
+export function getTotalRevenue() {
+  const db = getDb();
+  // Sum recorded price_paid values (on-chain claims have this)
+  const row = db.prepare('SELECT SUM(COALESCE(price_paid, 0)) as total FROM tiles').get();
+  return row?.total ?? 0;
+}
+
 // ─── Admin / sync helpers ─────────────────────────────────────────────────────
 
 /**

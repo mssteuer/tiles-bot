@@ -90,6 +90,16 @@ function WalletButton() {
 export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
   const pct = stats.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(1) : '0.0';
   const price = parseFloat(stats.currentPrice ?? 0).toFixed(4);
+  const totalRevenue = stats.totalRevenue ?? 0;
+  const estimatedMax = stats.estimatedSoldOutRevenue ?? 0;
+  const revenuePct = estimatedMax > 0 ? Math.min((totalRevenue / estimatedMax) * 100, 100) : 0;
+
+  // Format revenue: show in K or M for large numbers
+  const fmtRevenue = (v) => {
+    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+    return `$${v.toFixed(2)}`;
+  };
 
   return (
     <header className="header">
@@ -106,6 +116,17 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
         <Stat label="Claimed" value={`${stats.claimed.toLocaleString()} / ${stats.total.toLocaleString()}`} />
         <Stat label="Price" value={`$${price}`} accent />
         <ProgressBar pct={parseFloat(pct)} />
+        <div style={{ width: 1, height: 32, background: '#2a2a3e', margin: '0 4px' }} />
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 1 }}>Revenue</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', marginTop: 1 }}>
+            {fmtRevenue(totalRevenue)}
+          </div>
+          <div style={{ fontSize: 9, color: '#374151', marginTop: 1 }}>
+            of {fmtRevenue(estimatedMax)} max
+          </div>
+        </div>
+        <RevenueBar pct={revenuePct} />
       </div>
 
       {/* Desktop links */}
@@ -144,6 +165,23 @@ function ProgressBar({ pct }) {
         borderRadius: 3,
         transition: 'width 0.5s ease',
       }} />
+    </div>
+  );
+}
+
+function RevenueBar({ pct }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+      <div style={{ width: 100, height: 5, background: '#1a1a2e', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{
+          width: `${Math.max(pct, pct > 0 ? 2 : 0)}%`,
+          height: '100%',
+          background: 'linear-gradient(90deg, #16a34a 0%, #22c55e 60%, #86efac 100%)',
+          borderRadius: 3,
+          transition: 'width 0.5s ease',
+        }} />
+      </div>
+      <div style={{ fontSize: 9, color: '#374151' }}>{pct.toFixed(3)}%</div>
     </div>
   );
 }
