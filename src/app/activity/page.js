@@ -27,6 +27,7 @@ function eventIcon(type) {
     case 'claimed': return '🆕';
     case 'tile_image_updated': return '🖼️';
     case 'connection_accepted': return '🔗';
+    case 'metadata_updated': return '✏️';
     default: return '📡';
   }
 }
@@ -36,6 +37,7 @@ function eventLabel(type) {
     case 'claimed': return 'Tile Claimed';
     case 'tile_image_updated': return 'Image Updated';
     case 'connection_accepted': return 'Connection Made';
+    case 'metadata_updated': return 'Profile Updated';
     default: return 'Event';
   }
 }
@@ -71,6 +73,7 @@ export default function ActivityPage() {
     es.onmessage = (msg) => {
       try {
         const data = JSON.parse(msg.data);
+        const now = data.timestamp || new Date().toISOString();
         if (data.type === 'tile_claimed') {
           prependEvent({
             type: 'claimed',
@@ -78,7 +81,7 @@ export default function ActivityPage() {
             tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`,
             tileAvatar: data.avatar || null,
             owner: data.owner,
-            timestamp: data.timestamp || new Date().toISOString(),
+            timestamp: now,
           });
         } else if (data.type === 'tile_image_updated') {
           prependEvent({
@@ -87,16 +90,25 @@ export default function ActivityPage() {
             tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`,
             tileAvatar: data.avatar || null,
             owner: data.owner || '',
-            timestamp: data.timestamp || new Date().toISOString(),
+            timestamp: now,
           });
         } else if (data.type === 'connection_accepted') {
           prependEvent({
             type: 'connection_accepted',
             tileId: data.fromTileId ?? data.tileId,
-            tileName: data.tileName ?? `Connection`,
+            tileName: data.tileName ?? `Tiles #${data.fromTileId} ↔ #${data.toTileId}`,
             tileAvatar: null,
             owner: '',
-            timestamp: data.timestamp || new Date().toISOString(),
+            timestamp: now,
+          });
+        } else if (data.type === 'tile_metadata_updated' || data.type === 'metadata_updated') {
+          prependEvent({
+            type: 'metadata_updated',
+            tileId: data.tileId ?? data.id,
+            tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`,
+            tileAvatar: data.avatar || null,
+            owner: data.owner || '',
+            timestamp: now,
           });
         }
       } catch {}

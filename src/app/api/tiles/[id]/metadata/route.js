@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyMessage } from 'viem';
-import { getTile, TOTAL_TILES, updateTileWebhook } from '@/lib/db';
+import { getTile, TOTAL_TILES, updateTileWebhook, logEvent } from '@/lib/db';
 import { buildTileTokenMetadata, getSiteUrl } from '@/lib/openseaMetadata';
 
 // Contract ABI verification (task #490 req #5):
@@ -105,5 +105,15 @@ export async function PUT(request, { params }) {
   // Strip webhookUrl from body before passing to updateTileMetadata (it's a separate column)
   const { webhookUrl: _wh, ...metadataFields } = body;
   const updated = Object.keys(metadataFields).length > 0 ? updateTileMetadata(tileId, metadataFields) : getTile(tileId);
+
+  // Log metadata update event (only if actual fields were changed, skip webhook-only updates)
+  if (Object.keys(metadataFields).length > 0) {
+    const existingTile = getTile(tileId);
+    logEvent('metadata_updated', tileId, existingTile?.owner || null, {
+      tileName: updated?.name || existingTile?.name || `Tile #${tileId}`,
+      fields: Object.keys(metadataFields),
+    });
+  }
+
   return NextResponse.json({ ok: true, tile: updated });
 }

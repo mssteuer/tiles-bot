@@ -10,6 +10,7 @@ import {
   setTileTxHash,
   unclaimTile,
   TOTAL_TILES,
+  logEvent,
 } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
@@ -235,6 +236,9 @@ async function claimHandler(request, { params }) {
     setTileTxHash(tileId, txHash);
     tile.txHash = txHash;
   }
+
+  // Persist event to events_log
+  logEvent('claimed', tileId, tile.owner, { tileName: tile.name || `Tile #${tileId}`, tileAvatar: tile.avatar || null });
 
   // Broadcast real-time update to all connected SSE clients
   broadcast({
