@@ -179,7 +179,7 @@ function MobileHints() {
   );
 }
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -263,6 +263,75 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     // Brief pause so user sees the full grid first
     setTimeout(() => requestAnimationFrame(animate), 600);
   }, [tiles, zoom]);
+
+  // Fly-to animation: smooth zoom-out → arc pan → zoom-in
+  const flyToRef = useRef(null);
+  useEffect(() => {
+    if (flyToTileId == null || !tiles) return;
+    const t = tiles[String(flyToTileId)];
+    if (!t) return;
+
+    // Target position: center of the tile
+    const col = flyToTileId % GRID_SIZE;
+    const row = Math.floor(flyToTileId / GRID_SIZE);
+    const targetX = col * TILE_SIZE + TILE_SIZE / 2;
+    const targetY = row * TILE_SIZE + TILE_SIZE / 2;
+    const targetZoom = 4;
+
+    // Capture start state
+    const startX = camera.x;
+    const startY = camera.y;
+    const startZoom = camera.zoom;
+
+    // Calculate a mid-zoom (zoom out before panning) — proportional to distance
+    const dist = Math.sqrt((targetX - startX) ** 2 + (targetY - startY) ** 2);
+    const midZoom = Math.min(startZoom, targetZoom) * Math.max(0.3, 1 - dist / GRID_PX);
+
+    const duration = 1800; // ms
+    const startTime = performance.now();
+
+    function easeInOutQuart(x) {
+      return x < 0.5 ? 8 * x ** 4 : 1 - (-2 * x + 2) ** 4 / 2;
+    }
+
+    function animate(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const e = easeInOutQuart(t);
+
+      // Three-phase zoom: start → mid (zoom out) → target (zoom in)
+      let z;
+      if (t < 0.4) {
+        const p = t / 0.4;
+        z = startZoom + (midZoom - startZoom) * p;
+      } else {
+        const p = (t - 0.4) / 0.6;
+        z = midZoom + (targetZoom - midZoom) * easeInOutQuart(p);
+      }
+
+      // Slight arc on the pan path (perpendicular offset)
+      const dx = targetX - startX;
+      const dy = targetY - startY;
+      const arcStrength = dist * 0.08;
+      const arcT = Math.sin(e * Math.PI); // peaks at midpoint
+      const perpX = -dy / (dist || 1) * arcStrength * arcT;
+      const perpY = dx / (dist || 1) * arcStrength * arcT;
+
+      setCamera({
+        x: startX + dx * e + perpX,
+        y: startY + dy * e + perpY,
+        zoom: z,
+      });
+
+      if (t < 1) {
+        flyToRef.current = requestAnimationFrame(animate);
+      }
+    }
+
+    flyToRef.current = requestAnimationFrame(animate);
+    return () => { if (flyToRef.current) cancelAnimationFrame(flyToRef.current); };
+  }, [flyToTileId]);
+
   const [hoveredTile, setHoveredTile] = useState(null);
   const [batchTiles, setBatchTiles] = useState(null); // array of tile IDs for batch modal
   const batchTilesRef = useRef(null);
