@@ -112,14 +112,18 @@ function initSchema(db) {
       description      TEXT,
       image_url        TEXT,
       slice_image_urls TEXT,
+      status           TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','ready','error')),
       claimed_at       TEXT NOT NULL,
       tile_ids         TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_tile_spans_owner ON tile_spans(owner);
     CREATE INDEX IF NOT EXISTS idx_tile_spans_top_left ON tile_spans(top_left_id);
+    CREATE INDEX IF NOT EXISTS idx_tile_spans_status ON tile_spans(status);
   `);
 
   try { db.exec(`ALTER TABLE tiles ADD COLUMN span_id INTEGER`); } catch {}
+  try { db.exec(`ALTER TABLE tile_spans ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','ready','error'))`); } catch {}
+  try { db.exec(`ALTER TABLE tile_blocks ADD COLUMN status TEXT NOT NULL DEFAULT 'offline'`); } catch {}
 }
 
 export function getRectTileIds(topLeftId, width, height, gridSize = GRID_SIZE) {
@@ -418,6 +422,15 @@ export function getTilesByOwner(owner) {
  * Get grid state as sparse array for efficient frontend rendering.
  * Returns only claimed tiles (not all 65,536 slots).
  */
+function hasColumn(db, tableName, columnName) {
+  const columns = db.prepare(`PRAGMA table_info('${tableName}')`).all();
+  return columns.some((col) => col.name === columnName);
+}
+
+function hasTileSpanStatusColumn(db) {
+  return hasColumn(db, 'tile_spans', 'status');
+}
+
 function tileSpanRowToObj(row) {
   if (!row) return null;
   return {
@@ -430,9 +443,30 @@ function tileSpanRowToObj(row) {
     description: row.description || null,
     imageUrl: row.image_url || null,
     sliceImageUrls: row.slice_image_urls ? JSON.parse(row.slice_image_urls) : {},
+    status: row.status || 'pending',
     claimedAt: row.claimed_at,
     tileIds: JSON.parse(row.tile_ids),
   };
+}
+
+function cleanupSpanAfterTileRemoval(db, spanId) {
+  const row = db.prepare('SELECT * FROM tile_spans WHERE id = ?').get(spanId);
+  if (!row) return;
+  const span = tileSpanRowToObj(row);
+  const retainedTileIds = span.tileIds.filter((tileId) => {
+    const tileRow = db.prepare('SELECT span_id FROM tiles WHERE id = ?').get(tileId);
+    return tileRow?.span_id === spanId;
+  });
+
+  if (retainedTileIds.length < 2) {
+    db.prepare('UPDATE tiles SET span_id = NULL WHERE span_id = ?').run(spanId);
+    db.prepare('DELETE FROM tile_spans WHERE id = ?').run(spanId);
+    return;
+  }
+
+  if (retainedTileIds.length !== span.tileIds.length) {
+    db.prepare('UPDATE tile_spans SET tile_ids = ? WHERE id = ?').run(JSON.stringify(retainedTileIds), spanId);
+  }
 }
 
 export function createTileSpan({ topLeftId, width, height, owner }) {
@@ -455,19 +489,23 @@ export function createTileSpan({ topLeftId, width, height, owner }) {
       throw new Error('All tiles in the span must already be claimed by the same wallet');
     }
 
+    const previousSpanIds = [];
     for (const row of rows) {
       if (!row.owner || row.owner.toLowerCase() !== owner.toLowerCase()) {
         throw new Error('All tiles in the span must be owned by the same wallet');
       }
-      if (row.span_id) {
-        throw new Error(`Tile #${row.id} is already part of another span`);
-      }
+      if (row.span_id) previousSpanIds.push(row.span_id);
+    }
+
+    if (previousSpanIds.length) {
+      db.prepare(`UPDATE tiles SET span_id = NULL WHERE id IN (${placeholders})`).run(...tileIds);
+      for (const spanId of [...new Set(previousSpanIds)]) cleanupSpanAfterTileRemoval(db, spanId);
     }
 
     const now = new Date().toISOString();
     const result = db.prepare(`
-      INSERT INTO tile_spans (top_left_id, owner, width, height, claimed_at, tile_ids, slice_image_urls)
-      VALUES (@top_left_id, @owner, @width, @height, @claimed_at, @tile_ids, @slice_image_urls)
+      INSERT INTO tile_spans (top_left_id, owner, width, height, claimed_at, tile_ids, slice_image_urls, status)
+      VALUES (@top_left_id, @owner, @width, @height, @claimed_at, @tile_ids, @slice_image_urls, @status)
     `).run({
       top_left_id: topLeftId,
       owner,
@@ -476,6 +514,7 @@ export function createTileSpan({ topLeftId, width, height, owner }) {
       claimed_at: now,
       tile_ids: JSON.stringify(tileIds),
       slice_image_urls: JSON.stringify({}),
+      status: 'pending',
     });
 
     const spanId = Number(result.lastInsertRowid);
@@ -502,9 +541,16 @@ export function getTileSpanForTile(tileId) {
   return getTileSpan(tile.spanId);
 }
 
-export function getAllTileSpans() {
+export function getAllTileSpans(options = {}) {
   const db = getDb();
-  return db.prepare('SELECT * FROM tile_spans ORDER BY id ASC').all().map(tileSpanRowToObj);
+  const includeNonReady = options.includeNonReady === true;
+  const hasStatus = hasTileSpanStatusColumn(db);
+  const rows = includeNonReady || !hasStatus
+    ? db.prepare('SELECT * FROM tile_spans ORDER BY id ASC').all()
+    : db.prepare("SELECT * FROM tile_spans WHERE status = 'ready' ORDER BY id ASC").all();
+  return rows
+    .map(tileSpanRowToObj)
+    .filter((span) => includeNonReady || !hasStatus || span.status === 'ready');
 }
 
 export function updateTileSpan(spanId, metadata) {
@@ -517,6 +563,7 @@ export function updateTileSpan(spanId, metadata) {
   if (metadata.description !== undefined) updates.description = metadata.description;
   if (metadata.imageUrl !== undefined) updates.image_url = metadata.imageUrl;
   if (metadata.sliceImageUrls !== undefined) updates.slice_image_urls = JSON.stringify(metadata.sliceImageUrls || {});
+  if (metadata.status !== undefined) updates.status = metadata.status;
 
   if (Object.keys(updates).length > 0) {
     const setClauses = Object.keys(updates).map(col => `${col} = @${col}`).join(', ');
@@ -530,6 +577,22 @@ export function updateTileSpan(spanId, metadata) {
   }
 
   return getTileSpan(spanId);
+}
+
+export function dissolveTileSpan(spanId, owner) {
+  const db = getDb();
+  const span = getTileSpan(spanId);
+  if (!span) return null;
+  if (owner && span.owner.toLowerCase() !== owner.toLowerCase()) {
+    throw new Error('Unauthorized');
+  }
+
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE tiles SET span_id = NULL WHERE span_id = ?').run(spanId);
+    db.prepare('DELETE FROM tile_spans WHERE id = ?').run(spanId);
+  });
+  tx();
+  return span;
 }
 
 export function getGridState() {
@@ -775,7 +838,7 @@ function blockRowToObj(r) {
     color: r.color || null,
     url: r.url || null,
     imageUrl: r.image_url || null,
-    status: r.status,
+    status: r.status || 'offline',
     lastHeartbeat: r.last_heartbeat || null,
     claimedAt: r.claimed_at,
     tileIds: JSON.parse(r.tile_ids),
@@ -784,12 +847,16 @@ function blockRowToObj(r) {
 
 export function getAllBlocks() {
   const db = getDb();
-  return db.prepare('SELECT * FROM tile_blocks').all().map(blockRowToObj);
+  const hasStatus = hasColumn(db, 'tile_blocks', 'status');
+  const rows = db.prepare('SELECT * FROM tile_blocks').all();
+  return rows.map((row) => blockRowToObj(hasStatus ? row : { ...row, status: 'offline' }));
 }
 
 export function getBlock(blockId) {
   const db = getDb();
-  return blockRowToObj(db.prepare('SELECT * FROM tile_blocks WHERE id = ?').get(blockId));
+  const hasStatus = hasColumn(db, 'tile_blocks', 'status');
+  const row = db.prepare('SELECT * FROM tile_blocks WHERE id = ?').get(blockId);
+  return blockRowToObj(row && !hasStatus ? { ...row, status: 'offline' } : row);
 }
 
 export function updateBlockMetadata(blockId, metadata) {

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useWriteContract } from 'wagmi';
 import { parseAbi } from 'viem';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const GRID_SIZE = 256;
 
 const USDC_ABI = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
@@ -16,16 +17,43 @@ const CONTRACT_ABI = parseAbi([
   'function currentPrice() view returns (uint256)',
 ]);
 
-export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) {
-  const [step, setStep] = useState('preview'); // preview | approve | claim | success | error
+function detectRectangle(tileIds) {
+  if (!tileIds || tileIds.length < 2) return null;
+  const sorted = [...tileIds].sort((a, b) => a - b);
+  const rows = sorted.map((id) => Math.floor(id / GRID_SIZE));
+  const cols = sorted.map((id) => id % GRID_SIZE);
+  const minRow = Math.min(...rows);
+  const maxRow = Math.max(...rows);
+  const minCol = Math.min(...cols);
+  const maxCol = Math.max(...cols);
+  const width = maxCol - minCol + 1;
+  const height = maxRow - minRow + 1;
+  if (width * height !== sorted.length) return null;
+
+  const expected = [];
+  for (let row = minRow; row <= maxRow; row++) {
+    for (let col = minCol; col <= maxCol; col++) {
+      expected.push(row * GRID_SIZE + col);
+    }
+  }
+  if (expected.some((id, index) => id !== sorted[index])) return null;
+  return {
+    topLeftId: minRow * GRID_SIZE + minCol,
+    width,
+    height,
+    tileIds: expected,
+  };
+}
+
+export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, onSpanClaimRequest }) {
+  const [step, setStep] = useState('preview');
   const [error, setError] = useState(null);
   const [currentPrice, setCurrentPrice] = useState(null);
-  const [claimedCount, setClaimedCount] = useState(0); // tracks how many we successfully claimed
-  const frozenTiles = useRef(null); // freeze tile list once claim starts
+  const [claimedCount, setClaimedCount] = useState(0);
+  const frozenTiles = useRef(null);
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
 
-  // Separate claimed vs unclaimed — frozen once claim flow begins
   const { unclaimed, alreadyClaimed } = useMemo(() => {
     if (frozenTiles.current) return frozenTiles.current;
     const unclaimed = [];
@@ -38,7 +66,8 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
     return { unclaimed, alreadyClaimed };
   }, [tileIds, tiles]);
 
-  // Fetch current price from server
+  const claimedRectangle = useMemo(() => detectRectangle(unclaimed), [unclaimed]);
+
   useEffect(() => {
     fetch('/api/stats')
       .then(r => r.json())
@@ -46,8 +75,6 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
       .catch(() => setCurrentPrice(0.01));
   }, []);
 
-  // Estimate total cost: each successive tile costs slightly more (bonding curve)
-  // For a rough estimate, use currentPrice * count (actual prices increase per tile)
   const estimatedTotal = currentPrice !== null ? (currentPrice * unclaimed.length).toFixed(4) : '...';
   const perTilePrice = currentPrice !== null ? currentPrice.toFixed(4) : '...';
 
@@ -55,15 +82,13 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
     if (!isConnected || unclaimed.length === 0) return;
 
     try {
-      // Freeze the tile lists so SSE updates don't shift tiles to "already claimed"
       frozenTiles.current = { unclaimed: [...unclaimed], alreadyClaimed: [...alreadyClaimed] };
       setClaimedCount(unclaimed.length);
       setStep('approve');
       setError(null);
 
-      // Approve USDC — use a generous amount (price * count * 1.5 for bonding curve increase)
       const approveAmount = BigInt(Math.ceil((currentPrice || 1) * unclaimed.length * 1.5 * 1e6));
-      const approveTx = await writeContractAsync({
+      await writeContractAsync({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
         functionName: 'approve',
@@ -72,7 +97,6 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
 
       setStep('claim');
 
-      // Call batchClaim on contract
       const claimTx = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
@@ -80,7 +104,6 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
         args: [unclaimed.map(id => BigInt(id))],
       });
 
-      // Register tiles in our DB
       for (const id of unclaimed) {
         try {
           await fetch(`/api/tiles/${id}/register`, {
@@ -88,7 +111,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ wallet: address, txHash: claimTx }),
           });
-        } catch {} // best-effort
+        } catch {}
       }
 
       setStep('success');
@@ -96,7 +119,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
     } catch (err) {
       const msg = err?.shortMessage || err?.message || 'Transaction failed';
       if (msg.toLowerCase().includes('reject') || msg.toLowerCase().includes('denied')) {
-        frozenTiles.current = null; // unfreeze on user cancel
+        frozenTiles.current = null;
         setStep('preview');
         return;
       }
@@ -130,7 +153,6 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
           </div>
         )}
 
-        {/* Tile preview grid */}
         <div style={{
           display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: 4,
           marginBottom: 16, maxHeight: 200, overflowY: 'auto',
@@ -149,7 +171,6 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
           )}
         </div>
 
-        {/* Pricing */}
         <div style={{ background: '#0f0f23', borderRadius: 8, padding: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>
             <span>Price per tile:</span>
@@ -164,7 +185,20 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed }) 
           </div>
         </div>
 
-        {/* Action buttons */}
+        {step === 'success' && claimedRectangle && onSpanClaimRequest && (
+          <div style={{ background: 'rgba(14,165,233,0.12)', border: '1px solid rgba(14,165,233,0.35)', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>These claimed tiles form a rectangle.</div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>
+              {claimedRectangle.width}×{claimedRectangle.height} starting at tile #{claimedRectangle.topLeftId}
+            </div>
+            <button onClick={() => onSpanClaimRequest(claimedRectangle.topLeftId, claimedRectangle.tileIds)} style={{
+              padding: '10px 14px', borderRadius: 8, background: '#0ea5e9', color: '#fff', border: 'none', cursor: 'pointer',
+            }}>
+              🧩 Upload Spanning Image
+            </button>
+          </div>
+        )}
+
         {step === 'preview' && (
           !isConnected ? (
             <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>
