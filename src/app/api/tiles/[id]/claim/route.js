@@ -18,6 +18,10 @@ const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000
 
 // Network: 'base' for mainnet, 'base-sepolia' for testnet
 const X402_NETWORK = process.env.X402_NETWORK || 'base-sepolia';
+
+// Public-facing site URL — used to construct the x402 resource URL so agents see
+// https://tiles.bot/... instead of https://localhost:8084/... (nginx reverse proxy)
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://tiles.bot').replace(/\/$/, '');
 const RECEIPT_TIMEOUT_MS = 30_000;
 
 function getContractChainName() {
@@ -259,14 +263,19 @@ async function claimHandler(request, { params }) {
 export const POST = withX402(
   claimHandler,
   PAY_TO_ADDRESS,
-  async () => {
+  async (request) => {
     const usdPrice = getCurrentPrice();
     const priceUsd = `$${usdPrice.toFixed(2)}`;
+    // Build the canonical resource URL using SITE_URL so agents see https://tiles.bot/...
+    // instead of https://localhost:8084/... (which is the internal nginx upstream address)
+    const pathname = request.nextUrl.pathname;
+    const resource = `${SITE_URL}${pathname}`;
     return {
       price: priceUsd,
       network: X402_NETWORK,
       config: {
         description: `Claim a MillionBotHomepage tile (bonding curve price: ${priceUsd} USDC)`,
+        resource,
       },
     };
   }
