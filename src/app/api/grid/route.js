@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getAllTiles, getClaimedCount, getCurrentPrice, getPendingRequestCounts, TOTAL_TILES, checkHeartbeats } from '@/lib/db';
+import { getGridState, getClaimedCount, getCurrentPrice, getPendingRequestCounts, TOTAL_TILES, checkHeartbeats } from '@/lib/db';
 
 export async function GET() {
   checkHeartbeats();
+  const grid = getGridState();
   return NextResponse.json({
-    tiles: getAllTiles(),
+    tiles: grid.tiles,
+    spans: grid.spans,
     pendingRequests: getPendingRequestCounts(),
     stats: {
       claimed: getClaimedCount(),
