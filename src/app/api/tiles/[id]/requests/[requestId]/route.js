@@ -6,6 +6,7 @@ import {
   acceptConnectionRequest,
   rejectConnectionRequest,
   TOTAL_TILES,
+  logEvent,
 } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
@@ -92,6 +93,13 @@ export async function POST(request, { params }) {
   try {
     if (body.action === 'accept') {
       const result = acceptConnectionRequest(requestId, tileId);
+      const fromTile = getTile(result.fromTileId);
+      const toTile = getTile(result.toTileId);
+      logEvent('connection_accepted', result.fromTileId, walletAddress, {
+        tileName: fromTile?.name || `Tile #${result.fromTileId}`,
+        toTileId: result.toTileId,
+        toTileName: toTile?.name || `Tile #${result.toTileId}`,
+      });
       broadcast({ type: 'connection_accepted', fromTileId: result.fromTileId, toTileId: result.toTileId });
       return NextResponse.json({
         ok: true,
