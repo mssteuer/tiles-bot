@@ -30,6 +30,7 @@ export async function GET(request, { params }) {
       name: neighborTile?.name || null,
       avatar: neighborTile?.avatar || null,
       color: neighborTile?.color || null,
+      imageUrl: neighborTile?.image_url || null,
       status: neighborTile?.status || 'offline',
       lastHeartbeat: neighborTile?.lastHeartbeat || null,
     };

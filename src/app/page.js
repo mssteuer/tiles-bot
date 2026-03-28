@@ -82,6 +82,7 @@ function HomeInner() {
   });
   const [blocks, setBlocks] = useState([]);
   const [spans, setSpans] = useState([]);
+  const [flyToTileId, setFlyToTileId] = useState(null);
   const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
@@ -309,6 +310,7 @@ function HomeInner() {
           onTileClick={handleTileClick}
           onBlockClaimRequest={setBlockClaimTopLeft}
           onSpanClaimRequest={setSpanClaimTopLeft}
+          flyToTileId={flyToTileId}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}
@@ -326,6 +328,12 @@ function HomeInner() {
               setTiles(prev => ({ ...prev, [id]: { ...prev[id], ...updatedTile } }));
             }}
             onConnectionsChange={setConnections}
+            onNavigateToTile={(tileId) => {
+              setFlyToTileId(tileId);
+              setSelectedTile(tileId);
+              // Reset after animation starts so it can be triggered again
+              setTimeout(() => setFlyToTileId(null), 100);
+            }}
           />
         ) : null}
         </div>
