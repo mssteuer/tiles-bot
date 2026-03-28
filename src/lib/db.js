@@ -1321,3 +1321,114 @@ export function getRecentActivity(limit = 50) {
     };
   });
 }
+
+// ─── Revenue Analytics helpers ────────────────────────────────────────────────
+
+/**
+ * Get daily claim counts and revenue for the last N days.
+ * Returns array of { date: 'YYYY-MM-DD', claims: N, revenue: X }
+ * sorted oldest→newest.
+ */
+export function getDailyStats(days = 30) {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT
+      substr(claimed_at, 1, 10) AS date,
+      COUNT(*) AS claims,
+      SUM(COALESCE(price_paid, 0)) AS revenue
+    FROM tiles
+    WHERE claimed_at >= date('now', '-' || ? || ' days')
+    GROUP BY date
+    ORDER BY date ASC
+  `).all(days);
+  return rows.map(r => ({
+    date: r.date,
+    claims: r.claims,
+    revenue: parseFloat((r.revenue || 0).toFixed(4)),
+  }));
+}
+
+/**
+ * Get count of unique claimers (distinct owner addresses, excluding null/zero addr).
+ */
+export function getUniqueClaimerCount() {
+  const db = getDb();
+  const row = db.prepare(
+    `SELECT COUNT(DISTINCT owner) as cnt FROM tiles WHERE owner != '0x0000000000000000000000000000000000000000'`
+  ).get();
+  return row?.cnt ?? 0;
+}
+
+/**
+ * Get daily unique claimer counts for the last N days.
+ * Returns array of { date, uniqueClaimers }.
+ */
+export function getDailyUniqueClaimers(days = 30) {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT
+      substr(claimed_at, 1, 10) AS date,
+      COUNT(DISTINCT owner) AS unique_claimers
+    FROM tiles
+    WHERE claimed_at >= date('now', '-' || ? || ' days')
+      AND owner != '0x0000000000000000000000000000000000000000'
+    GROUP BY date
+    ORDER BY date ASC
+  `).all(days);
+  return rows.map(r => ({ date: r.date, uniqueClaimers: r.unique_claimers }));
+}
+
+/**
+ * Compute average price per tile overall.
+ */
+export function getAveragePricePaid() {
+  const db = getDb();
+  const row = db.prepare(
+    `SELECT AVG(price_paid) as avg FROM tiles WHERE price_paid IS NOT NULL AND price_paid > 0`
+  ).get();
+  return parseFloat((row?.avg || 0).toFixed(6));
+}
+
+/**
+ * Get cumulative revenue over time (running total by day).
+ * Returns array of { date, cumulativeRevenue }.
+ */
+export function getCumulativeRevenue(days = 30) {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT
+      substr(claimed_at, 1, 10) AS date,
+      SUM(SUM(COALESCE(price_paid, 0))) OVER (ORDER BY substr(claimed_at, 1, 10)) AS cumulative_revenue
+    FROM tiles
+    WHERE claimed_at >= date('now', '-' || ? || ' days')
+    GROUP BY date
+    ORDER BY date ASC
+  `).all(days);
+  return rows.map(r => ({
+    date: r.date,
+    cumulativeRevenue: parseFloat((r.cumulative_revenue || 0).toFixed(4)),
+  }));
+}
+
+/**
+ * Get revenue by category breakdown.
+ * Returns array of { category, tiles, revenue }.
+ */
+export function getRevenueByCategory() {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT
+      COALESCE(category, 'uncategorized') AS category,
+      COUNT(*) AS tiles,
+      SUM(COALESCE(price_paid, 0)) AS revenue
+    FROM tiles
+    WHERE owner != '0x0000000000000000000000000000000000000000'
+    GROUP BY category
+    ORDER BY revenue DESC
+  `).all();
+  return rows.map(r => ({
+    category: r.category,
+    tiles: r.tiles,
+    revenue: parseFloat((r.revenue || 0).toFixed(4)),
+  }));
+}
