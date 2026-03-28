@@ -69,17 +69,10 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Signature expired' }, { status: 401 });
     }
 
-    // Verify signature
-    try {
-      const valid = await verifyMessage({
-        address: walletAddress,
-        message: walletMsg,
-        signature: walletSig,
-      });
-      if (!valid) {
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-      }
-    } catch {
+    // Verify signature (EOA + ERC-1271 smart wallet support)
+    const { verifyWalletSignature } = await import('@/lib/verify-wallet-sig');
+    const sigValid = await verifyWalletSignature(walletMsg, walletSig, walletAddress);
+    if (!sigValid) {
       return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
     }
   } else {

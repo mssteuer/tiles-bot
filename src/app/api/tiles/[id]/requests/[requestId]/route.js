@@ -76,44 +76,17 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Auth signature expired (10-minute window)' }, { status: 401 });
   }
 
-  let recoveredAddress;
-  try {
-    recoveredAddress = ethers.verifyMessage(walletMsg, walletSig);
-  } catch {
+  // Verify signature (EOA + ERC-1271 smart wallet support)
+  const { verifyWalletSignature, verifyTileOwnership } = await import('@/lib/verify-wallet-sig');
+  const sigValid = await verifyWalletSignature(walletMsg, walletSig, walletAddress);
+  if (!sigValid) {
     return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
   }
 
-  if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-    return NextResponse.json({ error: 'Signer does not match claimed wallet address' }, { status: 401 });
-  }
-
-  // Ownership check: DB match OR on-chain ownerOf match (handles smart wallets)
-  const isDbOwner = recoveredAddress.toLowerCase() === tile.owner.toLowerCase();
-  if (!isDbOwner) {
-    // On-chain check: the connected wallet (which signs) may be the smart wallet
-    // that owns the NFT, while DB has a different address from the Transfer event
-    try {
-      const { createPublicClient, http, parseAbi } = await import('viem');
-      const chains = await import('viem/chains');
-      const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '8453';
-      const chain = chainId === '84532' ? chains.baseSepolia : chains.base;
-      const publicClient = createPublicClient({
-        chain,
-        transport: http(chainId === '84532' ? 'https://sepolia.base.org' : 'https://mainnet.base.org'),
-      });
-      const OWNER_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
-      const onChainOwner = await publicClient.readContract({
-        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
-        abi: OWNER_ABI,
-        functionName: 'ownerOf',
-        args: [BigInt(tileId)],
-      });
-      if (onChainOwner.toLowerCase() !== recoveredAddress.toLowerCase()) {
-        return NextResponse.json({ error: 'Not tile owner (on-chain verification failed)' }, { status: 403 });
-      }
-    } catch {
-      return NextResponse.json({ error: 'Not tile owner (on-chain check unavailable)' }, { status: 403 });
-    }
+  // Ownership check: wallet must be on-chain owner of the tile
+  const isOnChainOwner = await verifyTileOwnership(tileId, walletAddress);
+  if (!isOnChainOwner) {
+    return NextResponse.json({ error: 'Not tile owner' }, { status: 403 });
   }
 
   try {
