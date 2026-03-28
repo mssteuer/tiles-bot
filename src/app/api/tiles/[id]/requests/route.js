@@ -102,17 +102,16 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Auth signature expired (10-minute window)' }, { status: 401 });
   }
 
-  let recoveredAddress;
-  try {
-    recoveredAddress = ethers.verifyMessage(walletMsg, walletSig);
-  } catch {
+  // Verify signature (EOA + ERC-1271 smart wallet support)
+  const { verifyWalletSignature, verifyTileOwnership } = await import('@/lib/verify-wallet-sig');
+  const sigValid = await verifyWalletSignature(walletMsg, walletSig, walletAddress);
+  if (!sigValid) {
     return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
   }
 
-  if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-    return NextResponse.json({ error: 'Signer does not match claimed wallet address' }, { status: 401 });
-  }
-  if (recoveredAddress.toLowerCase() !== fromTile.owner.toLowerCase()) {
+  // Verify the signer owns the FROM tile (on-chain)
+  const isFromOwner = await verifyTileOwnership(body.fromTileId, walletAddress);
+  if (!isFromOwner) {
     return NextResponse.json({ error: 'Not the owner of the from tile' }, { status: 403 });
   }
 
