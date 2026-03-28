@@ -58,7 +58,7 @@ export async function POST(request, { params }) {
   }
 
   // Wallet auth
-  const authError = verifyWalletAuth(request, tileId, tile);
+  const authError = await verifyWalletAuth(request, tileId, tile);
   if (authError) return authError;
 
   const body = await request.json().catch(() => null);
@@ -120,7 +120,7 @@ export async function DELETE(request, { params }) {
   }
 
   // Wallet auth
-  const authError = verifyWalletAuth(request, tileId, tile);
+  const authError = await verifyWalletAuth(request, tileId, tile);
   if (authError) return authError;
 
   const body = await request.json().catch(() => null);
@@ -140,7 +140,7 @@ export async function DELETE(request, { params }) {
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
-function verifyWalletAuth(request, tileId, tile) {
+async function verifyWalletAuth(request, tileId, tile) {
   const walletAddress = request.headers.get('X-Wallet-Address');
   const walletSig = request.headers.get('X-Wallet-Signature');
   const walletMsg = request.headers.get('X-Wallet-Message');
@@ -162,17 +162,13 @@ function verifyWalletAuth(request, tileId, tile) {
     return NextResponse.json({ error: 'Auth signature expired (10-minute window)' }, { status: 401 });
   }
 
-  let recoveredAddress;
-  try {
-    recoveredAddress = ethers.verifyMessage(walletMsg, walletSig);
-  } catch {
+  const { verifyWalletSignature, verifyTileOwnership } = await import('@/lib/verify-wallet-sig');
+  const sigValid = await verifyWalletSignature(walletMsg, walletSig, walletAddress);
+  if (!sigValid) {
     return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
   }
-
-  if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-    return NextResponse.json({ error: 'Signer does not match claimed wallet address' }, { status: 401 });
-  }
-  if (recoveredAddress.toLowerCase() !== tile.owner.toLowerCase()) {
+  const isOnChainOwner = await verifyTileOwnership(tile.id, walletAddress);
+  if (!isOnChainOwner) {
     return NextResponse.json({ error: 'Not tile owner' }, { status: 403 });
   }
 
