@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useAccount } from 'wagmi';
 import Grid from '../components/Grid';
 import TilePanel from '../components/TilePanel';
 import Header from '../components/Header';
@@ -66,6 +67,7 @@ async function fetchSpans() {
 
 function HomeInner() {
   const searchParams = useSearchParams();
+  const { address } = useAccount();
   const [tiles, setTiles] = useState({});
   const [pendingRequests, setPendingRequests] = useState({});
   const [connections, setConnections] = useState([]);
@@ -292,7 +294,17 @@ function HomeInner() {
           blocks={blocks}
           spans={spans}
           connections={connections}
-          pendingRequests={pendingRequests}
+          pendingRequests={
+            // Only show badges on tiles the connected user owns
+            address
+              ? Object.fromEntries(
+                  Object.entries(pendingRequests).filter(([tileId]) => {
+                    const t = tiles[String(tileId)];
+                    return t && t.owner && address.toLowerCase() === t.owner.toLowerCase();
+                  })
+                )
+              : {}
+          }
           onConnectionsChange={setConnections}
           onTileClick={handleTileClick}
           onBlockClaimRequest={setBlockClaimTopLeft}

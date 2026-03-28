@@ -1,29 +1,89 @@
 'use client';
+import React from 'react';
 import Link from 'next/link';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 
 function WalletButton() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector: activeConnector } = useAccount();
   const { connectors, connect } = useConnect();
   const { disconnect } = useDisconnect();
+  const [showPicker, setShowPicker] = React.useState(false);
+
   if (isConnected) {
     return (
-      <button onClick={() => disconnect()} style={{
-        background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 8,
-        color: '#94a3b8', padding: '6px 12px', fontSize: 12, cursor: 'pointer',
-      }}>
-        {address?.slice(0, 6)}…{address?.slice(-4)}
-      </button>
+      <div style={{ position: 'relative' }}>
+        <button onClick={() => setShowPicker(!showPicker)} style={{
+          background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 8,
+          color: '#94a3b8', padding: '6px 12px', fontSize: 12, cursor: 'pointer',
+        }}>
+          {address?.slice(0, 6)}…{address?.slice(-4)} ▾
+        </button>
+        {showPicker && (
+          <div style={{
+            position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 1000,
+            background: '#0d0d1a', border: '1px solid #2a2a3e', borderRadius: 8,
+            padding: 6, minWidth: 180, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{ fontSize: 10, color: '#64748b', padding: '4px 8px', marginBottom: 2 }}>
+              Connected: {activeConnector?.name || 'Unknown'}
+            </div>
+            <button onClick={() => { disconnect(); setShowPicker(false); }} style={{
+              width: '100%', textAlign: 'left', padding: '8px', background: 'none',
+              border: 'none', color: '#ef4444', fontSize: 12, cursor: 'pointer',
+              borderRadius: 4,
+            }}>
+              Disconnect
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
-  const mm = connectors.find(c => c.name === 'MetaMask') || connectors[0];
+
+  // Deduplicate connectors by name (wagmi can register duplicates)
+  const seen = new Set();
+  const uniqueConnectors = connectors.filter(c => {
+    if (seen.has(c.name)) return false;
+    seen.add(c.name);
+    return true;
+  });
+
+  const ICONS = {
+    'MetaMask': '🦊',
+    'Coinbase Wallet': '🔵',
+    'Injected': '🔌',
+  };
+
   return (
-    <button onClick={() => connect({ connector: mm })} style={{
-      background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 8,
-      color: '#94a3b8', padding: '6px 12px', fontSize: 12, cursor: 'pointer',
-    }}>
-      🦊 Connect
-    </button>
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setShowPicker(!showPicker)} style={{
+        background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', border: 'none', borderRadius: 8,
+        color: '#fff', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+      }}>
+        Connect Wallet
+      </button>
+      {showPicker && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 1000,
+          background: '#0d0d1a', border: '1px solid #2a2a3e', borderRadius: 8,
+          padding: 6, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        }}>
+          {uniqueConnectors.map(c => (
+            <button key={c.uid} onClick={() => { connect({ connector: c }); setShowPicker(false); }} style={{
+              width: '100%', textAlign: 'left', padding: '10px 10px', background: 'none',
+              border: 'none', color: '#e2e8f0', fontSize: 13, cursor: 'pointer',
+              borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8,
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = '#1a1a2e'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              <span style={{ fontSize: 16 }}>{ICONS[c.name] || '🔗'}</span>
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
