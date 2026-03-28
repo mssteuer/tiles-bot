@@ -55,6 +55,7 @@ async function fetchBlocks() {
 function HomeInner() {
   const searchParams = useSearchParams();
   const [tiles, setTiles] = useState({});
+  const [pendingRequests, setPendingRequests] = useState({});
   const [connections, setConnections] = useState([]);
   // Pre-select tile from ?tile=<id> query param (used by /tiles/:id redirect)
   const [selectedTile, setSelectedTile] = useState(() => {
@@ -139,6 +140,17 @@ function HomeInner() {
           if (event.nextAvailableTileId != null) {
             setNextAvailableTileId(event.nextAvailableTileId);
           }
+        } else if (event.type === 'connection_request') {
+          setPendingRequests(prev => ({
+            ...prev,
+            [event.toTileId]: (prev[event.toTileId] || 0) + 1,
+          }));
+        } else if (event.type === 'connection_accepted' || event.type === 'connection_rejected') {
+          setPendingRequests(prev => {
+            const count = (prev[event.toTileId] || 1) - 1;
+            if (count <= 0) { const next = { ...prev }; delete next[event.toTileId]; return next; }
+            return { ...prev, [event.toTileId]: count };
+          });
         }
       } catch {
         // ignore parse errors
@@ -162,6 +174,7 @@ function HomeInner() {
       if (cancelled || !data) return;
 
       setTiles(data.tiles);
+      if (data.pendingRequests) setPendingRequests(data.pendingRequests);
       setBlocks(data.blocks || blockList0);
       setStats({ ...data.stats });
       if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
@@ -236,6 +249,7 @@ function HomeInner() {
           tiles={tiles}
           blocks={blocks}
           connections={connections}
+          pendingRequests={pendingRequests}
           onConnectionsChange={setConnections}
           onTileClick={handleTileClick}
           onBlockClaimRequest={setBlockClaimTopLeft}

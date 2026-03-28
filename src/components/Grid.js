@@ -173,7 +173,7 @@ function MobileHints() {
   );
 }
 
-export default function Grid({ tiles, connections, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, onBlockClaimRequest }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, onBlockClaimRequest }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -284,6 +284,9 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
   // Connections ref (kept in sync with prop for draw callback)
   const connectionsRef = useRef(connections || []);
   useEffect(() => { connectionsRef.current = connections || []; }, [connections]);
+
+  const pendingRequestsRef = useRef(pendingRequests || {});
+  useEffect(() => { pendingRequestsRef.current = pendingRequests || {}; }, [pendingRequests]);
 
   // Block map ref: tileId → block object (for render lookup)
   const blockMapRef = useRef({});
@@ -572,6 +575,28 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 3 / cam.zoom;
             ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          }
+
+          // Pending connection request badge (orange dot with count)
+          const pendingCount = pendingRequestsRef.current[id];
+          if (pendingCount > 0 && cam.zoom > 0.15) {
+            const badgeR = Math.max(6, TILE_SIZE * 0.22);
+            const bx = x + TILE_SIZE - badgeR * 0.5;
+            const by = y + badgeR * 0.5;
+            ctx.beginPath();
+            ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
+            ctx.fillStyle = '#f97316';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5 / cam.zoom;
+            ctx.stroke();
+            if (cam.zoom > 0.4) {
+              ctx.fillStyle = '#fff';
+              ctx.font = `bold ${Math.round(badgeR * 1.1)}px system-ui`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(String(pendingCount), bx, by + 0.5);
+            }
           }
 
           ctx.restore();
