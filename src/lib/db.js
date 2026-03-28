@@ -362,7 +362,7 @@ export function getRecentlyClaimed(limit = 10) {
 export function getTopHolders(limit = 10) {
   const db = getDb();
   return db.prepare(
-    'SELECT owner, COUNT(*) as count FROM tiles GROUP BY owner ORDER BY count DESC LIMIT ?'
+    "SELECT owner, COUNT(*) as count FROM tiles WHERE owner != '0x0000000000000000000000000000000000000000' GROUP BY owner ORDER BY count DESC LIMIT ?"
   ).all(limit);
 }
 
@@ -1079,7 +1079,7 @@ process.on('SIGTERM', () => { if (_db) { _db.close(); process.exit(0); } });
 export function getTopHoldersWithTiles(limit = 20) {
   const db = getDb();
   const holders = db.prepare(
-    `SELECT owner, COUNT(*) as count FROM tiles GROUP BY owner ORDER BY count DESC LIMIT ?`
+    `SELECT owner, COUNT(*) as count FROM tiles WHERE owner != '0x0000000000000000000000000000000000000000' GROUP BY owner ORDER BY count DESC LIMIT ?`
   ).all(limit);
 
   for (const h of holders) {
