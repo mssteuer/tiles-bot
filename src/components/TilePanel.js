@@ -1219,8 +1219,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                   )}
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{
-                    display: 'inline-block',
+                  <label className={uploadingImage ? 'btn-loading' : ''} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
                     background: uploadingImage ? '#333' : '#1a1a2e',
                     border: '1px solid #2a2a3e',
                     borderRadius: 6,
@@ -1230,7 +1230,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                     cursor: uploadingImage ? 'not-allowed' : 'pointer',
                     textAlign: 'center',
                   }}>
-                    {uploadingImage ? 'Uploading...' : imagePreview ? '📷 Change Image' : '📷 Upload Image'}
+                    {uploadingImage && <span className="spinner" style={{ width: 12, height: 12, borderWidth: '1.5px' }} />}
+                    {uploadingImage ? 'Uploading…' : imagePreview ? '📷 Change Image' : '📷 Upload Image'}
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
@@ -1259,6 +1260,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                     cursor: uploadingSpanImage ? 'not-allowed' : 'pointer',
                     textAlign: 'center',
                   }}>
+                    {uploadingSpanImage && <span className="spinner" style={{ width: 12, height: 12, borderWidth: '1.5px' }} />}
                     {uploadingSpanImage ? 'Uploading span…' : '🧩 Upload spanning image'}
                     <input
                       type="file"
@@ -1353,16 +1355,17 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               <button
                 onClick={handleSave}
                 disabled={saving}
+                className={saving ? 'btn-loading' : ''}
                 style={{
                   flex: 1,
                   background: saving ? '#333' : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
                   border: 'none', borderRadius: 8,
                   color: '#fff', fontWeight: 600, fontSize: 13,
                   padding: '10px 0', cursor: saving ? 'not-allowed' : 'pointer',
-                  opacity: saving ? 0.7 : 1,
                 }}
               >
-                {saving ? 'Signing...' : 'Save Changes'}
+                {saving && <span className="spinner" />}
+                {saving ? 'Signing in wallet…' : 'Save Changes'}
               </button>
               <button
                 onClick={handleCancel}
