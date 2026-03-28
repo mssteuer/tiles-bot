@@ -6,19 +6,10 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/activity
  * Returns recent tile activity events for the activity feed.
+ * Sources from events_log table (all event types) or falls back to tiles table.
  */
 export async function GET() {
-  const rows = getRecentActivity(50);
-
-  const events = rows.map(row => ({
-    type: 'claimed',
-    tileId: row.id,
-    tileName: row.name || `Tile #${row.id}`,
-    tileAvatar: row.avatar || null,
-    owner: row.owner,
-    status: row.status,
-    timestamp: row.claimed_at,
-  }));
+  const events = getRecentActivity(50);
 
   return NextResponse.json({ events }, {
     headers: { 'Cache-Control': 'no-store' },

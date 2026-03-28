@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getTile, updateTileMetadata } from '@/lib/db';
+import { getTile, updateTileMetadata, logEvent } from '@/lib/db';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
@@ -124,6 +124,10 @@ export async function POST(request, { params }) {
 
   const finalImageUrl = ipfs?.gateway || imageUrl;
   updateTileMetadata(id, { imageUrl: finalImageUrl });
+
+  // Persist event log entry
+  const tileRecord = getTile(id);
+  logEvent('tile_image_updated', id, tileRecord?.owner || null, { tileName: tileRecord?.name || `Tile #${id}`, imageUrl: finalImageUrl });
 
   // Broadcast so the grid renders the new image immediately
   try { broadcast({ type: 'tile_image_updated', tileId: id, imageUrl: finalImageUrl }); } catch {}

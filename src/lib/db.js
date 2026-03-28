@@ -1104,17 +1104,6 @@ export function rejectConnectionRequest(requestId, ownerTileId) {
 
 // ─── Activity feed helpers ────────────────────────────────────────────────────
 
-/**
- * Get recent tile activity (claims, sorted by claimed_at DESC).
- */
-export function getRecentActivity(limit = 50) {
-  const db = getDb();
-  return db.prepare(
-    `SELECT id, name, avatar, owner, claimed_at, status FROM tiles
-     ORDER BY claimed_at DESC LIMIT ?`
-  ).all(limit);
-}
-
 // Close DB gracefully on process exit
 process.on('exit', () => { if (_db) _db.close(); });
 process.on('SIGINT', () => { if (_db) { _db.close(); process.exit(0); } });
@@ -1236,4 +1225,99 @@ export function updateTileWebhook(tileId, webhookUrl) {
   const db = getDb();
   const result = db.prepare(`UPDATE tiles SET webhook_url = ? WHERE id = ?`).run(webhookUrl || null, tileId);
   return result.changes > 0;
+}
+
+// ─── Events Log ───────────────────────────────────────────────────────────────
+
+/**
+ * Ensure events_log table exists (idempotent migration).
+ * Called once at module load.
+ */
+function ensureEventsLog() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS events_log (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      type       TEXT NOT NULL,
+      tile_id    INTEGER,
+      actor      TEXT,
+      metadata   TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_events_log_created ON events_log(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_events_log_tile ON events_log(tile_id);
+  `);
+}
+ensureEventsLog();
+
+/**
+ * Append an event to the persistent events log.
+ * @param {string} type - Event type (claimed, tile_image_updated, connection_accepted, metadata_updated)
+ * @param {number|null} tileId - Primary tile involved
+ * @param {string|null} actor - Wallet address of the actor (optional)
+ * @param {object} meta - Additional metadata (serialized as JSON)
+ */
+export function logEvent(type, tileId = null, actor = null, meta = {}) {
+  try {
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO events_log (type, tile_id, actor, metadata, created_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).run(type, tileId ?? null, actor ?? null, JSON.stringify(meta));
+  } catch {
+    // Non-fatal — events log is best-effort
+  }
+}
+
+/**
+ * Get recent activity events from events_log.
+ * Falls back to tiles table (claimed events only) for history before events_log existed.
+ * @param {number} limit - Max events to return
+ * @returns {Array} events shaped for /api/activity
+ */
+export function getRecentActivity(limit = 50) {
+  const db = getDb();
+
+  // Check if events_log has any rows; if empty, seed from tiles table
+  const logCount = db.prepare(`SELECT COUNT(*) as n FROM events_log`).get()?.n ?? 0;
+
+  if (logCount === 0) {
+    // No persisted events yet — return recent claims from tiles table
+    const rows = db.prepare(
+      `SELECT id, name, avatar, owner, claimed_at, status FROM tiles
+       ORDER BY claimed_at DESC LIMIT ?`
+    ).all(limit);
+    return rows.map(row => ({
+      type: 'claimed',
+      tileId: row.id,
+      tileName: row.name || `Tile #${row.id}`,
+      tileAvatar: row.avatar || null,
+      owner: row.owner,
+      timestamp: row.claimed_at,
+    }));
+  }
+
+  // Return from events_log, joining tile metadata
+  const rows = db.prepare(`
+    SELECT e.id as event_id, e.type, e.tile_id, e.actor, e.metadata, e.created_at,
+           t.name as tile_name, t.avatar as tile_avatar, t.owner as tile_owner
+    FROM events_log e
+    LEFT JOIN tiles t ON t.id = e.tile_id
+    ORDER BY e.created_at DESC
+    LIMIT ?
+  `).all(limit);
+
+  return rows.map(row => {
+    let meta = {};
+    try { meta = JSON.parse(row.metadata || '{}'); } catch {}
+    return {
+      type: row.type,
+      tileId: row.tile_id,
+      tileName: meta.tileName || row.tile_name || (row.tile_id ? `Tile #${row.tile_id}` : 'Grid'),
+      tileAvatar: meta.tileAvatar || row.tile_avatar || null,
+      owner: row.actor || row.tile_owner || '',
+      timestamp: row.created_at,
+      meta,
+    };
+  });
 }
