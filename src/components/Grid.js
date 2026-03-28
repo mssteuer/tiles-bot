@@ -148,6 +148,31 @@ function getFirstMatchingTile(tiles, searchQuery, categoryFilter) {
     .sort((a, b) => a.id - b.id)[0] || null;
 }
 
+// ── Mobile gesture hints (auto-dismiss after 4s) ─────────────────────────
+function MobileHints() {
+  const [visible, setVisible] = useState(true);
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+  useEffect(() => {
+    if (!isMobile) { setVisible(false); return; }
+    const t = setTimeout(() => setVisible(false), 5000);
+    return () => clearTimeout(t);
+  }, [isMobile]);
+  if (!visible) return null;
+  return (
+    <div style={{
+      position: 'absolute', bottom: 60, left: '50%', transform: 'translateX(-50%)',
+      background: 'rgba(10,10,15,0.92)', border: '1px solid #1a1a2e', borderRadius: 10,
+      padding: '10px 16px', zIndex: 30, backdropFilter: 'blur(8px)',
+      display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#94a3b8',
+      maxWidth: '90vw', textAlign: 'center', animation: 'fadeIn 0.3s ease',
+    }}
+    onClick={() => setVisible(false)}>
+      <div>👆 <strong style={{ color: '#e2e8f0' }}>Tap</strong> a tile to view or claim</div>
+      <div>✌️ <strong style={{ color: '#e2e8f0' }}>Two fingers</strong> to pan & pinch to zoom</div>
+    </div>
+  );
+}
+
 export default function Grid({ tiles, connections, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, onBlockClaimRequest }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
@@ -807,19 +832,41 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     });
   }, [onZoomChange]);
 
+  // ── Tool mode: 'pan' (hand) or 'select' (crosshair) ──────────────────
+  const [tool, setTool] = useState('pan'); // default: pan
+  const shiftHeld = useRef(false);
+  const effectiveTool = useCallback(() => shiftHeld.current ? 'select' : tool, [tool]);
+
+  // Track shift key globally
+  useEffect(() => {
+    const down = (e) => { if (e.key === 'Shift') shiftHeld.current = true; };
+    const up = (e) => { if (e.key === 'Shift') shiftHeld.current = false; };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+  }, []);
+
+  // ── Desktop mouse handlers ──────────────────────────────────────────────
   const handleMouseDown = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const px = screenToGridPx(e.clientX - rect.left, e.clientY - rect.top);
-    if (!px) return;
 
     isDragging.current = true;
     dragMoved.current = false;
-    isSelecting.current = false;
     lastMouse.current = { x: e.clientX, y: e.clientY };
-    selectStart.current = { ...px, sx: e.clientX, sy: e.clientY };
-    selectEnd.current = { ...px };
-  }, [screenToGridPx]);
+
+    if (effectiveTool() === 'select') {
+      // Start selection immediately
+      const px = screenToGridPx(e.clientX - rect.left, e.clientY - rect.top);
+      if (!px) return;
+      isSelecting.current = true;
+      selectStart.current = { ...px, sx: e.clientX, sy: e.clientY };
+      selectEnd.current = { ...px };
+    } else {
+      isSelecting.current = false;
+      selectStart.current = null;
+    }
+  }, [screenToGridPx, effectiveTool]);
 
   const handleMouseMove = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -828,58 +875,45 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     const tileId = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
     setHoveredTile(tileId);
 
-    if (isDragging.current && selectStart.current) {
-      const dx = e.clientX - selectStart.current.sx;
-      const dy = e.clientY - selectStart.current.sy;
-      const dist = Math.hypot(dx, dy);
+    if (!isDragging.current) return;
 
-      if (dist > 5 && !dragMoved.current) {
-        // Check if this is a selection drag (button 0, no special key)
-        // We treat it as selection drag if we haven't panned yet
-        isSelecting.current = true;
-      }
+    if (isSelecting.current && selectStart.current) {
+      // Selection drag
+      const px = screenToGridPx(e.clientX - rect.left, e.clientY - rect.top);
+      if (px) selectEnd.current = px;
 
-      if (isSelecting.current) {
-        // Selection drag: track end point
-        const px = screenToGridPx(e.clientX - rect.left, e.clientY - rect.top);
-        if (px) selectEnd.current = px;
+      // Compute highlighted tiles
+      const gx1 = Math.min(selectStart.current.gx, selectEnd.current.gx);
+      const gy1 = Math.min(selectStart.current.gy, selectEnd.current.gy);
+      const gx2 = Math.max(selectStart.current.gx, selectEnd.current.gx);
+      const gy2 = Math.max(selectStart.current.gy, selectEnd.current.gy);
+      const col1 = Math.max(0, Math.floor(gx1 / TILE_SIZE));
+      const row1 = Math.max(0, Math.floor(gy1 / TILE_SIZE));
+      const col2 = Math.min(GRID_SIZE - 1, Math.floor(gx2 / TILE_SIZE));
+      const row2 = Math.min(GRID_SIZE - 1, Math.floor(gy2 / TILE_SIZE));
+      const s = new Set();
+      for (let r = row1; r <= row2; r++)
+        for (let c = col1; c <= col2; c++)
+          s.add(r * GRID_SIZE + c);
+      dragSelectedTiles.current = s;
 
-        // Compute tiles in selection for live highlighting
-        if (selectStart.current && selectEnd.current) {
-          const gx1 = Math.min(selectStart.current.gx, selectEnd.current.gx);
-          const gy1 = Math.min(selectStart.current.gy, selectEnd.current.gy);
-          const gx2 = Math.max(selectStart.current.gx, selectEnd.current.gx);
-          const gy2 = Math.max(selectStart.current.gy, selectEnd.current.gy);
-          const col1 = Math.max(0, Math.floor(gx1 / TILE_SIZE));
-          const row1 = Math.max(0, Math.floor(gy1 / TILE_SIZE));
-          const col2 = Math.min(GRID_SIZE - 1, Math.floor(gx2 / TILE_SIZE));
-          const row2 = Math.min(GRID_SIZE - 1, Math.floor(gy2 / TILE_SIZE));
-          const s = new Set();
-          for (let r = row1; r <= row2; r++)
-            for (let c = col1; c <= col2; c++)
-              s.add(r * GRID_SIZE + c);
-          dragSelectedTiles.current = s;
-        }
-
-        // Update overlay rect in screen coords
-        setSelectionRect({
-          x1: Math.min(selectStart.current.sx, e.clientX) - rect.left,
-          y1: Math.min(selectStart.current.sy, e.clientY) - rect.top,
-          x2: Math.max(selectStart.current.sx, e.clientX) - rect.left,
-          y2: Math.max(selectStart.current.sy, e.clientY) - rect.top,
-        });
-      } else {
-        // Pan drag
-        if (dist > 2) dragMoved.current = true;
-        const panDx = e.clientX - lastMouse.current.x;
-        const panDy = e.clientY - lastMouse.current.y;
-        lastMouse.current = { x: e.clientX, y: e.clientY };
-        setCamera(prev => ({
-          ...prev,
-          x: prev.x - panDx / prev.zoom,
-          y: prev.y - panDy / prev.zoom,
-        }));
-      }
+      setSelectionRect({
+        x1: Math.min(selectStart.current.sx, e.clientX) - rect.left,
+        y1: Math.min(selectStart.current.sy, e.clientY) - rect.top,
+        x2: Math.max(selectStart.current.sx, e.clientX) - rect.left,
+        y2: Math.max(selectStart.current.sy, e.clientY) - rect.top,
+      });
+    } else {
+      // Pan drag
+      const dx = e.clientX - lastMouse.current.x;
+      const dy = e.clientY - lastMouse.current.y;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) dragMoved.current = true;
+      lastMouse.current = { x: e.clientX, y: e.clientY };
+      setCamera(prev => ({
+        ...prev,
+        x: prev.x - dx / prev.zoom,
+        y: prev.y - dy / prev.zoom,
+      }));
     }
   }, [screenToGrid, screenToGridPx]);
 
@@ -890,13 +924,11 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     dragSelectedTiles.current = new Set();
 
     if (isSelecting.current && selectStart.current && selectEnd.current) {
-      // Compute tiles in selection rectangle
       isSelecting.current = false;
       const gx1 = Math.min(selectStart.current.gx, selectEnd.current.gx);
       const gy1 = Math.min(selectStart.current.gy, selectEnd.current.gy);
       const gx2 = Math.max(selectStart.current.gx, selectEnd.current.gx);
       const gy2 = Math.max(selectStart.current.gy, selectEnd.current.gy);
-
       const col1 = Math.max(0, Math.floor(gx1 / TILE_SIZE));
       const row1 = Math.max(0, Math.floor(gy1 / TILE_SIZE));
       const col2 = Math.min(GRID_SIZE - 1, Math.floor(gx2 / TILE_SIZE));
@@ -904,20 +936,14 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
 
       if (col1 <= col2 && row1 <= row2) {
         const selected = [];
-        for (let r = row1; r <= row2; r++) {
-          for (let c = col1; c <= col2; c++) {
+        for (let r = row1; r <= row2; r++)
+          for (let c = col1; c <= col2; c++)
             selected.push(r * GRID_SIZE + c);
-          }
-        }
-        if (selected.length > 1) {
-          setBatchTiles(selected);
-          return;
-        } else if (selected.length === 1) {
-          onTileClick(selected[0]);
-          return;
-        }
+        if (selected.length > 1) { setBatchTiles(selected); return; }
+        if (selected.length === 1) { onTileClick(selected[0]); return; }
       }
     } else if (!dragMoved.current) {
+      // Click (no drag) → tile select
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
       const tileId = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
@@ -929,60 +955,102 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
     selectEnd.current = null;
   }, [screenToGrid, onTileClick]);
 
-  // Touch support
+  // ── Mobile touch handlers ───────────────────────────────────────────────
+  // 1-finger tap = select tile
+  // 2-finger drag = pan (midpoint tracks camera)
+  // 2-finger pinch = zoom
+  // 1-finger drag = nothing (prevents accidental claims after pan)
   const lastTouchDist = useRef(null);
+  const lastTouchMid = useRef(null);
+  const touchCount = useRef(0);
+  const touchStartTime = useRef(0);
+  const touchStartPos = useRef(null);
+
   const handleTouchStart = useCallback((e) => {
+    touchCount.current = e.touches.length;
     if (e.touches.length === 2) {
       isDragging.current = false;
+      dragMoved.current = true; // block tap detection
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       lastTouchDist.current = Math.hypot(dx, dy);
-    } else {
-      isDragging.current = true;
+      lastTouchMid.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
+    } else if (e.touches.length === 1) {
+      isDragging.current = false;
       dragMoved.current = false;
-      lastMouse.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      touchStartTime.current = Date.now();
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
   }, []);
 
   const handleTouchMove = useCallback((e) => {
     e.preventDefault();
-    if (e.touches.length === 2 && lastTouchDist.current) {
+    if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
-      const factor = dist / lastTouchDist.current;
+      const mid = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
+
+      // Pinch zoom
+      if (lastTouchDist.current) {
+        const factor = dist / lastTouchDist.current;
+        setCamera(prev => {
+          const newZoom = Math.max(0.02, Math.min(8, prev.zoom * factor));
+          if (onZoomChange) onZoomChange(newZoom);
+          return { ...prev, zoom: newZoom };
+        });
+      }
       lastTouchDist.current = dist;
-      setCamera(prev => {
-        const newZoom = Math.max(0.02, Math.min(8, prev.zoom * factor));
-        if (onZoomChange) onZoomChange(newZoom);
-        return { ...prev, zoom: newZoom };
-      });
-    } else if (e.touches.length === 1 && isDragging.current) {
-      const dx = e.touches[0].clientX - lastMouse.current.x;
-      const dy = e.touches[0].clientY - lastMouse.current.y;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) dragMoved.current = true;
-      lastMouse.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      setCamera(prev => ({
-        ...prev,
-        x: prev.x - dx / prev.zoom,
-        y: prev.y - dy / prev.zoom,
-      }));
+
+      // Two-finger pan
+      if (lastTouchMid.current) {
+        const panDx = mid.x - lastTouchMid.current.x;
+        const panDy = mid.y - lastTouchMid.current.y;
+        setCamera(prev => ({
+          ...prev,
+          x: prev.x - panDx / prev.zoom,
+          y: prev.y - panDy / prev.zoom,
+        }));
+      }
+      lastTouchMid.current = mid;
+      dragMoved.current = true; // prevent tap on lift
+    } else if (e.touches.length === 1 && touchStartPos.current) {
+      // Single finger moved → mark as moved (no action, just blocks tap)
+      const dx = e.touches[0].clientX - touchStartPos.current.x;
+      const dy = e.touches[0].clientY - touchStartPos.current.y;
+      if (Math.hypot(dx, dy) > 10) dragMoved.current = true;
     }
   }, [onZoomChange]);
 
   const handleTouchEnd = useCallback((e) => {
-    // If single-finger lift with no pan → treat as tap (tile select)
-    if (e.changedTouches.length === 1 && !dragMoved.current) {
-      const touch = e.changedTouches[0];
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const tileId = screenToGrid(touch.clientX - rect.left, touch.clientY - rect.top);
-        if (tileId !== null) onTileClick(tileId);
+    // Only trigger tap if single finger, no movement, short duration
+    if (!dragMoved.current && touchCount.current === 1 && touchStartPos.current) {
+      const elapsed = Date.now() - touchStartTime.current;
+      if (elapsed < 300) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          const tileId = screenToGrid(
+            touchStartPos.current.x - rect.left,
+            touchStartPos.current.y - rect.top
+          );
+          if (tileId !== null) onTileClick(tileId);
+        }
       }
     }
-    isDragging.current = false;
-    dragMoved.current = false;
-    lastTouchDist.current = null;
+    if (e.touches.length === 0) {
+      isDragging.current = false;
+      dragMoved.current = false;
+      lastTouchDist.current = null;
+      lastTouchMid.current = null;
+      touchCount.current = 0;
+      touchStartPos.current = null;
+    }
   }, [screenToGrid, onTileClick]);
 
   // Wheel listener
@@ -1077,7 +1145,7 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
   // ─── Canvas grid view ────────────────────────────────────────────────────
   return (
     <>
-      <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: isSelecting.current ? 'crosshair' : (isDragging.current ? 'grabbing' : 'grab') }}>
+      <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: tool === 'select' ? 'crosshair' : (isDragging.current ? 'grabbing' : 'grab') }}>
         <canvas
           id="grid-canvas"
           ref={canvasRef}
@@ -1165,6 +1233,43 @@ export default function Grid({ tiles, connections, onConnectionsChange, onTileCl
             Release to select tiles for batch claim
           </div>
         )}
+
+        {/* ── Desktop tool toggle (bottom-right) ── */}
+        <div className="tool-toggle" style={{
+          position: 'absolute',
+          bottom: 16,
+          right: 16,
+          display: 'flex',
+          gap: 4,
+          background: 'rgba(10,10,15,0.85)',
+          borderRadius: 8,
+          padding: 4,
+          border: '1px solid #1a1a2e',
+          zIndex: 20,
+          backdropFilter: 'blur(6px)',
+        }}>
+          <button
+            onClick={() => setTool('pan')}
+            title="Pan (drag to move)"
+            style={{
+              width: 36, height: 36, borderRadius: 6, border: 'none',
+              cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: tool === 'pan' ? 'rgba(59,130,246,0.3)' : 'transparent',
+              color: tool === 'pan' ? '#60a5fa' : '#666',
+            }}>✋</button>
+          <button
+            onClick={() => setTool('select')}
+            title="Select (drag to multi-select, or hold Shift)"
+            style={{
+              width: 36, height: 36, borderRadius: 6, border: 'none',
+              cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: tool === 'select' ? 'rgba(59,130,246,0.3)' : 'transparent',
+              color: tool === 'select' ? '#60a5fa' : '#666',
+            }}>⬚</button>
+        </div>
+
+        {/* ── Mobile gesture hints (shown briefly, fades out) ── */}
+        <MobileHints />
       </div>
 
       {/* Batch claim modal */}
