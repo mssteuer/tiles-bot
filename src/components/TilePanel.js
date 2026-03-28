@@ -1374,7 +1374,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             {/* Owner + tx hash details */}
             <div style={{ fontSize: 11, color: '#555', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {/* Owner address — links to basescan + OpenSea profile */}
-              {tile.owner && tile.owner !== 'demo-seed-wallet' ? (
+              {tile.owner ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ color: '#444' }}>Owner:</span>
                   <a

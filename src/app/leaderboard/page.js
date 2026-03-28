@@ -14,7 +14,7 @@ const CATEGORY_COLORS = {
 const MEDAL = ['🥇', '🥈', '🥉'];
 
 function shortAddress(addr) {
-  if (!addr || addr === 'demo-seed-wallet') return addr;
+  if (!addr) return addr;
   return addr.slice(0, 6) + '…' + addr.slice(-4);
 }
 
@@ -135,7 +135,7 @@ function HoldersTab({ holders }) {
 function HolderRow({ holder, rank }) {
   const medal = MEDAL[rank - 1] || null;
   const firstTile = holder.tiles?.[0];
-  const isDemo = holder.owner === 'demo-seed-wallet';
+
 
   return (
     <div style={{
@@ -171,12 +171,9 @@ function HolderRow({ holder, rank }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
           {firstTile?.name || shortAddress(holder.owner)}
-          {isDemo && (
-            <span style={{ fontSize: 10, background: '#1a1a2e', color: '#555', padding: '2px 6px', borderRadius: 4 }}>DEMO</span>
-          )}
         </div>
         <div style={{ fontSize: 12, color: '#555' }}>
-          {isDemo ? 'demo-seed-wallet' : shortAddress(holder.owner)}
+          {shortAddress(holder.owner)}
         </div>
         {/* Tile chips */}
         {holder.tiles && holder.tiles.length > 1 && (
@@ -268,7 +265,7 @@ function ActiveRow({ agent }) {
             {agent.name || `Tile #${agent.id}`}
           </div>
           <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
-            #{agent.id} · {agent.owner === 'demo-seed-wallet' ? 'demo' : `${agent.owner.slice(0, 6)}…${agent.owner.slice(-4)}`}
+            #{agent.id} · {`${agent.owner.slice(0, 6)}…${agent.owner.slice(-4)}`}
           </div>
         </div>
 
