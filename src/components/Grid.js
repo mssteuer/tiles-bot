@@ -1142,8 +1142,21 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       dragMoved.current = false;
       touchStartTime.current = Date.now();
       touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      // Start selection drag if select tool is active
+      if (tool === 'select') {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          const px = screenToGridPx(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+          if (px) {
+            isDragging.current = true;
+            isSelecting.current = true;
+            selectStart.current = { ...px, sx: e.touches[0].clientX, sy: e.touches[0].clientY };
+            selectEnd.current = px;
+          }
+        }
+      }
     }
-  }, []);
+  }, [tool, screenToGridPx]);
 
   const handleTouchMove = useCallback((e) => {
     e.preventDefault();
@@ -1180,16 +1193,77 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       lastTouchMid.current = mid;
       dragMoved.current = true; // prevent tap on lift
     } else if (e.touches.length === 1 && touchStartPos.current) {
-      // Single finger moved → mark as moved (no action, just blocks tap)
       const dx = e.touches[0].clientX - touchStartPos.current.x;
       const dy = e.touches[0].clientY - touchStartPos.current.y;
       if (Math.hypot(dx, dy) > 10) dragMoved.current = true;
+
+      if (isSelecting.current && selectStart.current) {
+        // Selection drag on mobile
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          const px = screenToGridPx(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+          if (px) selectEnd.current = px;
+
+          const gx1 = Math.min(selectStart.current.gx, selectEnd.current.gx);
+          const gy1 = Math.min(selectStart.current.gy, selectEnd.current.gy);
+          const gx2 = Math.max(selectStart.current.gx, selectEnd.current.gx);
+          const gy2 = Math.max(selectStart.current.gy, selectEnd.current.gy);
+          const col1 = Math.max(0, Math.floor(gx1 / TILE_SIZE));
+          const row1 = Math.max(0, Math.floor(gy1 / TILE_SIZE));
+          const col2 = Math.min(GRID_SIZE - 1, Math.floor(gx2 / TILE_SIZE));
+          const row2 = Math.min(GRID_SIZE - 1, Math.floor(gy2 / TILE_SIZE));
+          const s = new Set();
+          for (let r = row1; r <= row2; r++)
+            for (let c = col1; c <= col2; c++)
+              s.add(r * GRID_SIZE + c);
+          dragSelectedTiles.current = s;
+
+          setSelectionRect({
+            x1: Math.min(selectStart.current.sx, e.touches[0].clientX) - rect.left,
+            y1: Math.min(selectStart.current.sy, e.touches[0].clientY) - rect.top,
+            x2: Math.max(selectStart.current.sx, e.touches[0].clientX) - rect.left,
+            y2: Math.max(selectStart.current.sy, e.touches[0].clientY) - rect.top,
+          });
+        }
+      } else if (tool === 'pan' && dragMoved.current) {
+        // Single-finger pan when in pan mode
+        setCamera(prev => ({
+          ...prev,
+          x: prev.x - dx / prev.zoom,
+          y: prev.y - dy / prev.zoom,
+        }));
+        touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
     }
-  }, [onZoomChange]);
+  }, [onZoomChange, tool, screenToGridPx]);
 
   const handleTouchEnd = useCallback((e) => {
+    // Finalize selection if we were selecting
+    if (isSelecting.current && selectStart.current && selectEnd.current && dragMoved.current) {
+      isSelecting.current = false;
+      setSelectionRect(null);
+      dragSelectedTiles.current = new Set();
+
+      const gx1 = Math.min(selectStart.current.gx, selectEnd.current.gx);
+      const gy1 = Math.min(selectStart.current.gy, selectEnd.current.gy);
+      const gx2 = Math.max(selectStart.current.gx, selectEnd.current.gx);
+      const gy2 = Math.max(selectStart.current.gy, selectEnd.current.gy);
+      const col1 = Math.max(0, Math.floor(gx1 / TILE_SIZE));
+      const row1 = Math.max(0, Math.floor(gy1 / TILE_SIZE));
+      const col2 = Math.min(GRID_SIZE - 1, Math.floor(gx2 / TILE_SIZE));
+      const row2 = Math.min(GRID_SIZE - 1, Math.floor(gy2 / TILE_SIZE));
+      const ids = [];
+      for (let r = row1; r <= row2; r++)
+        for (let c = col1; c <= col2; c++)
+          ids.push(r * GRID_SIZE + c);
+      if (ids.length > 1) {
+        setBatchTiles(ids);
+      }
+      selectStart.current = null;
+      selectEnd.current = null;
+    }
     // Only trigger tap if single finger, no movement, short duration
-    if (!dragMoved.current && touchCount.current === 1 && touchStartPos.current) {
+    else if (!dragMoved.current && touchCount.current === 1 && touchStartPos.current) {
       const elapsed = Date.now() - touchStartTime.current;
       if (elapsed < 300) {
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -1204,6 +1278,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     }
     if (e.touches.length === 0) {
       isDragging.current = false;
+      isSelecting.current = false;
       dragMoved.current = false;
       lastTouchDist.current = null;
       lastTouchMid.current = null;
