@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createTileSpan, getAllTileSpans } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
+function getWalletFromRequest(request) {
+  return request.headers.get('x-wallet') || request.headers.get('x-address') || null;
+}
+
 export async function GET() {
-  return NextResponse.json({ spans: getAllTileSpans() });
+  const spans = getAllTileSpans({ includeNonReady: true });
+  return NextResponse.json({ spans });
 }
 
 export async function POST(request) {
@@ -14,15 +21,17 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { topLeftId, width, height, wallet } = body;
+  const wallet = getWalletFromRequest(request);
   if (!wallet) {
-    return NextResponse.json({ error: 'wallet is required' }, { status: 400 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const { topLeftId, width, height } = body;
 
   try {
     const span = createTileSpan({ topLeftId, width, height, owner: wallet });
     try {
-      broadcast({ type: 'span_updated', spanId: span.id, topLeftId: span.topLeftId });
+      broadcast({ type: 'span_updated', spanId: span.id, topLeftId: span.topLeftId, status: span.status });
     } catch {}
     return NextResponse.json({ ok: true, span }, { status: 201 });
   } catch (err) {

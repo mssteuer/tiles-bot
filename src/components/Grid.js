@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react';
 import BatchClaimModal from './BatchClaimModal';
+import MultiTileSpanModal from './MultiTileSpanModal';
 
 const GRID_SIZE = 256;
 const TILE_SIZE = 32; // base tile size in pixels
@@ -421,10 +422,16 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     const drawnSpanIds = new Set();
     for (const span of (spans || [])) {
       const tileIds = typeof span.tileIds === 'string' ? JSON.parse(span.tileIds) : (span.tileIds || []);
-      if (!tileIds.length) continue;
+      if (!tileIds.length || span.status !== 'ready') continue;
       if (drawnSpanIds.has(span.id)) continue;
-      drawnSpanIds.add(span.id);
 
+      const firstTile = tiles[tileIds[0]];
+      if (!firstTile?.owner) continue;
+      const owner = firstTile.owner.toLowerCase();
+      const ownershipIntact = tileIds.every((tileId) => tiles[tileId]?.owner && tiles[tileId].owner.toLowerCase() == owner);
+      if (!ownershipIntact) continue;
+
+      drawnSpanIds.add(span.id);
       const tlCol = span.topLeftId % GRID_SIZE;
       const tlRow = Math.floor(span.topLeftId / GRID_SIZE);
       const sx = tlCol * TILE_SIZE;
@@ -896,6 +903,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   // ── Tool mode: 'pan' (hand) or 'select' (crosshair) ──────────────────
   const [tool, setTool] = useState('pan'); // default: pan
+  const [spanRequest, setSpanRequest] = useState(null);
   const shiftHeld = useRef(false);
   const effectiveTool = useCallback(() => shiftHeld.current ? 'select' : tool, [tool]);
 
@@ -1001,7 +1009,17 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         for (let r = row1; r <= row2; r++)
           for (let c = col1; c <= col2; c++)
             selected.push(r * GRID_SIZE + c);
-        if (selected.length > 1) { setBatchTiles(selected); return; }
+        if (selected.length > 1) {
+          const allOwned = selected.every((id) => tiles[id]?.owner);
+          const firstOwner = selected[0] != null ? tiles[selected[0]]?.owner?.toLowerCase() : null;
+          const sameOwner = allOwned && selected.every((id) => tiles[id]?.owner?.toLowerCase() === firstOwner);
+          if (sameOwner && onSpanClaimRequest) {
+            setSpanRequest({ topLeftId: selected[0], tileIds: selected });
+            return;
+          }
+          setBatchTiles(selected);
+          return;
+        }
         if (selected.length === 1) { onTileClick(selected[0]); return; }
       }
     } else if (!dragMoved.current) {
@@ -1345,6 +1363,17 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           tileIds={batchTiles}
           tiles={tiles}
           onClose={() => setBatchTiles(null)}
+          onSpanClaimRequest={(topLeftId, selectedTileIds) => setSpanRequest({ topLeftId, tileIds: selectedTileIds })}
+        />
+      )}
+
+      {spanRequest && (
+        <MultiTileSpanModal
+          topLeftId={spanRequest.topLeftId}
+          initialTileIds={spanRequest.tileIds}
+          tiles={tiles}
+          onClose={() => setSpanRequest(null)}
+          onCreated={() => {}}
         />
       )}
     </>
