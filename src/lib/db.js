@@ -1102,6 +1102,19 @@ export function rejectConnectionRequest(requestId, ownerTileId) {
   return { fromTileId: req.from_tile_id, toTileId: req.to_tile_id };
 }
 
+// ─── Activity feed helpers ────────────────────────────────────────────────────
+
+/**
+ * Get recent tile activity (claims, sorted by claimed_at DESC).
+ */
+export function getRecentActivity(limit = 50) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT id, name, avatar, owner, claimed_at, status FROM tiles
+     ORDER BY claimed_at DESC LIMIT ?`
+  ).all(limit);
+}
+
 // Close DB gracefully on process exit
 process.on('exit', () => { if (_db) _db.close(); });
 process.on('SIGINT', () => { if (_db) { _db.close(); process.exit(0); } });
