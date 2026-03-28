@@ -267,13 +267,13 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   // Fly-to animation: smooth zoom-out → arc pan → zoom-in
   const flyToRef = useRef(null);
   useEffect(() => {
-    if (flyToTileId == null || !tiles) return;
-    const t = tiles[String(flyToTileId)];
-    if (!t) return;
+    if (!flyToTileId || !tiles) return;
+    const targetId = typeof flyToTileId === 'object' ? flyToTileId.id : flyToTileId;
+    if (targetId == null) return;
 
     // Target position: center of the tile
-    const col = flyToTileId % GRID_SIZE;
-    const row = Math.floor(flyToTileId / GRID_SIZE);
+    const col = targetId % GRID_SIZE;
+    const row = Math.floor(targetId / GRID_SIZE);
     const targetX = col * TILE_SIZE + TILE_SIZE / 2;
     const targetY = row * TILE_SIZE + TILE_SIZE / 2;
     const targetZoom = 4;

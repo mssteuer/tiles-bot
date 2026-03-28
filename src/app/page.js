@@ -329,10 +329,9 @@ function HomeInner() {
             }}
             onConnectionsChange={setConnections}
             onNavigateToTile={(tileId) => {
-              setFlyToTileId(tileId);
+              // Use incrementing counter to allow re-triggering same tile
+              setFlyToTileId({ id: tileId, ts: Date.now() });
               setSelectedTile(tileId);
-              // Reset after animation starts so it can be triggered again
-              setTimeout(() => setFlyToTileId(null), 100);
             }}
           />
         ) : null}
