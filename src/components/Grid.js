@@ -243,6 +243,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   useEffect(() => {
     console.log('[INTRO]', { introPlayed: introPlayed.current, initialCamera: !!initialCamera, flyToTileId: !!flyToTileId, introReady, tileCount: Object.keys(tiles).length, container: !!containerRef.current });
     if (introPlayed.current) {
+      introFinished.current = true;
       if (onIntroFinished) onIntroFinished();
       return;
     }
@@ -251,6 +252,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     if (initialCamera || flyToTileId) {
       console.log('[INTRO] skipped — initialCamera or flyToTileId');
       introPlayed.current = true;
+      introFinished.current = true;
+      if (typeof window !== 'undefined') window.__tiles_camera = cameraRef.current;
       if (onIntroFinished) onIntroFinished();
       return;
     }
@@ -412,7 +415,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   useEffect(() => {
     cameraRef.current = camera;
     // Persist camera on window — survives SPA navigation but NOT page refresh
-    if (typeof window !== 'undefined') window.__tiles_camera = camera;
+    // Only save AFTER intro finishes to prevent re-render from seeing it and skipping intro
+    if (typeof window !== 'undefined' && introFinished.current) window.__tiles_camera = camera;
   }, [camera]);
 
   // Connections ref (kept in sync with prop for draw callback)
