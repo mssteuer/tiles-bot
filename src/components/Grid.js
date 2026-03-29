@@ -119,11 +119,20 @@ function loadTileImage(tile) {
   }
   imageCache[cacheKey] = 'loading';
   // Fetch + decode off-main-thread via createImageBitmap
-  fetch(url)
-    .then(r => r.blob())
+  // Falls back to local URL if primary (IPFS) fails
+  const localFallback = `/tile-images/${tile.id}.png?size=64`;
+  fetch(url, { signal: AbortSignal.timeout(6000) })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
     .then(blob => createImageBitmap(blob))
     .then(bmp => { imageCache[cacheKey] = bmp; })
-    .catch(() => { imageCache[cacheKey] = 'error'; });
+    .catch(() => {
+      // Try local fallback
+      fetch(localFallback, { signal: AbortSignal.timeout(5000) })
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+        .then(blob => createImageBitmap(blob))
+        .then(bmp => { imageCache[cacheKey] = bmp; })
+        .catch(() => { imageCache[cacheKey] = 'error'; });
+    });
   return null;
 }
 
