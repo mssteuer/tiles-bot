@@ -63,9 +63,24 @@ export async function uploadToFilebase(buffer, key, contentType = 'image/png') {
     console.warn(`[filebase] CID not available after ${delays.length} attempts for key: ${key}`);
   }
 
+  // Verify the IPFS gateway URL is actually accessible before returning it
+  const gatewayUrl = cid ? `https://ipfs.filebase.io/ipfs/${cid}` : null;
+  if (gatewayUrl) {
+    try {
+      const check = await fetch(gatewayUrl, { method: 'HEAD', signal: AbortSignal.timeout(8000) });
+      if (!check.ok) {
+        console.warn(`[filebase] Gateway verification failed (${check.status}) for ${gatewayUrl} — returning null gateway`);
+        return { cid, gateway: null, s3Url: `https://${FILEBASE_BUCKET}.s3.filebase.com/${key}`, key };
+      }
+    } catch (err) {
+      console.warn(`[filebase] Gateway verification timed out for ${gatewayUrl} — returning null gateway`);
+      return { cid, gateway: null, s3Url: `https://${FILEBASE_BUCKET}.s3.filebase.com/${key}`, key };
+    }
+  }
+
   return {
     cid,
-    gateway: cid ? `https://ipfs.filebase.io/ipfs/${cid}` : null,
+    gateway: gatewayUrl,
     s3Url: `https://${FILEBASE_BUCKET}.s3.filebase.com/${key}`,
     key,
   };
