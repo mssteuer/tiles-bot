@@ -1577,7 +1577,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 {/* List for Sale — links to OpenSea sell flow */}
                 {isOwner && (
                   <a
-                    href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tile.id}/sell`}
+                    href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tile.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
