@@ -555,21 +555,19 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     const maxRow = Math.min(GRID_SIZE - 1, Math.floor(bottom / TILE_SIZE));
 
     // Grid lines (only when zoomed enough)
-    if (cam.zoom > 0.08) {
+    if (cam.zoom > 0.08 && visibleCells < 20000) {
       ctx.strokeStyle = 'rgba(255,255,255,0.06)';
       ctx.lineWidth = 1 / cam.zoom;
+      ctx.beginPath();
       for (let col = minCol; col <= maxCol + 1; col++) {
-        ctx.beginPath();
         ctx.moveTo(col * TILE_SIZE, minRow * TILE_SIZE);
         ctx.lineTo(col * TILE_SIZE, (maxRow + 1) * TILE_SIZE);
-        ctx.stroke();
       }
       for (let row = minRow; row <= maxRow + 1; row++) {
-        ctx.beginPath();
         ctx.moveTo(minCol * TILE_SIZE, row * TILE_SIZE);
         ctx.lineTo((maxCol + 1) * TILE_SIZE, row * TILE_SIZE);
-        ctx.stroke();
       }
+      ctx.stroke();
     }
 
     // Tiles
@@ -745,12 +743,34 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       ctx.restore();
     }
 
-    for (let row = minRow; row <= maxRow; row++) {
-      for (let col = minCol; col <= maxCol; col++) {
-        const id = row * GRID_SIZE + col;
-        const x = col * TILE_SIZE;
-        const y = row * TILE_SIZE;
-        const tile = tiles[id];
+    // Perf: at very low zoom, the visible range can be the entire 256×256 grid (65536 cells).
+    // Only ~130 tiles are claimed. Instead of iterating all cells, iterate only claimed tiles
+    // when the visible area is large (> 10000 cells).
+    const visibleCells = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+    const tileEntries = visibleCells > 10000
+      ? Object.keys(tiles).map(k => {
+          const id = Number(k);
+          const row = Math.floor(id / GRID_SIZE);
+          const col = id % GRID_SIZE;
+          if (row < minRow || row > maxRow || col < minCol || col > maxCol) return null;
+          return { id, row, col, tile: tiles[k] };
+        }).filter(Boolean)
+      : null;
+
+    const iterEntries = tileEntries || (() => {
+      const arr = [];
+      for (let row = minRow; row <= maxRow; row++) {
+        for (let col = minCol; col <= maxCol; col++) {
+          arr.push({ id: row * GRID_SIZE + col, row, col, tile: tiles[row * GRID_SIZE + col] });
+        }
+      }
+      return arr;
+    })();
+
+    for (const entry of iterEntries) {
+      const { id, row, col, tile } = entry;
+      const x = col * TILE_SIZE;
+      const y = row * TILE_SIZE;
 
         // Skip non-top-left tiles that belong to a block (block renders as merged rect above)
         const tileBlock = blockMapRef.current[id];
@@ -882,7 +902,6 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
         }
       }
-    }
 
     // ── Heat map overlay ──────────────────────────────────────────────────
     if (heatmapModeRef.current) {
