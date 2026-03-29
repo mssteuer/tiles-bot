@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { addAction, getActions, getTile, VALID_ACTIONS } from '@/lib/db';
+import { addAction, getActions, getTile, VALID_ACTIONS, getTileWebhookUrl } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 import { logEvent } from '@/lib/db';
+import { fireWebhook } from '@/lib/webhook';
 
 const ACTION_EMOJIS = {
   slap: '🐟', challenge: '⚔️', praise: '🙌', wave: '👋',
@@ -75,6 +76,18 @@ export async function POST(req, { params }) {
     fromName, toName, emoji, verb, actionType,
     message: message || null,
   });
+
+  // Fire webhook to the target tile's owner (best-effort, non-blocking)
+  const webhookUrl = getTileWebhookUrl(toTile);
+  if (webhookUrl) {
+    fireWebhook(webhookUrl, {
+      event: 'tile_action',
+      tileId: toTile,
+      tileName: toName,
+      action: { id: actionId, type: actionType, emoji, verb, message: message || null },
+      from: { id: fromTile, name: fromName },
+    });
+  }
 
   return NextResponse.json({ ok: true, actionId, emoji, verb, fromName, toName });
 }
