@@ -531,9 +531,53 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           ctx.drawImage(cachedSpanImg, sx, sy, sw, sh);
         }
       }
+      // Outer span border
       ctx.strokeStyle = '#0ea5e9';
       ctx.lineWidth = 2 / cam.zoom;
       ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+
+      // Grid lines over span (tile boundaries)
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 0.5 / cam.zoom;
+      ctx.beginPath();
+      for (let c = 1; c < span.width; c++) {
+        ctx.moveTo(sx + c * TILE_SIZE, sy);
+        ctx.lineTo(sx + c * TILE_SIZE, sy + sh);
+      }
+      for (let r = 1; r < span.height; r++) {
+        ctx.moveTo(sx, sy + r * TILE_SIZE);
+        ctx.lineTo(sx + sw, sy + r * TILE_SIZE);
+      }
+      ctx.stroke();
+
+      // Hover + selected + fly-to highlights on individual span tiles
+      for (const tid of tileIds) {
+        const tc = tid % GRID_SIZE;
+        const tr = Math.floor(tid / GRID_SIZE);
+        const tx = tc * TILE_SIZE;
+        const ty = tr * TILE_SIZE;
+
+        if (hoveredTile === tid) {
+          ctx.fillStyle = 'rgba(255,255,255,0.15)';
+          ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2 / cam.zoom;
+          ctx.strokeRect(tx, ty, TILE_SIZE, TILE_SIZE);
+        }
+        if (selectedTile === tid) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 3 / cam.zoom;
+          ctx.strokeRect(tx, ty, TILE_SIZE, TILE_SIZE);
+        }
+        if (flyToTileId && (typeof flyToTileId === 'object' ? flyToTileId.id : flyToTileId) === tid) {
+          ctx.fillStyle = 'rgba(59,130,246,0.25)';
+          ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 3 / cam.zoom;
+          ctx.strokeRect(tx, ty, TILE_SIZE, TILE_SIZE);
+        }
+      }
+
       ctx.restore();
     }
 
@@ -696,6 +740,15 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           // Highlight selected
           if (selectedTile === id) {
             ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3 / cam.zoom;
+            ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          }
+
+          // Fly-to highlight
+          if (flyToTileId && (typeof flyToTileId === 'object' ? flyToTileId.id : flyToTileId) === id) {
+            ctx.fillStyle = 'rgba(59,130,246,0.25)';
+            ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = '#3b82f6';
             ctx.lineWidth = 3 / cam.zoom;
             ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
           }
