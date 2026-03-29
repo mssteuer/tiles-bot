@@ -851,16 +851,34 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   });
 
   // Owned tile IDs (for interactions — which tiles can I act from?)
+  // Smart wallet aware: checks both EOA address AND on-chain owner address
   const [ownedTileIds, setOwnedTileIds] = useState([]);
   useEffect(() => {
     if (!address) { setOwnedTileIds([]); return; }
-    fetch('/api/grid').then(r => r.json()).then(d => {
-      const ids = Object.values(d.tiles || {})
-        .filter(t => t.owner && t.owner.toLowerCase() === address.toLowerCase())
-        .map(t => t.id);
-      setOwnedTileIds(ids);
-    }).catch(() => {});
-  }, [address]);
+    (async () => {
+      try {
+        const gridRes = await fetch('/api/grid');
+        const gridData = await gridRes.json();
+        const allTiles = Object.values(gridData.tiles || {});
+        const addrLower = address.toLowerCase();
+
+        // Direct match (EOA === DB owner)
+        let ids = allTiles.filter(t => t.owner && t.owner.toLowerCase() === addrLower).map(t => t.id);
+
+        // If no direct matches AND we have a current tile, check on-chain to discover smart wallet address
+        if (ids.length === 0 && tile.id != null && tile.owner) {
+          const checkRes = await fetch(`/api/tiles/${tile.id}/check-owner?wallet=${address}`);
+          const checkData = await checkRes.json();
+          if (checkData.isOwner && checkData.onChainOwner) {
+            // The on-chain owner is the smart wallet proxy — find ALL tiles with that owner in DB
+            const proxyLower = checkData.onChainOwner.toLowerCase();
+            ids = allTiles.filter(t => t.owner && t.owner.toLowerCase() === proxyLower).map(t => t.id);
+          }
+        }
+        setOwnedTileIds(ids);
+      } catch { setOwnedTileIds([]); }
+    })();
+  }, [address, tile.id, tile.owner]);
 
   // Check if connected wallet owns this tile (supports smart wallets via on-chain check)
   const [isOwner, setIsOwner] = useState(false);
