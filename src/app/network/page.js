@@ -57,6 +57,7 @@ export default function NetworkPage() {
       id,
       name: agent?.name || `Tile #${id}`,
       avatar: agent?.avatar || null,
+      imageUrl: agent?.imageUrl || null,
       status: agent?.status || 'offline',
       category: agent?.category || 'uncategorized',
     };
@@ -196,16 +197,33 @@ export default function NetworkPage() {
                       stroke={isHovered ? '#3b82f6' : statusColor}
                       strokeWidth={isHovered ? 2 : 1}
                     />
-                    {/* Avatar / Initials */}
-                    <text
-                      x={pos.x} y={pos.y}
-                      textAnchor="middle" dominantBaseline="central"
-                      fontSize={node.avatar ? 16 : 10}
-                      fill={node.avatar ? undefined : '#94a3b8'}
-                      fontWeight={node.avatar ? undefined : 600}
-                    >
-                      {node.avatar || getInitials(node.name)}
-                    </text>
+                    {/* Agent thumbnail / Avatar / Initials */}
+                    {node.imageUrl ? (
+                      <>
+                        <defs>
+                          <clipPath id={`clip-${node.id}`}>
+                            <circle cx={pos.x} cy={pos.y} r={NODE_RADIUS - 1} />
+                          </clipPath>
+                        </defs>
+                        <image
+                          href={node.imageUrl}
+                          x={pos.x - NODE_RADIUS + 1} y={pos.y - NODE_RADIUS + 1}
+                          width={(NODE_RADIUS - 1) * 2} height={(NODE_RADIUS - 1) * 2}
+                          clipPath={`url(#clip-${node.id})`}
+                          preserveAspectRatio="xMidYMid slice"
+                        />
+                      </>
+                    ) : (
+                      <text
+                        x={pos.x} y={pos.y}
+                        textAnchor="middle" dominantBaseline="central"
+                        fontSize={node.avatar ? 16 : 10}
+                        fill={node.avatar ? undefined : '#94a3b8'}
+                        fontWeight={node.avatar ? undefined : 600}
+                      >
+                        {node.avatar || getInitials(node.name)}
+                      </text>
+                    )}
                     {/* Name below */}
                     <text
                       x={pos.x} y={pos.y + NODE_RADIUS + 14}
