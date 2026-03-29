@@ -313,13 +313,14 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner }
         Interactions
       </div>
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12, overflowX: 'auto' }}>
+      <div style={{ display: 'flex', marginBottom: 12 }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: '6px 12px', borderRadius: 8, border: 'none', fontSize: 12,
+            flex: 1, padding: '6px 4px', borderRadius: 8, border: 'none', fontSize: 12,
             background: tab === t.id ? '#1e293b' : 'transparent',
             color: tab === t.id ? '#e2e8f0' : '#475569',
-            cursor: 'pointer', fontWeight: tab === t.id ? 600 : 400, whiteSpace: 'nowrap',
+            cursor: 'pointer', fontWeight: tab === t.id ? 600 : 400,
+            textAlign: 'center', minWidth: 0,
           }}>
             {t.label}
           </button>
