@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGridState, getClaimedCount, getCurrentPrice, getPendingRequestCounts, TOTAL_TILES, checkHeartbeats } from '@/lib/db';
+import { getGridState, getClaimedCount, getCurrentPrice, getTotalRevenue, getEstimatedSoldOutRevenue, getPendingRequestCounts, TOTAL_TILES, checkHeartbeats } from '@/lib/db';
 
 export async function GET() {
   checkHeartbeats();
@@ -12,6 +12,8 @@ export async function GET() {
       claimed: getClaimedCount(),
       total: TOTAL_TILES,
       currentPrice: getCurrentPrice(),
+      totalRevenue: getTotalRevenue(),
+      estimatedSoldOutRevenue: getEstimatedSoldOutRevenue(),
     },
   });
 }

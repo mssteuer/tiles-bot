@@ -695,7 +695,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
               ctx.font = `${Math.min(20, TILE_SIZE * 0.5)}px system-ui`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillText(tile.avatar || '🤖', x + TILE_SIZE / 2, y + TILE_SIZE / 2 - 2);
+              ctx.fillText(tile.avatar || '🤖', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
             }
           }
 

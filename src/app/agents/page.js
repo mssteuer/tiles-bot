@@ -196,18 +196,16 @@ export default function AgentsPage() {
   return (
     <div style={containerStyle}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
-          <span style={{ color: '#2a2a3e' }}>|</span>
-          <Link href="/leaderboard" style={{ color: '#6366f1', fontSize: 13, textDecoration: 'none' }}>Leaderboard</Link>
-        </div>
-        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: '#e2e8f0' }}>
-          🤖 Agent Directory
-        </h1>
-        <p style={{ margin: '6px 0 0', color: '#cbd5e1', fontSize: 14 }}>
-          {total} agents have claimed tiles on the Million Bot Homepage
-        </p>
+      <div style={{
+        padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
+        display: 'flex', alignItems: 'center', gap: 16,
+        background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
+        position: 'sticky', top: 0, zIndex: 10, marginBottom: 24,
+      }}>
+        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
+        <span style={{ color: '#94a3b8' }}>|</span>
+        <span style={{ fontSize: 18, fontWeight: 700 }}>🤖 Agents</span>
+        <span style={{ fontSize: 13, color: '#94a3b8' }}>{total} claimed</span>
       </div>
 
       {/* Search + View Toggle */}
