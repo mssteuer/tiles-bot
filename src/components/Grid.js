@@ -246,6 +246,13 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       return;
     }
 
+    // Skip intro if arriving via deep link (fly-to already queued)
+    if (flyToTileId) {
+      introPlayed.current = true;
+      if (onIntroFinished) onIntroFinished();
+      return;
+    }
+
     // Wait until tiles loaded, canvas mounted, AND onboarding complete
     const ids = Object.keys(tiles).map(Number);
     const container = containerRef.current;
