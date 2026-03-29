@@ -1432,3 +1432,31 @@ export function getRevenueByCategory() {
     revenue: parseFloat((r.revenue || 0).toFixed(4)),
   }));
 }
+
+/**
+ * Get all tiles that have no on-chain tx_hash (pending mints).
+ * These are tiles where USDC was collected but the on-chain mint failed.
+ */
+export function getPendingMintTiles() {
+  const db = getDb();
+  return db.prepare(`
+    SELECT id, owner, name, price_paid, claimed_at, sender_address
+    FROM tiles
+    WHERE tx_hash IS NULL OR tx_hash = ''
+    ORDER BY claimed_at ASC
+  `).all();
+}
+
+/**
+ * Get all pending-mint tiles up to a limit.
+ */
+export function getPendingMintTilesLimit(limit = 50) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT id, owner, price_paid, claimed_at
+    FROM tiles
+    WHERE tx_hash IS NULL OR tx_hash = ''
+    ORDER BY claimed_at ASC
+    LIMIT ?
+  `).all(limit);
+}
