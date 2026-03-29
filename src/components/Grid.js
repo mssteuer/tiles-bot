@@ -353,12 +353,17 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   useEffect(() => {
     if (!actionAnimation) return;
     const { fromTile, toTile, emoji, actionType } = actionAnimation;
-    const fromRow = Math.floor(fromTile / 256), fromCol = fromTile % 256;
     const toRow = Math.floor(toTile / 256), toCol = toTile % 256;
-    const startX = fromCol * TILE_SIZE + TILE_SIZE / 2;
-    const startY = fromRow * TILE_SIZE + TILE_SIZE / 2;
     const endX = toCol * TILE_SIZE + TILE_SIZE / 2;
     const endY = toRow * TILE_SIZE + TILE_SIZE / 2;
+    // Start from the viewer's viewport top-left corner (world space),
+    // not the source tile — source may be off-screen for any given viewer
+    const cam = cameraRef.current;
+    const container = containerRef.current;
+    const vw = container ? container.clientWidth : 1920;
+    const vh = container ? container.clientHeight : 1080;
+    const startX = cam.x - (vw / 2) / cam.zoom - 50 / cam.zoom;
+    const startY = cam.y - (vh / 2) / cam.zoom - 50 / cam.zoom;
     activeAnimationsRef.current.push({
       startX, startY, endX, endY,
       emoji: emoji || '🐟',
