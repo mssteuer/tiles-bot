@@ -695,15 +695,50 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
               const emoji = tile.avatar || '🤖';
               const emojiSize = Math.min(20, TILE_SIZE * 0.5);
               ctx.font = `${emojiSize}px system-ui`;
-              ctx.textAlign = 'left';
-              ctx.textBaseline = 'alphabetic';
-              const m = ctx.measureText(emoji);
-              // Use actual bounding box for precise centering (works across platforms)
-              const mw = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
-              const mh = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
-              const ex = x + (TILE_SIZE - mw) / 2 + m.actualBoundingBoxLeft;
-              const ey = y + (TILE_SIZE - mh) / 2 + m.actualBoundingBoxAscent;
-              ctx.fillText(emoji, ex, ey);
+              // Draw emoji as image via offscreen canvas for pixel-perfect centering
+              const eCacheKey = emoji + ':' + emojiSize;
+              let eBmp = imageCache[eCacheKey];
+              if (!eBmp) {
+                imageCache[eCacheKey] = 'loading';
+                const eCanvas = document.createElement('canvas');
+                const pad = Math.ceil(emojiSize * 0.3);
+                const eW = Math.ceil(emojiSize * 2) + pad * 2;
+                eCanvas.width = eW; eCanvas.height = eW;
+                const eCtx = eCanvas.getContext('2d');
+                eCtx.font = `${emojiSize}px system-ui`;
+                eCtx.textAlign = 'center';
+                eCtx.textBaseline = 'middle';
+                eCtx.fillText(emoji, eW / 2, eW / 2);
+                // Scan for actual pixel bounds
+                const imgData = eCtx.getImageData(0, 0, eW, eW).data;
+                let minX = eW, maxX = 0, minY = eW, maxY = 0;
+                for (let py = 0; py < eW; py++) {
+                  for (let px = 0; px < eW; px++) {
+                    if (imgData[(py * eW + px) * 4 + 3] > 10) {
+                      if (px < minX) minX = px;
+                      if (px > maxX) maxX = px;
+                      if (py < minY) minY = py;
+                      if (py > maxY) maxY = py;
+                    }
+                  }
+                }
+                if (maxX >= minX && maxY >= minY) {
+                  const cw = maxX - minX + 1, ch = maxY - minY + 1;
+                  const cropCanvas = document.createElement('canvas');
+                  cropCanvas.width = cw; cropCanvas.height = ch;
+                  cropCanvas.getContext('2d').drawImage(eCanvas, minX, minY, cw, ch, 0, 0, cw, ch);
+                  createImageBitmap(cropCanvas).then(bmp => { imageCache[eCacheKey] = bmp; });
+                } else {
+                  imageCache[eCacheKey] = 'error';
+                }
+              } else if (eBmp !== 'loading' && eBmp !== 'error') {
+                const drawW = eBmp.width;
+                const drawH = eBmp.height;
+                const maxDim = TILE_SIZE * 0.7;
+                const scale = Math.min(maxDim / drawW, maxDim / drawH, 1);
+                const sw = drawW * scale, sh = drawH * scale;
+                ctx.drawImage(eBmp, x + (TILE_SIZE - sw) / 2, y + (TILE_SIZE - sh) / 2, sw, sh);
+              }
             }
           }
 
