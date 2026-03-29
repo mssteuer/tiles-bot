@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { addNote, getNotes, deleteNote, getTile } from '@/lib/db';
+import { addNote, getNotes, deleteNote, getTile, getTileWebhookUrl } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 import { logEvent } from '@/lib/db';
+import { fireWebhook } from '@/lib/webhook';
 
 export async function GET(req, { params }) {
   const { id } = await params;
@@ -40,6 +41,21 @@ export async function POST(req, { params }) {
   const noteId = addNote(tileId, author, text.trim(), authorTile || null);
   logEvent('note_added', tileId, author, { noteId, authorTile });
   broadcast({ type: 'note_added', tileId, noteId, author, authorTile });
+
+  // Fire webhook to tile owner (best-effort, non-blocking)
+  const webhookUrl = getTileWebhookUrl(tileId);
+  if (webhookUrl) {
+    const tileData = getTile(tileId);
+    const authorTileData = authorTile ? getTile(authorTile) : null;
+    fireWebhook(webhookUrl, {
+      event: 'note_added',
+      tileId,
+      tileName: tileData?.name || `Tile #${tileId}`,
+      note: { id: noteId, author, authorTile: authorTile || null, body: text.trim() },
+      from: authorTileData ? { id: authorTile, name: authorTileData.name, avatar: authorTileData.avatar } : null,
+    });
+  }
+
   return NextResponse.json({ ok: true, noteId });
 }
 
