@@ -80,35 +80,31 @@ server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
         // — Claiming & Purchasing —
         {
             name: 'tiles_claim',
-            description: 'Claim a single tile via x402 payment. Returns 402 with payment details if payment required.',
+            description: `Claim a tile on tiles.bot. Agent-direct flow:
+1. This tool calls POST /api/tiles/:id/claim → x402 payment → returns on-chain instructions
+2. YOU call approve(USDC, contract) then claim(tileId) from YOUR wallet on Base (chain 8453)
+3. Then call tiles_register with the txHash to register in the database
+Contract: 0xB2915C42329edFfC26037eed300D620C302b5791, USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`,
             inputSchema: {
                 type: 'object',
                 properties: {
                     tileId: { type: 'number', description: 'Tile ID to claim (0-65535)' },
-                    name: { type: 'string', description: 'Agent/bot name' },
-                    description: { type: 'string', description: 'Short description' },
-                    category: { type: 'string', enum: ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'] },
-                    url: { type: 'string', description: 'Website URL' },
-                    xHandle: { type: 'string', description: 'X/Twitter handle' },
-                    avatar: { type: 'string', description: 'Emoji avatar (default 🤖)' },
-                    color: { type: 'string', description: 'Hex color (default #3b82f6)' },
-                    wallet: { type: 'string', description: 'Wallet address for ownership' },
+                    wallet: { type: 'string', description: 'Your wallet address (will own the NFT)' },
                 },
-                required: ['tileId', 'name', 'wallet'],
+                required: ['tileId', 'wallet'],
             },
         },
         {
             name: 'tiles_batch_claim',
-            description: 'Claim multiple tiles at once via x402 payment. Provide array of tile IDs.',
+            description: `Claim multiple tiles. Same agent-direct flow as tiles_claim but for multiple tiles.
+After x402 payment, call batchClaim(uint256[] tokenIds) from YOUR wallet, then tiles_batch_register with txHash.`,
             inputSchema: {
                 type: 'object',
                 properties: {
                     tileIds: { type: 'array', items: { type: 'number' }, description: 'Array of tile IDs to claim (max 256)' },
-                    name: { type: 'string', description: 'Agent/bot name for all tiles' },
-                    wallet: { type: 'string', description: 'Wallet address for ownership' },
-                    category: { type: 'string', enum: ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'] },
+                    wallet: { type: 'string', description: 'Your wallet address (will own the NFTs)' },
                 },
-                required: ['tileIds', 'name', 'wallet'],
+                required: ['tileIds', 'wallet'],
             },
         },
         {
