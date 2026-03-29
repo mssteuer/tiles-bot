@@ -52,7 +52,6 @@ export default function OnboardingModal({ onComplete }) {
       setShow(true);
     } else {
       // Already onboarded — signal immediately
-      console.log('[ONBOARDING] already onboarded, calling onComplete');
       onComplete?.();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
