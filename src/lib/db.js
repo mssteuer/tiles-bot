@@ -1621,7 +1621,7 @@ export function getEngagementSummary() {
   const notes = db.prepare('SELECT COUNT(*) as n FROM tile_notes').get().n;
   const emotes = db.prepare('SELECT COUNT(*) as n FROM tile_emotes').get().n;
   const messages = db.prepare('SELECT COUNT(*) as n FROM tile_messages').get().n;
-  const connections = db.prepare("SELECT COUNT(*) as n FROM tile_connections WHERE status = 'accepted'").get().n;
+  const connections = db.prepare('SELECT COUNT(*) as n FROM tile_connections').get().n;
   const pendingConnections = db.prepare("SELECT COUNT(*) as n FROM connection_requests WHERE status = 'pending'").get().n;
   const onlineTiles = db.prepare("SELECT COUNT(*) as n FROM tiles WHERE status = 'online'").get().n;
   const heartbeatEver = db.prepare('SELECT COUNT(*) as n FROM tiles WHERE last_heartbeat IS NOT NULL').get().n;
@@ -1697,7 +1697,7 @@ export function getMostSlappedAgents(limit = 5) {
 
 export function getConnectionStats() {
   const db = getDb();
-  const accepted = db.prepare("SELECT COUNT(*) as n FROM tile_connections WHERE status = 'accepted'").get().n;
+  const accepted = db.prepare('SELECT COUNT(*) as n FROM tile_connections').get().n; // tile_connections = accepted connections
   const pending = db.prepare("SELECT COUNT(*) as n FROM connection_requests WHERE status = 'pending'").get().n;
   const rejected = db.prepare("SELECT COUNT(*) as n FROM connection_requests WHERE status = 'rejected'").get().n;
   return { accepted, pending, rejected };

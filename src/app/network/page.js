@@ -120,12 +120,7 @@ export default function NetworkPage() {
             {connections.length} connection{connections.length !== 1 ? 's' : ''} between {nodes.length} agent{nodes.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Link href="/" style={{
-          color: '#3b82f6', textDecoration: 'none', fontSize: 13,
-          padding: '6px 12px', border: '1px solid #1a1a2e', borderRadius: 8,
-        }}>
-          ← Back to Grid
-        </Link>
+        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
       </div>
 
       {/* Graph or Empty State */}

@@ -246,7 +246,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       return;
     }
 
-    // Skip intro if returning from another page (camera restored) or deep link
+    // Skip intro if returning from SPA navigation (camera restored) or deep link
     if (initialCamera || flyToTileId) {
       introPlayed.current = true;
       if (onIntroFinished) onIntroFinished();
@@ -404,8 +404,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const cameraRef = useRef(camera);
   useEffect(() => {
     cameraRef.current = camera;
-    // Persist camera for navigation return (skip intro on back-nav)
-    try { sessionStorage.setItem('tiles_camera', JSON.stringify(camera)); } catch {}
+    // Persist camera on window — survives SPA navigation but NOT page refresh
+    if (typeof window !== 'undefined') window.__tiles_camera = camera;
   }, [camera]);
 
   // Connections ref (kept in sync with prop for draw callback)
@@ -415,20 +415,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const pendingRequestsRef = useRef(pendingRequests || {});
   useEffect(() => { pendingRequestsRef.current = pendingRequests || {}; }, [pendingRequests]);
 
-  // Block map ref: tileId → block object (for render lookup)
-  const blockMapRef = useRef({});
-  useEffect(() => {
-    const map = {};
-    if (blocks) {
-      for (const block of blocks) {
-        const tileIds = typeof block.tileIds === 'string' ? JSON.parse(block.tileIds) : (block.tileIds || []);
-        for (const tid of tileIds) {
-          map[tid] = block;
-        }
-      }
-    }
-    blockMapRef.current = map;
-  }, [blocks]);
+  // Block tiles feature removed
 
   const screenToGrid = useCallback((sx, sy) => {
     const canvas = canvasRef.current;
@@ -475,9 +462,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     });
   }, [tiles]);
 
-  // heatmapMode ref for draw callback
-  const heatmapModeRef = useRef(heatmapMode);
-  useEffect(() => { heatmapModeRef.current = heatmapMode; }, [heatmapMode]);
+  // heatmapMode removed
 
   // Draw function (called in animation loop)
   const draw = useCallback(() => {
@@ -651,86 +636,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       ctx.restore();
     }
 
-    // Draw blocks first (as merged rectangles behind individual tiles)
-    const drawnBlockIds = new Set();
-    for (const block of (blocks || [])) {
-      const tileIds = typeof block.tileIds === 'string' ? JSON.parse(block.tileIds) : (block.tileIds || []);
-      if (!tileIds.length) continue;
-      const blockId = block.id;
-      if (drawnBlockIds.has(blockId)) continue;
-      drawnBlockIds.add(blockId);
-
-      const topLeftId = block.topLeftId ?? block.top_left_id;
-      const bs = block.blockSize ?? block.block_size ?? 2;
-      const tlCol = topLeftId % GRID_SIZE;
-      const tlRow = Math.floor(topLeftId / GRID_SIZE);
-      const bx = tlCol * TILE_SIZE;
-      const by = tlRow * TILE_SIZE;
-      const bw = bs * TILE_SIZE;
-      const bh = bs * TILE_SIZE;
-
-      // Skip blocks fully outside viewport
-      if (bx + bw < left * cam.zoom || bx > right || by + bh < top * cam.zoom || by > bottom) continue;
-
-      const blockColor = block.color || '#7c3aed'; // purple default
-
-      // Draw merged block background
-      ctx.save();
-      ctx.fillStyle = blockColor + '33';
-      ctx.fillRect(bx, by, bw, bh);
-
-      // Draw block image if available
-      const blockImgKey = `block:${blockId}:${bs === 2 ? 128 : 256}`;
-      if (block.imageUrl) {
-        let cachedBlockImg = imageCache[blockImgKey];
-        if (!cachedBlockImg) {
-          imageCache[blockImgKey] = 'loading';
-          fetch(block.imageUrl)
-            .then(r => r.blob())
-            .then(blob => createImageBitmap(blob))
-            .then(bmp => { imageCache[blockImgKey] = bmp; })
-            .catch(() => { imageCache[blockImgKey] = 'error'; });
-        } else if (cachedBlockImg !== 'loading' && cachedBlockImg !== 'error') {
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(bx + 2, by + 2, bw - 4, bh - 4);
-          ctx.clip();
-          ctx.drawImage(cachedBlockImg, bx + 2, by + 2, bw - 4, bh - 4);
-          ctx.restore();
-        }
-      } else {
-        // Avatar/emoji fallback
-        const emojiSize = Math.min(bw * 0.4, 24);
-        ctx.font = `${emojiSize}px system-ui`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(block.avatar || '⬜', bx + bw / 2, by + bh / 2);
-      }
-
-      // Purple border
-      ctx.strokeStyle = '#7c3aed';
-      ctx.lineWidth = 2.5 / cam.zoom;
-      ctx.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
-
-      // Size badge (2×2 / 3×3) in corner
-      if (cam.zoom > 0.15) {
-        const badgeText = `${bs}×${bs}`;
-        const badgePad = 2 / cam.zoom;
-        const badgeFontSize = Math.max(5, 7 / cam.zoom);
-        ctx.font = `bold ${badgeFontSize}px system-ui`;
-        const tw = ctx.measureText(badgeText).width;
-        const bpx = bx + bw - tw - badgePad * 2 - 2 / cam.zoom;
-        const bpy = by + 2 / cam.zoom;
-        ctx.fillStyle = '#7c3aed';
-        ctx.fillRect(bpx - badgePad, bpy, tw + badgePad * 2, badgeFontSize + badgePad * 2);
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(badgeText, bpx, bpy + badgePad);
-      }
-
-      ctx.restore();
-    }
+    // Block tiles feature removed
 
     // Always draw claimed tiles first (fast: only iterate tiles with data)
     const tileBorders = []; // Collect borders to batch-stroke after tile loop
@@ -744,13 +650,6 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       const x = col * TILE_SIZE;
       const y = row * TILE_SIZE;
 
-        // Skip non-top-left tiles that belong to a block (block renders as merged rect above)
-        const tileBlock = blockMapRef.current[id];
-        if (tileBlock) {
-          const topLeftId = tileBlock.topLeftId ?? tileBlock.top_left_id;
-          if (id !== topLeftId) continue; // non-top-left block tile — skip individual render
-        }
-
         // Skip tiles that belong to a rendered span — span already drew the image
         if (tilesInSpans.has(id)) continue;
 
@@ -762,15 +661,16 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           if (!tileMatches) ctx.globalAlpha = 0.25;
 
           // ── Heartbeat glow halo (no shadowBlur — uses layered fills instead) ──
-          if (tile.lastHeartbeat) {
+          // Green glow persists as long as status === 'online' (server manages the TTL)
+          if (tile.status === 'online') {
+            const a = 0.06 + 0.08 * pulse;
+            ctx.fillStyle = `rgba(34,197,94,${a.toFixed(3)})`;
+            ctx.fillRect(x - 4, y - 4, TILE_SIZE + 8, TILE_SIZE + 8);
+            ctx.fillStyle = `rgba(34,197,94,${(a * 1.5).toFixed(3)})`;
+            ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
+          } else if (tile.lastHeartbeat) {
             const age = now - tile.lastHeartbeat;
-            if (age <= HB_GREEN) {
-              const a = 0.06 + 0.08 * pulse;
-              ctx.fillStyle = `rgba(34,197,94,${a.toFixed(3)})`;
-              ctx.fillRect(x - 4, y - 4, TILE_SIZE + 8, TILE_SIZE + 8);
-              ctx.fillStyle = `rgba(34,197,94,${(a * 1.5).toFixed(3)})`;
-              ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
-            } else if (age <= HB_YELLOW) {
+            if (age <= HB_YELLOW) {
               ctx.fillStyle = 'rgba(234,179,8,0.04)';
               ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
             }
@@ -910,97 +810,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       }
     }
 
-    // ── Heat map overlay ──────────────────────────────────────────────────
-    if (heatmapModeRef.current) {
-      ctx.save();
-      for (let row = minRow; row <= maxRow; row++) {
-        for (let col = minCol; col <= maxCol; col++) {
-          const id = row * GRID_SIZE + col;
-          const tile = tiles[id];
-          if (!tile) continue;
-
-          const score = getTileActivityScore(tile);
-          if (score < 0.01) continue; // skip cold tiles (unclaimed or zero activity)
-
-          const x = col * TILE_SIZE;
-          const y = row * TILE_SIZE;
-
-          // Semi-transparent color overlay — covers the tile
-          const overlayAlpha = 0.55 + score * 0.35; // 0.55–0.90
-          ctx.fillStyle = heatmapColor(score, overlayAlpha);
-          ctx.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-
-          // Glow halo for hot tiles (score >= 0.6) — layered fills instead of shadowBlur
-          if (score >= 0.6) {
-            const glowAlpha = (score - 0.6) / 0.4 * 0.15; // 0–0.15
-            ctx.fillStyle = heatmapColor(score, glowAlpha);
-            ctx.fillRect(x - 6, y - 6, TILE_SIZE + 12, TILE_SIZE + 12);
-            ctx.fillStyle = heatmapColor(score, glowAlpha * 2);
-            ctx.fillRect(x - 3, y - 3, TILE_SIZE + 6, TILE_SIZE + 6);
-          }
-
-          // Score text when zoomed in (score > 0.3)
-          if (cam.zoom > 0.6 && score > 0.15) {
-            ctx.save();
-            ctx.fillStyle = 'rgba(0,0,0,0.75)';
-            ctx.font = `bold ${Math.min(7, TILE_SIZE * 0.2)}px system-ui`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(`${Math.round(score * 100)}`, x + TILE_SIZE / 2, y + TILE_SIZE / 2);
-            ctx.restore();
-          }
-        }
-      }
-      ctx.restore();
-
-      // ── Heat map legend (screen-space, fixed bottom-left) ──────────────
-      ctx.restore(); // exit world-space
-      ctx.save();
-      const legendW = 160;
-      const legendH = 14;
-      const legendX = 16;
-      const legendY = h - 54;
-
-      // Background pill
-      ctx.fillStyle = 'rgba(10,10,15,0.80)';
-      ctx.beginPath();
-      ctx.roundRect(legendX - 8, legendY - 22, legendW + 16, legendH + 36, 8);
-      ctx.fill();
-
-      // Label
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = 'bold 11px system-ui';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText('Activity', legendX, legendY - 16);
-
-      // Gradient bar
-      const grad = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
-      grad.addColorStop(0,    heatmapColor(0,    1));
-      grad.addColorStop(0.3,  heatmapColor(0.3,  1));
-      grad.addColorStop(0.6,  heatmapColor(0.6,  1));
-      grad.addColorStop(1,    heatmapColor(1,    1));
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.roundRect(legendX, legendY, legendW, legendH, 4);
-      ctx.fill();
-
-      // Tick labels
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '9px system-ui';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText('Cold', legendX, legendY + legendH + 3);
-      ctx.textAlign = 'right';
-      ctx.fillText('Hot', legendX + legendW, legendY + legendH + 3);
-      ctx.restore();
-
-      // Re-enter world-space for connection lines
-      ctx.save();
-      ctx.translate(w / 2, h / 2);
-      ctx.scale(cam.zoom, cam.zoom);
-      ctx.translate(-cam.x, -cam.y);
-    }
+    // Heat map feature removed
 
     // ── Connection lines (neighbor network) ──────────────────────────────
     const conns = connectionsRef.current;
@@ -1176,7 +986,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     }
 
     ctx.restore();
-  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter, heatmapMode]); // camera via ref, connections via ref, heatmapMode via ref
+  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter]); // camera via ref, connections via ref
 
   // Animation loop for pulsing glow
   useEffect(() => {
@@ -1699,14 +1509,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             if (!rect) return;
             const tileId = screenToGrid(e.clientX - rect.left, e.clientY - rect.top);
             if (tileId === null) return;
-            if (e.shiftKey && onSpanClaimRequest && tiles[tileId]) {
-              onSpanClaimRequest(tileId);
-              return;
-            }
-            if (!onBlockClaimRequest) return;
-            if (!tiles[tileId]) {
-              onBlockClaimRequest(tileId);
-            }
+            // Block claim feature removed — right-click does nothing
           }}
           style={{ display: 'block', width: '100%', height: '100%' }}
         />
