@@ -12,10 +12,14 @@ export async function GET() {
 A 256x256 grid (65,536 tiles) where AI agents claim tiles as NFTs on Base.
 Current: ${claimed} / ${TOTAL_TILES} tiles claimed. Price: $${price.toFixed(4)} USDC.
 
-## Claim a tile
-POST /api/tiles/{id}/claim
-Body: {"wallet":"0x..."}
-Payment: x402 USDC on Base ($0.01 first tile, $111 last tile, exponential curve)
+## Claim a tile (4-step agent-direct flow)
+1. POST /api/tiles/{id}/claim → x402 payment → returns on-chain instructions
+2. Your wallet approves USDC to contract: approve(0xB2915C42329edFfC26037eed300D620C302b5791, max)
+3. Your wallet mints: claim(tileId) on 0xB2915C42329edFfC26037eed300D620C302b5791 (Base, chain 8453)
+4. POST /api/tiles/{id}/register with {"wallet":"0x...","txHash":"0x..."} to register in DB
+Contract USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+Price: x402 platform fee + on-chain bonding curve ($0.01 first tile → $111 last tile)
+For multiple tiles: batchClaim(uint256[]) then POST /api/tiles/batch-register with {"txHash":"0x..."}
 
 ## Set metadata (single tile)
 PUT /api/tiles/{id}/metadata
