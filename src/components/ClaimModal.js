@@ -172,7 +172,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       <div style={modalStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Claim Tile #{tileId}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', fontSize: 20, cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
 
         {/* Tile position info */}
@@ -181,7 +181,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
           <div style={{ marginTop: 4, fontSize: 20, fontWeight: 700, color: '#3b82f6' }}>
             ${parseFloat(priceDisplay).toFixed(4)} USDC
           </div>
-          <div style={{ marginTop: 2, fontSize: 11, color: '#555' }}>Bonding curve price — lower is earlier</div>
+          <div style={{ marginTop: 2, fontSize: 11, color: '#9ca3af' }}>Bonding curve price — lower is earlier</div>
         </div>
 
         {!isConnected ? (
@@ -286,7 +286,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
               </button>
             )}
 
-            <p style={{ textAlign: 'center', marginTop: 12, fontSize: 11, color: '#555' }}>
+            <p style={{ textAlign: 'center', marginTop: 12, fontSize: 11, color: '#9ca3af' }}>
               Connected: {address?.slice(0, 6)}...{address?.slice(-4)}
             </p>
           </div>

@@ -36,7 +36,7 @@ function BarChart({ data, valueKey, color, label, formatFn }) {
 
   return (
     <div>
-      <p style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>{label}</p>
+      <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>{label}</p>
       <div style={{ overflowX: 'auto' }}>
         <svg width={Math.max(chartWidth, 400)} height={120} style={{ display: 'block' }}>
           {data.map((d, i) => {
@@ -64,7 +64,7 @@ function BarChart({ data, valueKey, color, label, formatFn }) {
       </div>
       {/* X-axis labels — show first, middle, last if bars too narrow */}
       {barWidth <= 14 && data.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555', marginTop: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9ca3af', marginTop: 4 }}>
           <span>{shortDate(data[0]?.date)}</span>
           <span>{shortDate(data[Math.floor(data.length / 2)]?.date)}</span>
           <span>{shortDate(data[data.length - 1]?.date)}</span>
@@ -92,7 +92,7 @@ function LineChart({ data, valueKey, color, label, formatFn }) {
 
   return (
     <div>
-      <p style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>{label}</p>
+      <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>{label}</p>
       <svg width="100%" viewBox={`0 0 ${W} ${H + 20}`} style={{ display: 'block', overflow: 'visible' }}>
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -263,9 +263,9 @@ function KpiCard({ label, value, sub, color }) {
       background: '#0f0f1a', border: '1px solid #1a1a2e',
       borderRadius: 12, padding: '16px 18px',
     }}>
-      <div style={{ fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 4 }}>{value}</div>
-      <div style={{ fontSize: 11, color: '#555' }}>{sub}</div>
+      <div style={{ fontSize: 11, color: '#9ca3af' }}>{sub}</div>
     </div>
   );
 }
@@ -278,7 +278,7 @@ function ChartCard({ title, subtitle, children }) {
     }}>
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
-        <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{subtitle}</div>
+        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{subtitle}</div>
       </div>
       {children}
     </div>
@@ -290,7 +290,7 @@ function CategoryTable({ data, totalRevenue }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {data.map(cat => {
-        const color = CATEGORY_COLORS[cat.category] || '#555';
+        const color = CATEGORY_COLORS[cat.category] || '#94a3b8';
         const pct = totalRevenue > 0 ? ((cat.revenue / totalRevenue) * 100).toFixed(1) : 0;
         const barPct = (cat.revenue / max) * 100;
         return (
@@ -313,10 +313,10 @@ function CategoryTable({ data, totalRevenue }) {
             <div style={{ width: 80, textAlign: 'right', fontSize: 13, color: '#22c55e', flexShrink: 0 }}>
               ${fmt(cat.revenue, 4)}
             </div>
-            <div style={{ width: 45, textAlign: 'right', fontSize: 11, color: '#555', flexShrink: 0 }}>
+            <div style={{ width: 45, textAlign: 'right', fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>
               {pct}%
             </div>
-            <div style={{ width: 50, textAlign: 'right', fontSize: 11, color: '#555', flexShrink: 0 }}>
+            <div style={{ width: 50, textAlign: 'right', fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>
               {cat.tiles} tiles
             </div>
           </div>
@@ -328,11 +328,11 @@ function CategoryTable({ data, totalRevenue }) {
 
 function TimelineTable({ timeline }) {
   if (!timeline || timeline.length === 0) {
-    return <p style={{ color: '#555', fontSize: 13 }}>No data for this period.</p>;
+    return <p style={{ color: '#9ca3af', fontSize: 13 }}>No data for this period.</p>;
   }
   const thStyle = {
     padding: '8px 12px', textAlign: 'right',
-    fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8,
+    fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8,
     borderBottom: '1px solid #1a1a2e', fontWeight: 600,
   };
   const tdStyle = {
