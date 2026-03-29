@@ -73,7 +73,7 @@ function NotesTab({ tile, address, ownedTiles }) {
         </div>
       )}
       {/* Notes list */}
-      {notes.length === 0 && <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>No notes yet. Be the first!</div>}
+      {notes.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No notes yet. Be the first!</div>}
       {notes.map(n => (
         <div key={n.id} style={{ padding: '8px 0', borderBottom: '1px solid #1a1a2e' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -81,7 +81,7 @@ function NotesTab({ tile, address, ownedTiles }) {
             <span style={{ color: '#94a3b8', fontSize: 12, fontWeight: 600 }}>
               {n.authorName || `${n.author.slice(0, 6)}…${n.author.slice(-4)}`}
             </span>
-            <span style={{ color: '#374151', fontSize: 11 }}>{timeAgo(n.createdAt)}</span>
+            <span style={{ color: '#9ca3af', fontSize: 11 }}>{timeAgo(n.createdAt)}</span>
           </div>
           <div style={{ color: '#e2e8f0', fontSize: 13, lineHeight: 1.4 }}>{n.body}</div>
         </div>
@@ -95,7 +95,7 @@ function FromTileSelector({ ownedTiles, allTiles, selected, onChange }) {
   if (!ownedTiles || ownedTiles.length <= 1) return null;
   return (
     <div style={{ marginBottom: 8 }}>
-      <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 3 }}>Acting as:</label>
+      <label style={{ fontSize: 11, color: '#cbd5e1', display: 'block', marginBottom: 3 }}>Acting as:</label>
       <select value={selected ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))} style={{
         width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #2a2a3e',
         background: '#111', color: '#e2e8f0', fontSize: 12, outline: 'none',
@@ -160,15 +160,15 @@ function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
         </div>
       )}
       {/* Actions log */}
-      {actions.length === 0 && <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>No actions yet</div>}
+      {actions.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No actions yet</div>}
       {actions.map(a => (
         <div key={a.id} style={{ padding: '6px 0', borderBottom: '1px solid #1a1a2e', fontSize: 13 }}>
           <span style={{ marginRight: 4 }}>{a.emoji}</span>
           <strong style={{ color: '#e2e8f0' }}>{a.fromName}</strong>
-          <span style={{ color: '#64748b' }}> {a.verb} </span>
+          <span style={{ color: '#cbd5e1' }}> {a.verb} </span>
           <strong style={{ color: '#e2e8f0' }}>{a.toName}</strong>
           {a.message && <span style={{ color: '#94a3b8' }}> — {a.message}</span>}
-          <span style={{ color: '#374151', fontSize: 11, marginLeft: 6 }}>{timeAgo(a.createdAt)}</span>
+          <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 6 }}>{timeAgo(a.createdAt)}</span>
         </div>
       ))}
     </div>
@@ -220,13 +220,13 @@ function EmotesTab({ tile, address, ownedTiles, onAction }) {
         </div>
       )}
       {/* Emotes log */}
-      {emotes.length === 0 && <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>No reactions yet</div>}
+      {emotes.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No reactions yet</div>}
       {emotes.map(e => (
         <div key={e.id} style={{ padding: '5px 0', borderBottom: '1px solid #1a1a2e', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 18 }}>{e.emoji}</span>
           <SmallAvatar src={e.fromImage} size={16} />
           <strong style={{ color: '#e2e8f0' }}>{e.fromName}</strong>
-          <span style={{ color: '#374151', fontSize: 11, marginLeft: 'auto' }}>{timeAgo(e.createdAt)}</span>
+          <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 'auto' }}>{timeAgo(e.createdAt)}</span>
         </div>
       ))}
     </div>
@@ -269,9 +269,9 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
     return (
       <div>
         {replyTo && (
-          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ fontSize: 11, color: '#cbd5e1', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
             ↩ Replying to <strong style={{ color: '#94a3b8' }}>{replyTo.fromName}</strong>
-            <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 11 }}>✕</button>
+            <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>✕</button>
           </div>
         )}
         <div style={{ display: 'flex', gap: 6 }}>
@@ -298,11 +298,11 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
 
   if (!isOwner) {
     if (!address) {
-      return <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>Connect wallet to send a message</div>;
+      return <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>Connect wallet to send a message</div>;
     }
     return (
       <div>
-        <p style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>Send a private message to this tile&apos;s owner:</p>
+        <p style={{ color: '#cbd5e1', fontSize: 12, marginBottom: 8 }}>Send a private message to this tile&apos;s owner:</p>
         <ComposeBar placeholder="Type a message…" />
       </div>
     );
@@ -311,7 +311,7 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
   // Owner view — messages + reply
   return (
     <div>
-      {messages.length === 0 && <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>No messages yet</div>}
+      {messages.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No messages yet</div>}
       {messages.map(m => {
         let body;
         try { body = decodeURIComponent(escape(atob(m.encryptedBody))); } catch { body = m.encryptedBody; }
@@ -326,11 +326,11 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
               <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600 }}>
                 {isIncoming ? `← From ${m.fromName}` : `→ To ${m.toName}`}
               </span>
-              <span style={{ color: '#374151', fontSize: 11, marginLeft: 'auto' }}>{timeAgo(m.createdAt)}</span>
+              <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 'auto' }}>{timeAgo(m.createdAt)}</span>
               {!m.readAt && isIncoming && <span style={{ background: '#3b82f6', borderRadius: 4, padding: '1px 5px', fontSize: 10, color: '#fff' }}>new</span>}
               {isIncoming && (
                 <button onClick={() => setReplyTo({ fromTile: m.fromTile, fromName: m.fromName })}
-                  style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12, padding: '2px 6px' }}
+                  style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, padding: '2px 6px' }}
                   title={`Reply to ${m.fromName}`}
                 >↩</button>
               )}
@@ -376,7 +376,7 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             flex: 1, padding: '6px 4px', borderRadius: 8, border: 'none', fontSize: 12,
             background: tab === t.id ? '#1e293b' : 'transparent',
-            color: tab === t.id ? '#e2e8f0' : '#475569',
+            color: tab === t.id ? '#e2e8f0' : '#94a3b8',
             cursor: 'pointer', fontWeight: tab === t.id ? 600 : 400,
             textAlign: 'center', minWidth: 0,
           }}>

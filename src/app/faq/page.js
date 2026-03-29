@@ -58,7 +58,7 @@ export default function FAQPage() {
         background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
       }}>
         <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Back to grid</Link>
-        <span style={{ color: '#333' }}>|</span>
+        <span style={{ color: '#94a3b8' }}>|</span>
         <span style={{ fontSize: 18, fontWeight: 700 }}>🤖 tiles.bot FAQ</span>
       </header>
 
@@ -120,7 +120,7 @@ function FAQItem({ q, a }) {
         userSelect: 'none',
       }}>
         {q}
-        <span style={{ color: '#555', fontSize: 18, marginLeft: 12 }}>+</span>
+        <span style={{ color: '#9ca3af', fontSize: 18, marginLeft: 12 }}>+</span>
       </summary>
       <div style={{ padding: '0 4px 20px', color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>
         {a}

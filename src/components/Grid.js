@@ -1597,7 +1597,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       <div style={{ flex: 1, overflowY: 'auto', background: '#0a0a0f', padding: '8px 16px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ color: '#555', textTransform: 'uppercase', fontSize: 11, letterSpacing: 1 }}>
+            <tr style={{ color: '#9ca3af', textTransform: 'uppercase', fontSize: 11, letterSpacing: 1 }}>
               <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>#</th>
               <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>Agent</th>
               <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>Category</th>
@@ -1620,7 +1620,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
                 onMouseLeave={e => e.currentTarget.style.background = selectedTile === tile.id ? 'rgba(59,130,246,0.1)' : 'transparent'}
               >
-                <td style={{ padding: '6px 4px', color: '#555' }}>{tile.id}</td>
+                <td style={{ padding: '6px 4px', color: '#9ca3af' }}>{tile.id}</td>
                 <td style={{ padding: '6px 4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {tile.imageUrl ? (
@@ -1635,7 +1635,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
                   <span style={{
                     padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
                     background: `${CATEGORY_COLORS[tile.category] || '#333'}22`,
-                    color: CATEGORY_COLORS[tile.category] || '#666',
+                    color: CATEGORY_COLORS[tile.category] || '#94a3b8',
                   }}>{tile.category || 'other'}</span>
                 </td>
                 <td style={{ padding: '6px 4px' }}>
@@ -1650,7 +1650,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
                 <td style={{ padding: '6px 4px', color: '#94a3b8' }}>
                   {tile.pricePaid ? `$${parseFloat(tile.pricePaid).toFixed(4)}` : '—'}
                 </td>
-                <td style={{ padding: '6px 4px', color: '#555', fontSize: 11 }}>
+                <td style={{ padding: '6px 4px', color: '#9ca3af', fontSize: 11 }}>
                   r{Math.floor(tile.id / 256)}, c{tile.id % 256}
                 </td>
               </tr>
@@ -1658,7 +1658,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           </tbody>
         </table>
         {tileList.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#555' }}>No tiles match your filter.</div>
+          <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>No tiles match your filter.</div>
         )}
       </div>
     );
@@ -1734,7 +1734,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
               <span>{tiles[hoveredTile].avatar}</span>
             )}
             <strong>{tiles[hoveredTile].name}</strong>
-            <span style={{ color: '#666' }}>#{hoveredTile}</span>
+            <span style={{ color: '#9ca3af' }}>#{hoveredTile}</span>
             <span style={{
               width: 6, height: 6, borderRadius: '50%',
               background: tiles[hoveredTile].status === 'online' ? '#22c55e' : '#ef4444',
@@ -1782,7 +1782,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
               width: 36, height: 36, borderRadius: 6, border: 'none',
               cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: tool === 'pan' ? 'rgba(59,130,246,0.3)' : 'transparent',
-              color: tool === 'pan' ? '#60a5fa' : '#666',
+              color: tool === 'pan' ? '#60a5fa' : '#94a3b8',
             }}>✋</button>
           <button
             onClick={() => setTool('select')}
@@ -1791,7 +1791,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
               width: 36, height: 36, borderRadius: 6, border: 'none',
               cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: tool === 'select' ? 'rgba(59,130,246,0.3)' : 'transparent',
-              color: tool === 'select' ? '#60a5fa' : '#666',
+              color: tool === 'select' ? '#60a5fa' : '#94a3b8',
             }}>⬚</button>
         </div>
 

@@ -202,7 +202,7 @@ export default function ActivityPage() {
           <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
             📡 Activity Feed
           </h1>
-          <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
+          <p style={{ fontSize: 13, color: '#cbd5e1', margin: '4px 0 0' }}>
             Live feed of what&apos;s happening on the grid
           </p>
         </div>
@@ -217,14 +217,14 @@ export default function ActivityPage() {
       {/* Event List */}
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '16px 20px' }}>
         {loading && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>
+          <div style={{ textAlign: 'center', padding: 40, color: '#cbd5e1' }}>
             Loading activity…
           </div>
         )}
 
         {!loading && events.length === 0 && (
           <div style={{
-            textAlign: 'center', padding: 60, color: '#64748b',
+            textAlign: 'center', padding: 60, color: '#cbd5e1',
             background: '#0d0d1a', borderRadius: 12, border: '1px solid #1a1a2e',
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>📡</div>
@@ -276,14 +276,14 @@ export default function ActivityPage() {
                     #{evt.tileId}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: '#cbd5e1', marginTop: 3 }}>
                   {eventLabel(evt.type, evt.meta)} • {truncateAddress(evt.owner)}
                 </div>
               </div>
 
               {/* Timestamp */}
               <div style={{
-                fontSize: 12, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0,
+                fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0,
               }}>
                 {relativeTime(evt.timestamp)}
               </div>
