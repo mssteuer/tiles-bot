@@ -22,22 +22,44 @@ function truncateAddress(addr) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function eventIcon(type) {
+const ACTION_EMOJIS = {
+  slap: '🐟', challenge: '⚔️', praise: '🙌', wave: '👋',
+  poke: '👉', taunt: '😈', hug: '🤗', 'high-five': '🖐️',
+};
+
+const ACTION_VERBS = {
+  slap: 'slapped', challenge: 'challenged', praise: 'praised', wave: 'waved at',
+  poke: 'poked', taunt: 'taunted', hug: 'hugged', 'high-five': 'high-fived',
+};
+
+function eventIcon(type, meta) {
   switch (type) {
     case 'claimed': return '🆕';
     case 'tile_image_updated': return '🖼️';
     case 'connection_accepted': return '🔗';
     case 'metadata_updated': return '✏️';
+    case 'note_added': return '📝';
+    case 'tile_action': return ACTION_EMOJIS[meta?.actionType] || '⚡';
+    case 'tile_emote': return meta?.emoji || '🎭';
+    case 'tile_message': return '💌';
     default: return '📡';
   }
 }
 
-function eventLabel(type) {
+function eventLabel(type, meta) {
   switch (type) {
     case 'claimed': return 'Tile Claimed';
     case 'tile_image_updated': return 'Image Updated';
     case 'connection_accepted': return 'Connection Made';
     case 'metadata_updated': return 'Profile Updated';
+    case 'note_added': return 'Note Left';
+    case 'tile_action': {
+      const verb = ACTION_VERBS[meta?.actionType] || meta?.actionType || 'acted on';
+      const fromName = meta?.fromName || (meta?.fromTile ? `Tile #${meta.fromTile}` : null);
+      return fromName ? `${fromName} ${verb} this tile` : `Action: ${verb}`;
+    }
+    case 'tile_emote': return 'Emote Sent';
+    case 'tile_message': return 'Message Received';
     default: return 'Event';
   }
 }
@@ -109,6 +131,41 @@ export default function ActivityPage() {
             tileAvatar: data.avatar || null,
             owner: data.owner || '',
             timestamp: now,
+          });
+        } else if (data.type === 'note_added') {
+          prependEvent({
+            type: 'note_added',
+            tileId: data.tileId,
+            tileName: data.tileName ?? `Tile #${data.tileId}`,
+            tileAvatar: null,
+            owner: data.author || '',
+            timestamp: now,
+            meta: { noteId: data.noteId, authorTile: data.authorTile },
+          });
+        } else if (data.type === 'tile_action') {
+          prependEvent({
+            type: 'tile_action',
+            tileId: data.toTile,
+            tileName: data.toName ?? `Tile #${data.toTile}`,
+            tileAvatar: data.emoji || null,
+            owner: data.actor || '',
+            timestamp: now,
+            meta: {
+              fromTile: data.fromTile,
+              fromName: data.fromName,
+              actionType: data.actionType,
+              actionId: data.actionId,
+            },
+          });
+        } else if (data.type === 'tile_emote') {
+          prependEvent({
+            type: 'tile_emote',
+            tileId: data.toTile,
+            tileName: data.toName ?? `Tile #${data.toTile}`,
+            tileAvatar: null,
+            owner: data.actor || '',
+            timestamp: now,
+            meta: { emoji: data.emoji, fromTile: data.fromTile, fromName: data.fromName },
           });
         }
       } catch {}
@@ -203,7 +260,7 @@ export default function ActivityPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 20, flexShrink: 0,
               }}>
-                {evt.tileAvatar || eventIcon(evt.type)}
+                {(evt.type !== 'tile_action' && evt.tileAvatar) || eventIcon(evt.type, evt.meta)}
               </div>
 
               {/* Content */}
@@ -220,7 +277,7 @@ export default function ActivityPage() {
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
-                  {eventLabel(evt.type)} • {truncateAddress(evt.owner)}
+                  {eventLabel(evt.type, evt.meta)} • {truncateAddress(evt.owner)}
                 </div>
               </div>
 
