@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
+import InteractionsPanel from './InteractionsPanel';
 
 function getSizedImageUrl(url, size) {
   if (!url) return null;
@@ -849,6 +850,18 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     color: tile.color || '#3b82f6',
   });
 
+  // Owned tile IDs (for interactions — which tiles can I act from?)
+  const [ownedTileIds, setOwnedTileIds] = useState([]);
+  useEffect(() => {
+    if (!address) { setOwnedTileIds([]); return; }
+    fetch('/api/grid').then(r => r.json()).then(d => {
+      const ids = Object.values(d.tiles || {})
+        .filter(t => t.owner && t.owner.toLowerCase() === address.toLowerCase())
+        .map(t => t.id);
+      setOwnedTileIds(ids);
+    }).catch(() => {});
+  }, [address]);
+
   // Check if connected wallet owns this tile (supports smart wallets via on-chain check)
   const [isOwner, setIsOwner] = useState(false);
   useEffect(() => {
@@ -1637,6 +1650,16 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 isOwner={isOwner}
                 onConnectionsChange={onConnectionsChange}
                 onNavigateToTile={onNavigateToTile}
+              />
+            )}
+
+            {/* Interactions */}
+            {tile.id != null && (
+              <InteractionsPanel
+                tile={tile}
+                address={address}
+                ownedTiles={ownedTileIds}
+                isOwner={isOwner}
               />
             )}
 
