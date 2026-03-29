@@ -745,31 +745,14 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       ctx.restore();
     }
 
-    // Perf: at very low zoom, the visible range can be the entire 256×256 grid (65536 cells).
-    // Only ~130 tiles are claimed. Instead of iterating all cells, iterate only claimed tiles
-    // when the visible area is large (> 10000 cells).
-    const tileEntries = visibleCells > 10000
-      ? Object.keys(tiles).map(k => {
-          const id = Number(k);
-          const row = Math.floor(id / GRID_SIZE);
-          const col = id % GRID_SIZE;
-          if (row < minRow || row > maxRow || col < minCol || col > maxCol) return null;
-          return { id, row, col, tile: tiles[k] };
-        }).filter(Boolean)
-      : null;
-
-    const iterEntries = tileEntries || (() => {
-      const arr = [];
-      for (let row = minRow; row <= maxRow; row++) {
-        for (let col = minCol; col <= maxCol; col++) {
-          arr.push({ id: row * GRID_SIZE + col, row, col, tile: tiles[row * GRID_SIZE + col] });
-        }
-      }
-      return arr;
-    })();
-
-    for (const entry of iterEntries) {
-      const { id, row, col, tile } = entry;
+    // Always draw claimed tiles first (fast: only iterate tiles with data)
+    const claimedIds = Object.keys(tiles);
+    for (let ci = 0; ci < claimedIds.length; ci++) {
+      const id = Number(claimedIds[ci]);
+      const row = Math.floor(id / GRID_SIZE);
+      const col = id % GRID_SIZE;
+      if (row < minRow || row > maxRow || col < minCol || col > maxCol) continue;
+      const tile = tiles[id];
       const x = col * TILE_SIZE;
       const y = row * TILE_SIZE;
 
@@ -903,6 +886,38 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
         }
       }
+
+    // Empty cell hover/selection highlights (only when zoomed in enough to see cells)
+    if (visibleCells < 5000) {
+      const hasDrag = dragSelectedTiles.current.size > 0;
+      const hasBatch = batchTilesRef.current && batchTilesRef.current.length > 0;
+      if (hoveredTile != null || hasDrag || hasBatch) {
+        for (let row = minRow; row <= maxRow; row++) {
+          for (let col = minCol; col <= maxCol; col++) {
+            const id = row * GRID_SIZE + col;
+            if (tiles[id]) continue; // already handled in claimed loop
+            const x = col * TILE_SIZE;
+            const y = row * TILE_SIZE;
+            const inBatch = hasBatch && batchTilesRef.current.includes(id);
+            const inDrag = hasDrag && dragSelectedTiles.current.has(id);
+            if (inBatch || inDrag) {
+              ctx.strokeStyle = '#3b82f6';
+              ctx.lineWidth = 2.5 / cam.zoom;
+              ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+              ctx.fillStyle = 'rgba(59,130,246,0.2)';
+              ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+            }
+            if (hoveredTile === id && !inDrag) {
+              ctx.fillStyle = 'rgba(59,130,246,0.08)';
+              ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+              ctx.strokeStyle = '#3b82f6';
+              ctx.lineWidth = 2 / cam.zoom;
+              ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+            }
+          }
+        }
+      }
+    }
 
     // ── Heat map overlay ──────────────────────────────────────────────────
     if (heatmapModeRef.current) {
