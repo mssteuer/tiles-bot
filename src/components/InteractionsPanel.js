@@ -176,7 +176,7 @@ function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
 }
 
 // — Emotes Tab —
-function EmotesTab({ tile, address, ownedTiles }) {
+function EmotesTab({ tile, address, ownedTiles, onAction }) {
   const [emotes, setEmotes] = useState([]);
   const [sending, setSending] = useState(null);
 
@@ -190,13 +190,15 @@ function EmotesTab({ tile, address, ownedTiles }) {
     if (!address) return;
     const fromTile = ownedTiles?.[0] ?? tile.id; // fallback to current tile
     setSending(emoji);
-    await fetch(`/api/tiles/${tile.id}/emotes`, {
+    const res = await fetch(`/api/tiles/${tile.id}/emotes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fromTile, emoji, actor: address }),
     });
+    const data = await res.json().catch(() => ({}));
     setSending(null);
     fetchEmotes();
+    if (data.ok && onAction) onAction({ fromTile, toTile: tile.id, emoji, actionType: 'emote' });
   }
 
   return (
@@ -236,6 +238,7 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [replyTo, setReplyTo] = useState(null); // { fromTile, fromName } for reply context
 
   const fetchMessages = useCallback(() => {
     if (!isOwner || !address) return;
@@ -244,46 +247,45 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
-  async function handleSend() {
+  async function handleSend(targetTileId) {
     if (!text.trim() || !address) return;
     setSending(true);
-    // For now, send as plaintext (encrypted field = base64 of plaintext)
-    // Full E2E encryption requires public key exchange — Phase 2
     const fromTile = ownedTiles?.[0] ?? tile.id;
+    const toTile = targetTileId || tile.id;
     const encoded = btoa(unescape(encodeURIComponent(text.trim())));
-    await fetch(`/api/tiles/${tile.id}/messages`, {
+    await fetch(`/api/tiles/${toTile}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fromTile, sender: address,
-        encryptedBody: encoded, nonce: null,
-      }),
+      body: JSON.stringify({ fromTile, sender: address, encryptedBody: encoded, nonce: null }),
     });
     setText('');
     setSending(false);
-    // Can't read sent messages unless we also own the target tile
+    setReplyTo(null);
+    if (isOwner) fetchMessages();
   }
 
-  if (!isOwner) {
-    // Non-owner can send but not read
-    if (!address) {
-      return <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>Connect wallet to send a message</div>;
-    }
+  // Compose bar (shared between owner and non-owner views)
+  function ComposeBar({ placeholder, targetTileId }) {
     return (
       <div>
-        <p style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>Send a private message to this tile's owner:</p>
+        {replyTo && (
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            ↩ Replying to <strong style={{ color: '#94a3b8' }}>{replyTo.fromName}</strong>
+            <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 11 }}>✕</button>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 6 }}>
           <input
             value={text} onChange={e => setText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message…"
+            onKeyDown={e => e.key === 'Enter' && handleSend(targetTileId)}
+            placeholder={placeholder || 'Type a message…'}
             maxLength={1000}
             style={{
               flex: 1, padding: '8px 10px', borderRadius: 8, fontSize: 13,
               background: '#111', border: '1px solid #2a2a3e', color: '#e2e8f0', outline: 'none',
             }}
           />
-          <button onClick={handleSend} disabled={sending || !text.trim()} style={{
+          <button onClick={() => handleSend(targetTileId)} disabled={sending || !text.trim()} style={{
             padding: '8px 14px', borderRadius: 8, border: 'none', fontSize: 13,
             background: text.trim() ? '#8b5cf6' : '#1f2937', color: '#fff', cursor: text.trim() ? 'pointer' : 'default',
           }}>
@@ -294,7 +296,19 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
     );
   }
 
-  // Owner view — read messages
+  if (!isOwner) {
+    if (!address) {
+      return <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>Connect wallet to send a message</div>;
+    }
+    return (
+      <div>
+        <p style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>Send a private message to this tile&apos;s owner:</p>
+        <ComposeBar placeholder="Type a message…" />
+      </div>
+    );
+  }
+
+  // Owner view — messages + reply
   return (
     <div>
       {messages.length === 0 && <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>No messages yet</div>}
@@ -314,11 +328,26 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
               </span>
               <span style={{ color: '#374151', fontSize: 11, marginLeft: 'auto' }}>{timeAgo(m.createdAt)}</span>
               {!m.readAt && isIncoming && <span style={{ background: '#3b82f6', borderRadius: 4, padding: '1px 5px', fontSize: 10, color: '#fff' }}>new</span>}
+              {isIncoming && (
+                <button onClick={() => setReplyTo({ fromTile: m.fromTile, fromName: m.fromName })}
+                  style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 12, padding: '2px 6px' }}
+                  title={`Reply to ${m.fromName}`}
+                >↩</button>
+              )}
             </div>
             <div style={{ color: '#e2e8f0', fontSize: 13, lineHeight: 1.4 }}>{body}</div>
           </div>
         );
       })}
+      {/* Compose — sends to replyTo tile if set, otherwise generic */}
+      {address && (
+        <div style={{ marginTop: 8, borderTop: '1px solid #1a1a2e', paddingTop: 8 }}>
+          <ComposeBar
+            placeholder={replyTo ? `Reply to ${replyTo.fromName}…` : 'Send a message…'}
+            targetTileId={replyTo?.fromTile}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -358,7 +387,7 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
       {/* Tab content */}
       {tab === 'notes' && <NotesTab tile={tile} address={address} ownedTiles={ownedTiles} />}
       {tab === 'actions' && <ActionsTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} onAction={onAction} />}
-      {tab === 'emotes' && <EmotesTab tile={tile} address={address} ownedTiles={ownedTiles} />}
+      {tab === 'emotes' && <EmotesTab tile={tile} address={address} ownedTiles={ownedTiles} onAction={onAction} />}
       {tab === 'messages' && <MessagesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
     </div>
   );
