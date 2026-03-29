@@ -395,7 +395,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       emoji: emoji || '🐟',
       actionType: actionType || 'slap',
       startTime: Date.now(),
-      duration: 1500, // 1.5 seconds
+      duration: actionType === 'emote' ? 2000 : 1500,
     });
   }, [actionAnimation]);
 
@@ -1082,20 +1082,31 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       if (t >= 1) { anims.splice(i, 1); continue; }
 
       if (a.actionType === 'emote') {
-        // Emote: float up from tile, fade out, gentle sway
-        const floatY = a.endY - (80 * t) / cam.zoom;
-        const sway = Math.sin(t * Math.PI * 3) * 8 / cam.zoom;
-        const alpha = t < 0.2 ? t / 0.2 : t > 0.7 ? (1 - t) / 0.3 : 1;
-        const fontSize = (36 + 12 * Math.sin(t * Math.PI)) / cam.zoom;
+        // Emote: big emoji pops up from tile, floats high, sways, fades
+        const floatHeight = 200 / cam.zoom; // float a long way up
+        const floatY = a.endY - floatHeight * t;
+        const sway = Math.sin(t * Math.PI * 4) * 15 / cam.zoom;
+        // Pop in fast, hold, fade out
+        const alpha = t < 0.1 ? t / 0.1 : t > 0.6 ? (1 - t) / 0.4 : 1;
+        // Start big, settle, then shrink as it fades
+        const popScale = t < 0.15 ? 1.8 - 0.8 * (t / 0.15) : 1.0;
+        const fontSize = (56 * popScale) / cam.zoom;
 
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.translate(a.endX + sway, floatY);
+        // Slight rotation sway
+        ctx.rotate(Math.sin(t * Math.PI * 3) * 0.15);
         ctx.font = `${fontSize}px serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(255,200,50,0.5)';
-        ctx.shadowBlur = 12 / cam.zoom;
+        // Warm glow
+        ctx.shadowColor = 'rgba(255,180,50,0.8)';
+        ctx.shadowBlur = 20 / cam.zoom;
+        ctx.fillText(a.emoji, 0, 0);
+        // Second pass for stronger glow
+        ctx.shadowColor = 'rgba(255,100,50,0.4)';
+        ctx.shadowBlur = 40 / cam.zoom;
         ctx.fillText(a.emoji, 0, 0);
         ctx.restore();
       } else {

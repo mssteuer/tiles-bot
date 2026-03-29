@@ -173,16 +173,14 @@ function HomeInner() {
             setNextAvailableTileId(event.nextAvailableTileId);
           }
         } else if (event.type === 'tile_action') {
-          // Trigger canvas animation for all viewers
           setActionAnimation({
             fromTile: event.fromTile, toTile: event.toTile,
-            emoji: event.emoji, actionType: event.actionType,
+            emoji: event.emoji, actionType: event.actionType, ts: Date.now(),
           });
         } else if (event.type === 'tile_emote') {
-          // Trigger floating emote animation
           setActionAnimation({
             fromTile: event.fromTile, toTile: event.toTile,
-            emoji: event.emoji, actionType: 'emote',
+            emoji: event.emoji, actionType: 'emote', ts: Date.now(),
           });
         } else if (event.type === 'connection_request') {
           setPendingRequests(prev => ({

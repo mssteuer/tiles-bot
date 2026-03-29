@@ -136,7 +136,7 @@ function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
     setSending(null);
     fetchActions();
     // Trigger canvas animation
-    if (data.ok && onAction) onAction({ fromTile, toTile: tile.id, actionType, emoji: ACTION_EMOJIS[actionType] });
+    if (data.ok && onAction) onAction({ fromTile, toTile: tile.id, actionType, emoji: ACTION_EMOJIS[actionType], ts: Date.now() });
   }
 
   return (
@@ -198,7 +198,7 @@ function EmotesTab({ tile, address, ownedTiles, onAction }) {
     const data = await res.json().catch(() => ({}));
     setSending(null);
     fetchEmotes();
-    if (data.ok && onAction) onAction({ fromTile, toTile: tile.id, emoji, actionType: 'emote' });
+    if (data.ok && onAction) onAction({ fromTile, toTile: tile.id, emoji, actionType: 'emote', ts: Date.now() });
   }
 
   return (
