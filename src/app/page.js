@@ -84,6 +84,7 @@ function HomeInner() {
   const [blocks, setBlocks] = useState([]);
   const [spans, setSpans] = useState([]);
   const [flyToTileId, setFlyToTileId] = useState(null);
+  const [actionAnimation, setActionAnimation] = useState(null);
   const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
@@ -170,6 +171,18 @@ function HomeInner() {
           if (event.nextAvailableTileId != null) {
             setNextAvailableTileId(event.nextAvailableTileId);
           }
+        } else if (event.type === 'tile_action') {
+          // Trigger canvas animation for all viewers
+          setActionAnimation({
+            fromTile: event.fromTile, toTile: event.toTile,
+            emoji: event.emoji, actionType: event.actionType,
+          });
+        } else if (event.type === 'tile_emote') {
+          // Trigger floating emote animation
+          setActionAnimation({
+            fromTile: event.fromTile, toTile: event.toTile,
+            emoji: event.emoji, actionType: 'emote',
+          });
         } else if (event.type === 'connection_request') {
           setPendingRequests(prev => ({
             ...prev,
@@ -314,6 +327,7 @@ function HomeInner() {
           onBlockClaimRequest={setBlockClaimTopLeft}
           onSpanClaimRequest={setSpanClaimTopLeft}
           flyToTileId={flyToTileId}
+          actionAnimation={actionAnimation}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}
@@ -332,10 +346,11 @@ function HomeInner() {
             }}
             onConnectionsChange={setConnections}
             onNavigateToTile={(tileId) => {
-              // Use incrementing counter to allow re-triggering same tile
               setFlyToTileId({ id: tileId, ts: Date.now() });
               setSelectedTile(tileId);
             }}
+            allTiles={tiles}
+            onAction={setActionAnimation}
           />
         ) : null}
         </div>

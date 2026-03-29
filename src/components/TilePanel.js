@@ -825,7 +825,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
   );
 }
 
-export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange, onNavigateToTile }) {
+export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange, onNavigateToTile, allTiles, onAction }) {
   const isClaimed = !!tile.name;
   const row = Math.floor(tile.id / 256);
   const col = tile.id % 256;
@@ -1676,6 +1676,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 address={address}
                 ownedTiles={ownedTileIds}
                 isOwner={isOwner}
+                allTiles={allTiles}
+                onAction={onAction}
               />
             )}
 
