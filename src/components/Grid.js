@@ -1030,19 +1030,26 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     // Grid border with animated glow
     const t = Date.now() / 1000;
-    const borderPulse = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 0.8)); // slow breathe 0.4–1.0
-    const glowSize = (12 + 8 * Math.sin(t * 0.6)) / cam.zoom;
+    const borderPulse = 0.5 + 0.5 * Math.sin(t * 1.6); // doubled frequency (1.6 rad/s ≈ 0.25 Hz)
+    const glowSize = (30 + 15 * Math.sin(t * 1.6)) / cam.zoom;
     ctx.save();
-    ctx.shadowColor = `rgba(59, 130, 246, ${0.5 * borderPulse})`;
+    // Outer wide glow
+    ctx.shadowColor = `rgba(59, 130, 246, ${0.7 * borderPulse})`;
     ctx.shadowBlur = glowSize;
-    ctx.strokeStyle = `rgba(59, 130, 246, ${0.25 * borderPulse})`;
+    ctx.strokeStyle = `rgba(59, 130, 246, ${0.6 * borderPulse})`;
+    ctx.lineWidth = 4 / cam.zoom;
+    ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
+    // Mid glow pass
+    ctx.shadowBlur = glowSize * 1.5;
+    ctx.shadowColor = `rgba(99, 160, 255, ${0.5 * borderPulse})`;
+    ctx.strokeStyle = `rgba(99, 160, 255, ${0.35 * borderPulse})`;
     ctx.lineWidth = 2 / cam.zoom;
     ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
-    // Second pass for brighter inner edge
-    ctx.shadowBlur = glowSize * 0.5;
-    ctx.shadowColor = `rgba(147, 197, 253, ${0.3 * borderPulse})`;
-    ctx.strokeStyle = `rgba(147, 197, 253, ${0.15 * borderPulse})`;
-    ctx.lineWidth = 1 / cam.zoom;
+    // Bright inner edge
+    ctx.shadowBlur = glowSize * 0.4;
+    ctx.shadowColor = `rgba(180, 210, 255, ${0.6 * borderPulse})`;
+    ctx.strokeStyle = `rgba(180, 210, 255, ${0.4 * borderPulse})`;
+    ctx.lineWidth = 1.5 / cam.zoom;
     ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
     ctx.restore();
 
