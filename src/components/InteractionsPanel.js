@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { playSound } from '@/lib/sound';
 
 const ACTION_EMOJIS = {
   slap: '🐟', challenge: '⚔️', praise: '🙌', wave: '👋',
@@ -136,7 +137,10 @@ function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
     setSending(null);
     fetchActions();
     // Trigger canvas animation
-    if (data.ok && onAction) onAction({ fromTile, toTile: tile.id, actionType, emoji: ACTION_EMOJIS[actionType], ts: Date.now() });
+    if (data.ok && onAction) {
+      playSound('slap');
+      onAction({ fromTile, toTile: tile.id, actionType, emoji: ACTION_EMOJIS[actionType], ts: Date.now() });
+    }
   }
 
   return (
@@ -198,7 +202,10 @@ function EmotesTab({ tile, address, ownedTiles, onAction }) {
     const data = await res.json().catch(() => ({}));
     setSending(null);
     fetchEmotes();
-    if (data.ok && onAction) onAction({ fromTile, toTile: tile.id, emoji, actionType: 'emote', ts: Date.now() });
+    if (data.ok && onAction) {
+      playSound('emote-pop');
+      onAction({ fromTile, toTile: tile.id, emoji, actionType: 'emote', ts: Date.now() });
+    }
   }
 
   return (
