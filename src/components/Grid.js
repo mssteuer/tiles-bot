@@ -696,16 +696,19 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
               const emojiSize = Math.min(20, TILE_SIZE * 0.5);
               ctx.font = `${emojiSize}px system-ui`;
               // Draw emoji as image via offscreen canvas for pixel-perfect centering
+              // Render at 4x size for crisp display when zoomed in
+              const renderScale = 4;
+              const renderSize = emojiSize * renderScale;
               const eCacheKey = emoji + ':' + emojiSize;
               let eBmp = imageCache[eCacheKey];
               if (!eBmp) {
                 imageCache[eCacheKey] = 'loading';
                 const eCanvas = document.createElement('canvas');
-                const pad = Math.ceil(emojiSize * 0.3);
-                const eW = Math.ceil(emojiSize * 2) + pad * 2;
+                const pad = Math.ceil(renderSize * 0.3);
+                const eW = Math.ceil(renderSize * 2) + pad * 2;
                 eCanvas.width = eW; eCanvas.height = eW;
                 const eCtx = eCanvas.getContext('2d');
-                eCtx.font = `${emojiSize}px system-ui`;
+                eCtx.font = `${renderSize}px system-ui`;
                 eCtx.textAlign = 'center';
                 eCtx.textBaseline = 'middle';
                 eCtx.fillText(emoji, eW / 2, eW / 2);
