@@ -260,7 +260,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         {step === 'claim' && (
           <div className="btn-loading" style={{ textAlign: 'center', color: '#3b82f6', fontSize: 14, padding: '14px 0', borderRadius: 10, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)' }}>
             <span className="spinner" style={{ borderTopColor: '#3b82f6', borderColor: 'rgba(59,130,246,0.3)' }} />
-            Claiming {frozenUnclaimed?.length || 0} tiles — confirm in wallet…
+            Claiming {unclaimed.length} tiles — confirm in wallet…
           </div>
         )}
 
