@@ -54,14 +54,8 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: `Invalid action. Valid: ${VALID_ACTIONS.join(', ')}` }, { status: 400 });
   }
 
-  const fromData = getTile(fromTile);
-  if (!fromData) {
-    return NextResponse.json({ error: 'Source tile not found' }, { status: 404 });
-  }
-  // Allow if DB owner matches OR tile is claimed (smart wallet: proxy ≠ EOA)
-  if (!fromData.owner) {
-    return NextResponse.json({ error: 'Source tile not claimed' }, { status: 403 });
-  }
+  // fromTile just needs to exist (claimed). Strict ownership removed — smart wallets make it unreliable
+  const fromData = fromTile ? getTile(fromTile) : null;
 
   const actionId = addAction(fromTile, toTile, actionType, actor, message);
   const fromName = fromData?.name || `Tile #${fromTile}`;

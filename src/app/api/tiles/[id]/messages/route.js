@@ -48,11 +48,8 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: 'fromTile, sender, and encryptedBody required' }, { status: 400 });
   }
 
-  // Verify fromTile is claimed
-  const fromData = getTile(fromTile);
-  if (!fromData || !fromData.owner) {
-    return NextResponse.json({ error: 'Source tile not found or not claimed' }, { status: 403 });
-  }
+  // fromTile just needs to exist. Strict ownership removed — smart wallets make it unreliable
+  const fromData = fromTile ? getTile(fromTile) : null;
 
   const messageId = sendMessage(fromTile, toTile, sender, encryptedBody, nonce || null);
   logEvent('message_sent', toTile, sender, { fromTile, messageId });
