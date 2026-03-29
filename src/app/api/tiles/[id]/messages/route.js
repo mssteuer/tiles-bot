@@ -44,7 +44,7 @@ export async function POST(req, { params }) {
   const body = await req.json();
   const { fromTile, sender, encryptedBody, nonce } = body;
 
-  if (!fromTile || !sender || !encryptedBody) {
+  if (fromTile == null || !sender || !encryptedBody) {
     return NextResponse.json({ error: 'fromTile, sender, and encryptedBody required' }, { status: 400 });
   }
 

@@ -185,7 +185,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const containerRef = useRef(null);
   const starfieldRef = useRef(null);
   const activeAnimationsRef = useRef([]);
-  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.012 }); // start super zoomed out (grid is tiny)
+  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.008 }); // grid is ~1/8 of viewport at ~1920px wide
 
   // Generate starfield once (off-screen canvas)
   useEffect(() => {
@@ -246,10 +246,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     introPlayed.current = true;
 
-    // Start: super zoomed out — grid is ~1/8th of viewport (tiny in the starfield)
+    // Start: super zoomed out — grid is ~1/8th of the viewport
     const rect = container.getBoundingClientRect();
-    const fitZoom = Math.min(rect.width / GRID_PX, rect.height / GRID_PX);
-    const startZoom = fitZoom * 0.12; // grid occupies ~12% of viewport = tiny
+    const startZoom = Math.min(rect.width, rect.height) / (GRID_PX * 8);
 
     const startX = GRID_PX / 2;
     const startY = GRID_PX / 2;
