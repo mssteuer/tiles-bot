@@ -228,7 +228,7 @@ body {
 /* ── Desktop enhancements ── */
 @media (min-width: 768px) {
   .header { padding: 12px 24px; }
-  .header-brand p { display: block; margin: 0; font-size: 11px; color: #666; margin-top: 2px; }
+  .header-brand p { display: block; margin: 0; font-size: 11px; color: #9ca3af; margin-top: 2px; }
   .header-brand h1 { font-size: 18px; }
   .header-stats { display: flex; gap: 20px; align-items: center; }
   .header-links { display: flex; gap: 16px; align-items: center; }

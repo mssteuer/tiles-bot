@@ -56,10 +56,10 @@ export default function LeaderboardPage() {
         background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
       }}>
         <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Back to grid</Link>
-        <span style={{ color: '#333' }}>|</span>
+        <span style={{ color: '#94a3b8' }}>|</span>
         <span style={{ fontSize: 18, fontWeight: 700 }}>🏆 Leaderboard</span>
         {data && (
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#555' }}>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af' }}>
             🟢 {data.onlineCount} online now · {data.totalClaimed.toLocaleString()} / {data.totalTiles.toLocaleString()} tiles claimed
           </span>
         )}
@@ -86,7 +86,7 @@ export default function LeaderboardPage() {
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 padding: '10px 16px', fontSize: 14, fontWeight: tab === t.key ? 700 : 400,
-                color: tab === t.key ? '#fff' : '#555',
+                color: tab === t.key ? '#fff' : '#94a3b8',
                 borderBottom: tab === t.key ? '2px solid #3b82f6' : '2px solid transparent',
                 marginBottom: -1,
                 transition: 'color 0.15s',
@@ -98,7 +98,7 @@ export default function LeaderboardPage() {
         </div>
 
         {loading && (
-          <div style={{ textAlign: 'center', color: '#555', padding: 64, fontSize: 24 }}>
+          <div style={{ textAlign: 'center', color: '#9ca3af', padding: 64, fontSize: 24 }}>
             Loading leaderboard…
           </div>
         )}
@@ -151,7 +151,7 @@ function HolderRow({ holder, rank }) {
       {/* Rank */}
       <div style={{
         width: 40, textAlign: 'center', fontSize: medal ? 24 : 15,
-        fontWeight: 700, color: medal ? undefined : '#555', flexShrink: 0,
+        fontWeight: 700, color: medal ? undefined : '#94a3b8', flexShrink: 0,
       }}>
         {medal || `#${rank}`}
       </div>
@@ -163,7 +163,7 @@ function HolderRow({ holder, rank }) {
         <div style={{
           width: 36, height: 36, borderRadius: 8, background: '#1a1a2e',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, color: '#555', flexShrink: 0,
+          fontSize: 18, color: '#9ca3af', flexShrink: 0,
         }}>🤖</div>
       )}
 
@@ -172,7 +172,7 @@ function HolderRow({ holder, rank }) {
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
           {firstTile?.name || shortAddress(holder.owner)}
         </div>
-        <div style={{ fontSize: 12, color: '#555' }}>
+        <div style={{ fontSize: 12, color: '#9ca3af' }}>
           {shortAddress(holder.owner)}
         </div>
         {/* Tile chips */}
@@ -188,7 +188,7 @@ function HolderRow({ holder, rank }) {
               </Link>
             ))}
             {holder.count > 4 && (
-              <span style={{ fontSize: 11, color: '#555' }}>+{holder.count - 4} more</span>
+              <span style={{ fontSize: 11, color: '#9ca3af' }}>+{holder.count - 4} more</span>
             )}
           </div>
         )}
@@ -200,7 +200,7 @@ function HolderRow({ holder, rank }) {
         borderRadius: 8, padding: '8px 14px', textAlign: 'center', flexShrink: 0,
       }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: '#3b82f6' }}>{holder.count}</div>
-        <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 1 }}>
+        <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>
           {holder.count === 1 ? 'tile' : 'tiles'}
         </div>
       </div>
@@ -208,9 +208,9 @@ function HolderRow({ holder, rank }) {
       {/* Category tag (from first tile) */}
       {firstTile?.category && (
         <div style={{
-          background: (CATEGORY_COLORS[firstTile.category] || '#555') + '22',
-          border: `1px solid ${(CATEGORY_COLORS[firstTile.category] || '#555')}55`,
-          color: CATEGORY_COLORS[firstTile.category] || '#555',
+          background: (CATEGORY_COLORS[firstTile.category] || '#94a3b8') + '22',
+          border: `1px solid ${(CATEGORY_COLORS[firstTile.category] || '#94a3b8')}55`,
+          color: CATEGORY_COLORS[firstTile.category] || '#94a3b8',
           borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600,
           flexShrink: 0,
         }}>
@@ -274,7 +274,7 @@ function ActiveRow({ agent }) {
           <div style={{ fontWeight: 600, fontSize: 14, color: '#e2e8f0' }}>
             {agent.name || `Tile #${agent.id}`}
           </div>
-          <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
             #{agent.id} · {`${agent.owner.slice(0, 6)}…${agent.owner.slice(-4)}`}
           </div>
         </div>
@@ -308,7 +308,7 @@ function CategoriesTab({ breakdown, total }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {breakdown.map(cat => {
-        const color = CATEGORY_COLORS[cat.category] || '#555';
+        const color = CATEGORY_COLORS[cat.category] || '#94a3b8';
         const pct = total > 0 ? ((cat.count / total) * 100).toFixed(1) : 0;
         const barPct = max > 0 ? (cat.count / max) * 100 : 0;
         return (
@@ -325,7 +325,7 @@ function CategoriesTab({ breakdown, total }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 20, fontWeight: 800, color }}>{cat.count}</span>
-                <span style={{ fontSize: 13, color: '#555' }}>{pct}%</span>
+                <span style={{ fontSize: 13, color: '#9ca3af' }}>{pct}%</span>
               </div>
             </div>
             {/* Bar */}
@@ -340,7 +340,7 @@ function CategoriesTab({ breakdown, total }) {
         );
       })}
 
-      <p style={{ color: '#555', fontSize: 12, marginTop: 8, textAlign: 'right' }}>
+      <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 8, textAlign: 'right' }}>
         {total} total claimed · categories based on self-reported metadata
       </p>
     </div>
@@ -349,7 +349,7 @@ function CategoriesTab({ breakdown, total }) {
 
 function Empty({ msg }) {
   return (
-    <div style={{ textAlign: 'center', color: '#555', padding: '64px 24px', fontSize: 16 }}>
+    <div style={{ textAlign: 'center', color: '#9ca3af', padding: '64px 24px', fontSize: 16 }}>
       {msg}
     </div>
   );

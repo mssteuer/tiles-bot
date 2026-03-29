@@ -65,15 +65,15 @@ function AgentCard({ agent, view }) {
               {isOnline && (
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} title="Online" />
               )}
-              <span style={{ color: '#475569', fontSize: 12 }}>{catEmoji} {agent.category}</span>
+              <span style={{ color: '#94a3b8', fontSize: 12 }}>{catEmoji} {agent.category}</span>
             </div>
             {agent.description && (
-              <p style={{ color: '#64748b', fontSize: 12, margin: 0, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p style={{ color: '#cbd5e1', fontSize: 12, margin: 0, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {agent.description}
               </p>
             )}
           </div>
-          <div style={{ color: '#475569', fontSize: 11, flexShrink: 0 }}>
+          <div style={{ color: '#94a3b8', fontSize: 11, flexShrink: 0 }}>
             #{agent.id}
           </div>
         </div>
@@ -102,14 +102,14 @@ function AgentCard({ agent, view }) {
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} title="Online" />
               )}
             </div>
-            <div style={{ color: '#475569', fontSize: 11, marginTop: 2 }}>
+            <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>
               {catEmoji} {agent.category} · #{agent.id}
             </div>
           </div>
         </div>
         {agent.description && (
           <p style={{
-            color: '#64748b', fontSize: 12, margin: 0, lineHeight: '1.5',
+            color: '#cbd5e1', fontSize: 12, margin: 0, lineHeight: '1.5',
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {agent.description}
@@ -205,7 +205,7 @@ export default function AgentsPage() {
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: '#e2e8f0' }}>
           🤖 Agent Directory
         </h1>
-        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 14 }}>
+        <p style={{ margin: '6px 0 0', color: '#cbd5e1', fontSize: 14 }}>
           {total} agents have claimed tiles on the Million Bot Homepage
         </p>
       </div>
@@ -257,7 +257,7 @@ export default function AgentsPage() {
               padding: '5px 12px', borderRadius: 20, border: '1px solid',
               borderColor: category === cat.id ? '#6366f1' : '#2a2a3e',
               background: category === cat.id ? 'rgba(99,102,241,0.15)' : '#0f0f1a',
-              color: category === cat.id ? '#818cf8' : '#64748b',
+              color: category === cat.id ? '#818cf8' : '#cbd5e1',
               cursor: 'pointer', fontSize: 12, fontWeight: 500,
             }}>
               {cat.emoji} {cat.label} {count > 0 && <span style={{ opacity: 0.7 }}>({count})</span>}
@@ -268,13 +268,13 @@ export default function AgentsPage() {
 
       {/* Content */}
       {loading && (
-        <div style={{ textAlign: 'center', color: '#64748b', padding: 60 }}>Loading agents…</div>
+        <div style={{ textAlign: 'center', color: '#cbd5e1', padding: 60 }}>Loading agents…</div>
       )}
       {error && (
         <div style={{ color: '#ef4444', padding: 20 }}>Error: {error}</div>
       )}
       {!loading && !error && filtered.length === 0 && (
-        <div style={{ textAlign: 'center', color: '#64748b', padding: 60 }}>
+        <div style={{ textAlign: 'center', color: '#cbd5e1', padding: 60 }}>
           {search ? `No agents found matching "${search}"` : 'No agents in this category yet.'}
         </div>
       )}
@@ -293,7 +293,7 @@ export default function AgentsPage() {
       )}
 
       {!loading && filtered.length > 0 && (
-        <div style={{ marginTop: 24, textAlign: 'center', color: '#475569', fontSize: 13 }}>
+        <div style={{ marginTop: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
           Showing {filtered.length} of {total} agents
           {search && ` matching "${search}"`}
           {category !== 'all' && ` in ${category}`}

@@ -196,7 +196,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
             </div>
           ))}
           {unclaimed.length > 64 && (
-            <div style={{ fontSize: 11, color: '#64748b', padding: 4 }}>+{unclaimed.length - 64} more</div>
+            <div style={{ fontSize: 11, color: '#cbd5e1', padding: 4 }}>+{unclaimed.length - 64} more</div>
           )}
         </div>
 
@@ -215,7 +215,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
             <span>Total ({unclaimed.length} tiles):</span>
             <span>${estimatedTotal} USDC</span>
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 4 }}>
             Price increases per tile along the bonding curve
           </div>
         </div>

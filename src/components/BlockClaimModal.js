@@ -111,18 +111,18 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Claim Block Tile</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#9ca3af' }}>
               Premium multi-tile claim — one name, one avatar, bigger presence
             </p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#666', fontSize: 24, cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 24, cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
 
         {success ? (
           <div style={{ textAlign: 'center', padding: 24 }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
             <h3 style={{ margin: '0 0 8px', color: '#22c55e' }}>Block claimed!</h3>
-            <p style={{ color: '#888', fontSize: 14 }}>
+            <p style={{ color: '#b0b8c4', fontSize: 14 }}>
               Your {blockSize}×{blockSize} block (tile #{topLeftId}) is now yours.
               Update its name and avatar in the tile panel.
             </p>
@@ -141,7 +141,7 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
           <>
             {/* Block size selector */}
             <div>
-              <div style={{ fontSize: 12, color: '#555', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Block Size</div>
+              <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Block Size</div>
               <div style={{ display: 'flex', gap: 10 }}>
                 {[2, 3].map(size => {
                   const outOfBounds = col + size > GRID_SIZE || row + size > GRID_SIZE;
@@ -156,7 +156,7 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
                         borderRadius: 10,
                         border: blockSize === size ? '2px solid #8b5cf6' : '1px solid #333',
                         background: blockSize === size ? 'rgba(139,92,246,0.15)' : '#1a1a2e',
-                        color: outOfBounds ? '#444' : blockSize === size ? '#c4b5fd' : '#888',
+                        color: outOfBounds ? '#6b7280' : blockSize === size ? '#c4b5fd' : '#888',
                         cursor: outOfBounds ? 'not-allowed' : 'pointer',
                         fontWeight: 700,
                         fontSize: 15,
@@ -176,7 +176,7 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
 
             {/* Visual preview grid */}
             <div>
-              <div style={{ fontSize: 12, color: '#555', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+              <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
                 Preview — starting at tile #{topLeftId} (row {row}, col {col})
               </div>
               <div style={{
@@ -247,8 +247,8 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
               alignItems: 'center',
             }}>
               <div>
-                <div style={{ fontSize: 13, color: '#888' }}>Cost</div>
-                <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{tileCount} tiles × current bonding curve price</div>
+                <div style={{ fontSize: 13, color: '#b0b8c4' }}>Cost</div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{tileCount} tiles × current bonding curve price</div>
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#8b5cf6' }}>
                 {tileCount} tiles via x402
@@ -263,7 +263,7 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
               padding: '12px 16px',
             }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#c4b5fd', marginBottom: 6 }}>✨ Block advantages</div>
-              <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: '#888', lineHeight: 1.8 }}>
+              <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: '#b0b8c4', lineHeight: 1.8 }}>
                 <li>Displayed as one large merged tile on the grid</li>
                 <li>Bigger avatar image — {blockSize * 32}×{blockSize * 32}px display</li>
                 <li>Single name, description, and metadata for all {tileCount} tiles</li>
@@ -291,7 +291,7 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
                 flex: 1,
                 background: 'transparent',
                 border: '1px solid #333',
-                color: '#888',
+                color: '#b0b8c4',
                 padding: '12px 0',
                 borderRadius: 10,
                 fontWeight: 600,
@@ -307,7 +307,7 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
                   flex: 2,
                   background: !canClaim ? '#222' : 'linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%)',
                   border: 'none',
-                  color: !canClaim ? '#555' : '#fff',
+                  color: !canClaim ? '#94a3b8' : '#fff',
                   padding: '12px 0',
                   borderRadius: 10,
                   fontWeight: 600,

@@ -109,7 +109,7 @@ export default function OnboardingModal({ onComplete }) {
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button onClick={dismiss} style={{
             background: 'transparent', border: '1px solid #374151',
-            color: '#64748b', padding: '10px 20px', borderRadius: 10,
+            color: '#cbd5e1', padding: '10px 20px', borderRadius: 10,
             cursor: 'pointer', fontSize: 14,
           }}>
             Skip

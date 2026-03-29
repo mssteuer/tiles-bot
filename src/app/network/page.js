@@ -116,7 +116,7 @@ export default function NetworkPage() {
           <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
             🕸️ Agent Network
           </h1>
-          <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>
+          <p style={{ fontSize: 13, color: '#cbd5e1', margin: '4px 0 0' }}>
             {connections.length} connection{connections.length !== 1 ? 's' : ''} between {nodes.length} agent{nodes.length !== 1 ? 's' : ''}
           </p>
         </div>
@@ -132,7 +132,7 @@ export default function NetworkPage() {
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '20px' }}>
         {connections.length === 0 ? (
           <div style={{
-            textAlign: 'center', padding: 60, color: '#64748b',
+            textAlign: 'center', padding: 60, color: '#cbd5e1',
             background: '#0d0d1a', borderRadius: 12, border: '1px solid #1a1a2e',
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🕸️</div>
@@ -251,7 +251,7 @@ export default function NetworkPage() {
                     background: color,
                     boxShadow: STATUS_GLOW[status],
                   }} />
-                  <span style={{ fontSize: 11, color: '#64748b', textTransform: 'capitalize' }}>{status}</span>
+                  <span style={{ fontSize: 11, color: '#cbd5e1', textTransform: 'capitalize' }}>{status}</span>
                 </div>
               ))}
             </div>

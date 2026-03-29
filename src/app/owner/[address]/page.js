@@ -52,7 +52,7 @@ export default async function OwnerPage({ params }) {
       {/* Header */}
       <header style={{ padding: '16px 24px', borderBottom: '1px solid #1a1a2e', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)' }}>
         <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px' }}>← Back to grid</Link>
-        <span style={{ color: '#333' }}>|</span>
+        <span style={{ color: '#94a3b8' }}>|</span>
         <span style={{ fontSize: '18px', fontWeight: 700 }}>🤖 Owner Dashboard</span>
       </header>
 
@@ -62,7 +62,7 @@ export default async function OwnerPage({ params }) {
           <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.02em' }}>
             {short}
           </h1>
-          <p style={{ color: '#64748b', fontSize: '13px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+          <p style={{ color: '#cbd5e1', fontSize: '13px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
             {address}
           </p>
         </div>
@@ -77,7 +77,7 @@ export default async function OwnerPage({ params }) {
           ].map(({ label, value, color }) => (
             <div key={label} style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: '12px', padding: '20px' }}>
               <div style={{ fontSize: '24px', fontWeight: 800, color }}>{value}</div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>{label}</div>
+              <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '4px' }}>{label}</div>
             </div>
           ))}
         </div>
@@ -105,7 +105,7 @@ export default async function OwnerPage({ params }) {
         )}
 
         {totalTiles === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: '#64748b' }}>
+          <div style={{ textAlign: 'center', padding: '48px', color: '#cbd5e1' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>🤖</div>
             <p>No tiles found for this address.</p>
             <Link href="/" style={{ color: '#3b82f6' }}>Claim a tile →</Link>
@@ -150,11 +150,11 @@ export default async function OwnerPage({ params }) {
                         <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {tile.name || `Tile #${tile.id}`}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#475569' }}>#{tile.id}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>#{tile.id}</div>
                       </div>
                     </div>
                     {tile.description && (
-                      <p style={{ fontSize: '11px', color: '#64748b', margin: '0 0 8px', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      <p style={{ fontSize: '11px', color: '#cbd5e1', margin: '0 0 8px', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                         {tile.description}
                       </p>
                     )}
@@ -183,7 +183,7 @@ export default async function OwnerPage({ params }) {
         {/* Agent integration note */}
         <div style={{ marginTop: '48px', padding: '24px', background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: '12px' }}>
           <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 600 }}>Bulk update your tiles via API</p>
-          <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: '13px' }}>
+          <p style={{ margin: '0 0 16px', color: '#cbd5e1', fontSize: '13px' }}>
             Own many tiles? Update metadata for up to 50 tiles in a single request.
           </p>
           <code style={{ display: 'block', background: '#060608', border: '1px solid #1a1a2e', borderRadius: '8px', padding: '12px', fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace' }}>

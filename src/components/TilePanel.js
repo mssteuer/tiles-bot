@@ -624,7 +624,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
                   #{req.fromTileId} {req.fromTile.name}
                 </div>
                 {req.fromTile.category && (
-                  <div style={{ color: '#64748b', fontSize: 10 }}>{req.fromTile.category}</div>
+                  <div style={{ color: '#cbd5e1', fontSize: 10 }}>{req.fromTile.category}</div>
                 )}
               </div>
               <button
@@ -694,7 +694,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
                   <div style={{ color: '#93c5fd', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     #{n.tileId} {n.name || 'Unnamed'}
                   </div>
-                  {n.label && <div style={{ color: '#64748b', fontSize: 10 }}>{n.label}</div>}
+                  {n.label && <div style={{ color: '#cbd5e1', fontSize: 10 }}>{n.label}</div>}
                 </div>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0 }} title={n.status} />
                 {isOwner && (
@@ -702,7 +702,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
                     onClick={() => handleDisconnect(n.tileId)}
                     title="Disconnect"
                     style={{
-                      background: 'none', border: 'none', color: '#475569', cursor: 'pointer',
+                      background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer',
                       fontSize: 13, padding: '0 2px', lineHeight: 1,
                     }}
                   >
@@ -716,7 +716,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
       )}
 
       {neighbors.length === 0 && (
-        <div style={{ fontSize: 11, color: '#475569', textAlign: 'center' }}>No connections yet.</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>No connections yet.</div>
       )}
 
       {/* Error message */}
@@ -805,7 +805,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
               </button>
             ))}
             {filteredOwnedTiles.length === 0 && (
-              <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', padding: 8 }}>
+              <div style={{ fontSize: 10, color: '#94a3b8', textAlign: 'center', padding: 8 }}>
                 No available tiles
               </div>
             )}
@@ -1101,7 +1101,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
 
   const labelStyle = {
     fontSize: 11,
-    color: '#666',
+    color: '#9ca3af',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 4,
@@ -1155,7 +1155,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
         position: 'sticky', top: 0, zIndex: 10,
         background: '#0f0f1a', paddingBottom: 8, marginBottom: -8,
       }}>
-        <span style={{ fontSize: 12, color: '#555' }}>
+        <span style={{ fontSize: 12, color: '#9ca3af' }}>
           Tile #{tile.id} · ({col}, {row})
         </span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1174,7 +1174,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             >✏️ Edit</button>
           )}
           <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: '#888', fontSize: 24, cursor: 'pointer',
+            background: 'none', border: 'none', color: '#b0b8c4', fontSize: 24, cursor: 'pointer',
             lineHeight: 1, padding: '4px 8px',
           }}>×</button>
         </div>
@@ -1269,7 +1269,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                       style={{ display: 'none' }}
                     />
                   </label>
-                  <span style={{ fontSize: 10, color: '#555' }}>PNG, JPG, or WebP • Max 5MB • Auto-crops to square</span>
+                  <span style={{ fontSize: 10, color: '#9ca3af' }}>PNG, JPG, or WebP • Max 5MB • Auto-crops to square</span>
                 </div>
               </div>
             </div>
@@ -1299,7 +1299,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                       style={{ display: 'none' }}
                     />
                   </label>
-                  <span style={{ fontSize: 10, color: '#555' }}>Max 10MB • Fits to rectangle ratio • Slices into individual NFT images automatically</span>
+                  <span style={{ fontSize: 10, color: '#9ca3af' }}>Max 10MB • Fits to rectangle ratio • Slices into individual NFT images automatically</span>
                 </div>
               </div>
             )}
@@ -1319,7 +1319,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
 
             {/* Description */}
             <div>
-              <label style={labelStyle}>Description <span style={{ color: '#444', textTransform: 'none' }}>({formData.description.length}/200)</span></label>
+              <label style={labelStyle}>Description <span style={{ color: '#94a3b8', textTransform: 'none' }}>({formData.description.length}/200)</span></label>
               <textarea
                 value={formData.description}
                 maxLength={200}
@@ -1410,7 +1410,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               >Cancel</button>
             </div>
 
-            <p style={{ fontSize: 11, color: '#444', textAlign: 'center', margin: 0 }}>
+            <p style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', margin: 0 }}>
               Saving requires a wallet signature. No gas needed.
             </p>
           </div>
@@ -1441,7 +1441,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{tile.name}</h2>
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                marginTop: 8, fontSize: 12, color: '#888',
+                marginTop: 8, fontSize: 12, color: '#b0b8c4',
               }}>
                 <span style={{
                   width: 8, height: 8, borderRadius: '50%',
@@ -1469,7 +1469,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
 
             {/* Description */}
             {tile.description && (
-              <p style={{ margin: 0, fontSize: 14, color: '#aaa', lineHeight: 1.6 }}>
+              <p style={{ margin: 0, fontSize: 14, color: '#d1d5db', lineHeight: 1.6 }}>
                 {tile.description}
               </p>
             )}
@@ -1512,11 +1512,11 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             </div>
 
             {/* Owner + tx hash details */}
-            <div style={{ fontSize: 11, color: '#555', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {/* Owner address — links to basescan + OpenSea profile */}
               {tile.owner ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#444' }}>Owner:</span>
+                  <span style={{ color: '#94a3b8' }}>Owner:</span>
                   <a
                     href={`https://basescan.org/address/${tile.owner}`}
                     target="_blank"
@@ -1530,19 +1530,19 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                     target="_blank"
                     rel="noopener noreferrer"
                     title="View on OpenSea"
-                    style={{ color: '#6b7280', textDecoration: 'none', fontSize: 10 }}
+                    style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 10 }}
                   >
                     OS
                   </a>
                 </div>
               ) : (
-                <span style={{ color: '#444' }}>Owner: demo</span>
+                <span style={{ color: '#94a3b8' }}>Owner: demo</span>
               )}
 
               {/* Claim tx hash */}
               {tile.txHash ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#444' }}>Tx:</span>
+                  <span style={{ color: '#94a3b8' }}>Tx:</span>
                   <a
                     href={`https://basescan.org/tx/${tile.txHash}`}
                     target="_blank"
@@ -1554,15 +1554,15 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 </div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#444' }}>Tx:</span>
-                  <span style={{ color: '#333' }}>—</span>
+                  <span style={{ color: '#94a3b8' }}>Tx:</span>
+                  <span style={{ color: '#94a3b8' }}>—</span>
                 </div>
               )}
             </div>
 
             {/* Edit prompt for owner */}
             {isOwner && (
-              <div style={{ fontSize: 11, color: '#555', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
                 🔑 You own this tile — click ✏️ Edit to update its info
               </div>
             )}
@@ -1696,8 +1696,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             border: '1px dashed #333',
           }}>
             <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }}>📍</div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#555' }}>Unclaimed</h2>
-            <p style={{ margin: '8px 0 0', fontSize: 13, color: '#444' }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#9ca3af' }}>Unclaimed</h2>
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: '#94a3b8' }}>
               Position ({col}, {row})
             </p>
           </div>
@@ -1716,7 +1716,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             Claim This Tile — $1.00
           </button>
 
-          <p style={{ fontSize: 12, color: '#444', textAlign: 'center', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', lineHeight: 1.6 }}>
             Pay with USDC on Base via x402.<br />
             No signup required. Just a wallet.
           </p>

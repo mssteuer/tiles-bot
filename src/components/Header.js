@@ -24,7 +24,7 @@ function WalletButton() {
             background: '#0d0d1a', border: '1px solid #2a2a3e', borderRadius: 8,
             padding: 6, minWidth: 180, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
           }}>
-            <div style={{ fontSize: 10, color: '#64748b', padding: '4px 8px', marginBottom: 2 }}>
+            <div style={{ fontSize: 10, color: '#cbd5e1', padding: '4px 8px', marginBottom: 2 }}>
               Connected: {activeConnector?.name || 'Unknown'}
             </div>
             <button onClick={() => { disconnect(); setShowPicker(false); }} style={{
@@ -118,11 +118,11 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
         <ProgressBar pct={parseFloat(pct)} />
         <div style={{ width: 1, height: 32, background: '#2a2a3e', margin: '0 4px' }} />
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 1 }}>Revenue</div>
+          <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Revenue</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', marginTop: 1 }}>
             {fmtRevenue(totalRevenue)}
           </div>
-          <div style={{ fontSize: 9, color: '#374151', marginTop: 1 }}>
+          <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>
             of {fmtRevenue(estimatedMax)} max
           </div>
         </div>
@@ -131,13 +131,13 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
 
       {/* Desktop links */}
       <div className="header-links">
-        <Link href="/leaderboard" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>🏆 Leaderboard</Link>
-        <Link href="/agents" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>🤖 Agents</Link>
-        <Link href="/activity" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>📡 Activity</Link>
-        <Link href="/network" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>🕸️ Network</Link>
-        <Link href="/admin/analytics" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>📊 Analytics</Link>
-        <Link href="/faq" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>FAQ</Link>
-        <a href="/SKILL.md" target="_blank" rel="noreferrer" style={{ color: '#555', textDecoration: 'none', fontSize: 13 }}>SKILL.md</a>
+        <Link href="/leaderboard" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>🏆 Leaderboard</Link>
+        <Link href="/agents" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>🤖 Agents</Link>
+        <Link href="/activity" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>📡 Activity</Link>
+        <Link href="/network" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>🕸️ Network</Link>
+        <Link href="/admin/analytics" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>📊 Analytics</Link>
+        <Link href="/faq" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>FAQ</Link>
+        <a href="/SKILL.md" target="_blank" rel="noreferrer" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>SKILL.md</a>
       </div>
 
       <div className="header-actions">
@@ -153,7 +153,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
 function Stat({ label, value, accent }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+      <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: accent ? '#3b82f6' : '#fff', marginTop: 1 }}>{value}</div>
     </div>
   );
@@ -185,7 +185,7 @@ function RevenueBar({ pct }) {
           transition: 'width 0.5s ease',
         }} />
       </div>
-      <div style={{ fontSize: 9, color: '#374151' }}>{pct.toFixed(3)}%</div>
+      <div style={{ fontSize: 9, color: '#9ca3af' }}>{pct.toFixed(3)}%</div>
     </div>
   );
 }

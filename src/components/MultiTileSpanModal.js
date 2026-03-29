@@ -173,9 +173,9 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 20 }}>Create Multi-Tile Span</h2>
-            <p style={{ margin: '4px 0 0', color: '#888', fontSize: 13 }}>Create the rectangle, upload one image, then wait for the span to become ready.</p>
+            <p style={{ margin: '4px 0 0', color: '#b0b8c4', fontSize: 13 }}>Create the rectangle, upload one image, then wait for the span to become ready.</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#777', fontSize: 24, cursor: 'pointer' }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#b0b8c4', fontSize: 24, cursor: 'pointer' }}>×</button>
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, fontSize: 12 }}>
@@ -195,16 +195,16 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#888' }}>Width</span>
+            <span style={{ fontSize: 12, color: '#b0b8c4' }}>Width</span>
             <input type="number" min="1" max="16" value={width} disabled={!!createdSpan} onChange={e => setWidth(Math.max(1, Math.min(16, parseInt(e.target.value || '1', 10))))} style={{ background: '#111827', color: '#fff', border: '1px solid #374151', borderRadius: 8, padding: '10px 12px' }} />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#888' }}>Height</span>
+            <span style={{ fontSize: 12, color: '#b0b8c4' }}>Height</span>
             <input type="number" min="1" max="16" value={height} disabled={!!createdSpan} onChange={e => setHeight(Math.max(1, Math.min(16, parseInt(e.target.value || '1', 10))))} style={{ background: '#111827', color: '#fff', border: '1px solid #374151', borderRadius: 8, padding: '10px 12px' }} />
           </label>
         </div>
 
-        <div style={{ marginBottom: 16, fontSize: 13, color: '#aaa' }}>
+        <div style={{ marginBottom: 16, fontSize: 13, color: '#d1d5db' }}>
           Top-left tile: #{topLeftId} · Rectangle: {width}×{height} · {tileIds?.length || 0} tiles
         </div>
 

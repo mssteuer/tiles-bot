@@ -97,8 +97,8 @@ export default function StatsPanel({ stats }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div>
                 <span style={{ color: '#3b82f6', fontWeight: 700 }}>{stats.claimed.toLocaleString()}</span>
-                <span style={{ color: '#64748b' }}> / {stats.total.toLocaleString()} tiles claimed</span>
-                <span style={{ color: '#64748b' }}> ({claimedPct}%)</span>
+                <span style={{ color: '#cbd5e1' }}> / {stats.total.toLocaleString()} tiles claimed</span>
+                <span style={{ color: '#cbd5e1' }}> ({claimedPct}%)</span>
               </div>
               <div>
                 Current price:{' '}
@@ -118,7 +118,7 @@ export default function StatsPanel({ stats }) {
                   <span style={{ color: '#22c55e', fontWeight: 700 }}>
                     {formatUsdShort(totalRevenue)}
                   </span>
-                  <span style={{ color: '#374151', fontSize: 11 }}> / {formatUsdShort(estimatedMax)} max</span>
+                  <span style={{ color: '#9ca3af', fontSize: 11 }}> / {formatUsdShort(estimatedMax)} max</span>
                 </div>
                 <div style={{ width: '100%', height: 6, background: '#1a1a2e', borderRadius: 3, overflow: 'hidden' }}>
                   <div style={{
@@ -129,7 +129,7 @@ export default function StatsPanel({ stats }) {
                     transition: 'width 0.5s ease',
                   }} />
                 </div>
-                <div style={{ color: '#374151', fontSize: 10, marginTop: 2 }}>{revenuePct.toFixed(3)}% of max revenue</div>
+                <div style={{ color: '#9ca3af', fontSize: 10, marginTop: 2 }}>{revenuePct.toFixed(3)}% of max revenue</div>
               </div>
               <div>
                 Next tile:{' '}
@@ -137,7 +137,7 @@ export default function StatsPanel({ stats }) {
               </div>
             </div>
           ) : (
-            <div style={{ color: '#475569' }}>Loading…</div>
+            <div style={{ color: '#94a3b8' }}>Loading…</div>
           )}
 
           {stats?.topHolders?.length > 0 && (
@@ -147,7 +147,7 @@ export default function StatsPanel({ stats }) {
                 {stats.topHolders.map((h, i) => (
                   <div key={h.owner} style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#94a3b8' }}>
-                      <span style={{ color: '#475569', marginRight: 4 }}>{i + 1}.</span>
+                      <span style={{ color: '#94a3b8', marginRight: 4 }}>{i + 1}.</span>
                       {truncateAddr(h.owner)}
                     </span>
                     <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{h.count} tiles</span>
@@ -164,17 +164,17 @@ export default function StatsPanel({ stats }) {
                 {stats.recentlyClaimed.map(t => (
                   <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ color: '#475569', marginRight: 4 }}>#{t.id}</span>
+                      <span style={{ color: '#94a3b8', marginRight: 4 }}>#{t.id}</span>
                       {t.name}
                     </span>
-                    <span style={{ color: '#64748b', flexShrink: 0 }}>{timeAgo(t.claimedAt, nowTs)}</span>
+                    <span style={{ color: '#cbd5e1', flexShrink: 0 }}>{timeAgo(t.claimedAt, nowTs)}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <div style={{ color: '#374151', fontSize: 11, textAlign: 'right' }}>
+          <div style={{ color: '#9ca3af', fontSize: 11, textAlign: 'right' }}>
             Live updates via SSE
           </div>
         </div>
