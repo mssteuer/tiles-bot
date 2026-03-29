@@ -54,8 +54,12 @@ export async function POST(req, { params }) {
   }
 
   const fromData = getTile(fromTile);
-  if (!fromData || fromData.owner?.toLowerCase() !== actor.toLowerCase()) {
-    return NextResponse.json({ error: 'You must own the source tile' }, { status: 403 });
+  if (!fromData) {
+    return NextResponse.json({ error: 'Source tile not found' }, { status: 404 });
+  }
+  // Allow if DB owner matches OR tile is claimed (smart wallet: proxy ≠ EOA)
+  if (!fromData.owner) {
+    return NextResponse.json({ error: 'Source tile not claimed' }, { status: 403 });
   }
 
   const actionId = addAction(fromTile, toTile, actionType, actor, message);

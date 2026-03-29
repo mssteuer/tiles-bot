@@ -38,8 +38,8 @@ export async function POST(req, { params }) {
   }
 
   const fromData = getTile(fromTile);
-  if (!fromData || fromData.owner?.toLowerCase() !== actor.toLowerCase()) {
-    return NextResponse.json({ error: 'You must own the source tile' }, { status: 403 });
+  if (!fromData || !fromData.owner) {
+    return NextResponse.json({ error: 'Source tile not found or not claimed' }, { status: 403 });
   }
 
   const emoteId = addEmote(fromTile, toTile, emoji, actor);
