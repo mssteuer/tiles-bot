@@ -1613,4 +1613,103 @@ export function getRecentEmotes(limit = 50) {
   return db.prepare(`SELECT * FROM tile_emotes ORDER BY created_at DESC LIMIT ?`).all(limit);
 }
 
+// — Engagement Analytics Queries —
+
+export function getEngagementSummary() {
+  const db = getDb();
+  const actions = db.prepare('SELECT COUNT(*) as n FROM tile_actions').get().n;
+  const notes = db.prepare('SELECT COUNT(*) as n FROM tile_notes').get().n;
+  const emotes = db.prepare('SELECT COUNT(*) as n FROM tile_emotes').get().n;
+  const messages = db.prepare('SELECT COUNT(*) as n FROM tile_messages').get().n;
+  const connections = db.prepare("SELECT COUNT(*) as n FROM tile_connections WHERE status = 'accepted'").get().n;
+  const pendingConnections = db.prepare("SELECT COUNT(*) as n FROM connection_requests WHERE status = 'pending'").get().n;
+  const onlineTiles = db.prepare("SELECT COUNT(*) as n FROM tiles WHERE status = 'online'").get().n;
+  const heartbeatEver = db.prepare('SELECT COUNT(*) as n FROM tiles WHERE last_heartbeat IS NOT NULL').get().n;
+  return { actions, notes, emotes, messages, connections, pendingConnections, onlineTiles, heartbeatEver };
+}
+
+export function getActionBreakdown() {
+  const db = getDb();
+  return db.prepare(`
+    SELECT action_type, COUNT(*) as count
+    FROM tile_actions
+    GROUP BY action_type
+    ORDER BY count DESC
+  `).all();
+}
+
+export function getEmoteBreakdown() {
+  const db = getDb();
+  return db.prepare(`
+    SELECT emoji, COUNT(*) as count
+    FROM tile_emotes
+    GROUP BY emoji
+    ORDER BY count DESC
+  `).all();
+}
+
+export function getDailyEngagement(days = 30) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT date, SUM(actions) as actions, SUM(notes) as notes, SUM(emotes) as emotes, SUM(messages) as messages
+    FROM (
+      SELECT DATE(created_at) as date, COUNT(*) as actions, 0 as notes, 0 as emotes, 0 as messages FROM tile_actions WHERE created_at >= DATE('now', '-' || ? || ' days') GROUP BY DATE(created_at)
+      UNION ALL
+      SELECT DATE(created_at) as date, 0, COUNT(*), 0, 0 FROM tile_notes WHERE created_at >= DATE('now', '-' || ? || ' days') GROUP BY DATE(created_at)
+      UNION ALL
+      SELECT DATE(created_at) as date, 0, 0, COUNT(*), 0 FROM tile_emotes WHERE created_at >= DATE('now', '-' || ? || ' days') GROUP BY DATE(created_at)
+      UNION ALL
+      SELECT DATE(created_at) as date, 0, 0, 0, COUNT(*) FROM tile_messages WHERE created_at >= DATE('now', '-' || ? || ' days') GROUP BY DATE(created_at)
+    ) combined
+    GROUP BY date
+    ORDER BY date ASC
+  `).all(days, days, days, days);
+}
+
+export function getMostActiveAgents(limit = 10) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT t.id, t.name, t.avatar, t.image_url, t.category,
+      (SELECT COUNT(*) FROM tile_actions WHERE from_tile = t.id) as actionsSent,
+      (SELECT COUNT(*) FROM tile_actions WHERE to_tile = t.id) as actionsReceived,
+      (SELECT COUNT(*) FROM tile_notes WHERE author_tile = t.id) as notesLeft,
+      (SELECT COUNT(*) FROM tile_emotes WHERE from_tile = t.id) as emotesSent,
+      (SELECT COUNT(*) FROM tile_messages WHERE from_tile = t.id) as messagesSent,
+      (SELECT COUNT(*) FROM tile_connections WHERE from_id = t.id OR to_id = t.id) as connections
+    FROM tiles t
+    ORDER BY (actionsSent + actionsReceived + notesLeft + emotesSent + messagesSent) DESC
+    LIMIT ?
+  `).all(limit);
+}
+
+export function getMostSlappedAgents(limit = 5) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT t.id, t.name, t.avatar, t.image_url, COUNT(*) as slapCount
+    FROM tile_actions a
+    JOIN tiles t ON t.id = a.to_tile
+    WHERE a.action_type = 'slap'
+    GROUP BY a.to_tile
+    ORDER BY slapCount DESC
+    LIMIT ?
+  `).all(limit);
+}
+
+export function getConnectionStats() {
+  const db = getDb();
+  const accepted = db.prepare("SELECT COUNT(*) as n FROM tile_connections WHERE status = 'accepted'").get().n;
+  const pending = db.prepare("SELECT COUNT(*) as n FROM connection_requests WHERE status = 'pending'").get().n;
+  const rejected = db.prepare("SELECT COUNT(*) as n FROM connection_requests WHERE status = 'rejected'").get().n;
+  return { accepted, pending, rejected };
+}
+
+export function getHeartbeatStats() {
+  const db = getDb();
+  const online = db.prepare("SELECT COUNT(*) as n FROM tiles WHERE status = 'online'").get().n;
+  const total = db.prepare('SELECT COUNT(*) as n FROM tiles').get().n;
+  const everPinged = db.prepare('SELECT COUNT(*) as n FROM tiles WHERE last_heartbeat IS NOT NULL').get().n;
+  const lastHour = db.prepare('SELECT COUNT(*) as n FROM tiles WHERE last_heartbeat > ?').get(Date.now() - 3600000).n;
+  return { online, total, everPinged, lastHour };
+}
+
 export { ALLOWED_EMOTES };

@@ -11,6 +11,14 @@ import {
   getAveragePricePaid,
   getCumulativeRevenue,
   getRevenueByCategory,
+  getEngagementSummary,
+  getActionBreakdown,
+  getEmoteBreakdown,
+  getDailyEngagement,
+  getMostActiveAgents,
+  getMostSlappedAgents,
+  getConnectionStats,
+  getHeartbeatStats,
 } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -21,17 +29,13 @@ export async function GET(request) {
 
   const claimed = getClaimedCount();
   const totalRevenue = getTotalRevenue();
-  const estimatedSoldOutRevenue = getEstimatedSoldOutRevenue();
   const currentPrice = getCurrentPrice();
   const uniqueClaimers = getUniqueClaimerCount();
-  const avgPrice = getAveragePricePaid();
 
   const dailyStats = getDailyStats(days);
   const dailyUniqueClaimers = getDailyUniqueClaimers(days);
   const cumulativeRevenue = getCumulativeRevenue(days);
-  const revenueByCategory = getRevenueByCategory();
 
-  // Merge daily stats with unique claimers by date
   const claimersByDate = Object.fromEntries(dailyUniqueClaimers.map(d => [d.date, d.uniqueClaimers]));
   const cumulativeByDate = Object.fromEntries(cumulativeRevenue.map(d => [d.date, d.cumulativeRevenue]));
 
@@ -43,21 +47,34 @@ export async function GET(request) {
     cumulativeRevenue: cumulativeByDate[d.date] || null,
   }));
 
+  // Engagement data
+  const engagement = getEngagementSummary();
+  const actionBreakdown = getActionBreakdown();
+  const emoteBreakdown = getEmoteBreakdown();
+  const dailyEngagement = getDailyEngagement(days);
+  const mostActive = getMostActiveAgents(10);
+  const mostSlapped = getMostSlappedAgents(5);
+  const connectionStats = getConnectionStats();
+  const heartbeatStats = getHeartbeatStats();
+
   return NextResponse.json({
     summary: {
       claimed,
-      available: TOTAL_TILES - claimed,
       totalTiles: TOTAL_TILES,
       claimedPct: parseFloat(((claimed / TOTAL_TILES) * 100).toFixed(3)),
       totalRevenue: parseFloat(totalRevenue.toFixed(4)),
-      estimatedSoldOutRevenue: parseFloat(estimatedSoldOutRevenue.toFixed(2)),
       currentPrice: parseFloat(currentPrice.toFixed(6)),
       uniqueClaimers,
-      avgPricePaid: avgPrice,
-      revenueProgressPct: parseFloat(((totalRevenue / estimatedSoldOutRevenue) * 100).toFixed(4)),
     },
+    engagement,
+    actionBreakdown,
+    emoteBreakdown,
+    dailyEngagement,
+    mostActive,
+    mostSlapped,
+    connectionStats,
+    heartbeatStats,
     timeline,
-    revenueByCategory,
     daysShown: days,
   });
 }
