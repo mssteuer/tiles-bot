@@ -185,7 +185,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const containerRef = useRef(null);
   const starfieldRef = useRef(null);
   const activeAnimationsRef = useRef([]);
-  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.05 }); // start zoomed out (full grid visible)
+  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.012 }); // start super zoomed out (grid is tiny)
 
   // Generate starfield once (off-screen canvas)
   useEffect(() => {
@@ -246,14 +246,13 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     introPlayed.current = true;
 
-    // Calculate zoom that fits entire grid in viewport
+    // Start: super zoomed out — grid is ~1/8th of viewport (tiny in the starfield)
     const rect = container.getBoundingClientRect();
     const fitZoom = Math.min(rect.width / GRID_PX, rect.height / GRID_PX);
+    const startZoom = fitZoom * 0.12; // grid occupies ~12% of viewport = tiny
 
-    // Start: entire grid visible, centered
     const startX = GRID_PX / 2;
     const startY = GRID_PX / 2;
-    const startZoom = fitZoom;
 
     // Target: densest cluster — slide a window across the grid, find peak density
     const WINDOW = 20; // 20×20 tile window
@@ -287,7 +286,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     // Set initial camera to show full grid
     setCamera({ x: startX, y: startY, zoom: startZoom });
 
-    const duration = 2500; // 2.5 seconds
+    const duration = 3000; // 3 seconds — longer sweep across more zoom range
     const startTime = performance.now();
 
     // Ease-in-out for a cinematic feel
@@ -309,8 +308,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       if (t < 1) requestAnimationFrame(animate);
     }
 
-    // Brief pause so user sees the full grid first
-    setTimeout(() => requestAnimationFrame(animate), 600);
+    // 1s pause so user sees the tiny grid floating in space
+    setTimeout(() => requestAnimationFrame(animate), 1000);
   }, [tiles, zoom]);
 
   // Fly-to animation: smooth zoom-out → arc pan → zoom-in
