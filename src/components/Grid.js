@@ -1082,43 +1082,57 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       const t = Math.min(elapsed / a.duration, 1);
       if (t >= 1) { anims.splice(i, 1); continue; }
 
-      // Ease-out arc trajectory
-      const ease = 1 - Math.pow(1 - t, 3); // cubic ease-out
-      const x = a.startX + (a.endX - a.startX) * ease;
-      const y = a.startY + (a.endY - a.startY) * ease;
-      // Arc: rise up in the middle
-      const arcHeight = Math.abs(a.endX - a.startX + a.endY - a.startY) * 0.3;
-      const arcY = y - Math.sin(t * Math.PI) * arcHeight;
+      if (a.actionType === 'emote') {
+        // Emote: float up from tile, fade out, gentle sway
+        const floatY = a.endY - (80 * t) / cam.zoom;
+        const sway = Math.sin(t * Math.PI * 3) * 8 / cam.zoom;
+        const alpha = t < 0.2 ? t / 0.2 : t > 0.7 ? (1 - t) / 0.3 : 1;
+        const fontSize = (36 + 12 * Math.sin(t * Math.PI)) / cam.zoom;
 
-      // Size: grow then shrink
-      const scale = (t < 0.3 ? t / 0.3 : t > 0.7 ? (1 - t) / 0.3 : 1) * 1.5;
-      const fontSize = Math.max(24, 48 * scale) / cam.zoom;
-
-      // Rotation for slap (wobble)
-      const rot = a.actionType === 'slap' ? Math.sin(t * Math.PI * 6) * 0.3 : 0;
-
-      ctx.save();
-      ctx.translate(x, arcY);
-      ctx.rotate(rot);
-      ctx.font = `${fontSize}px serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      // Glow behind emoji
-      ctx.shadowColor = 'rgba(255,255,255,0.6)';
-      ctx.shadowBlur = 10 / cam.zoom;
-      ctx.fillText(a.emoji, 0, 0);
-      ctx.restore();
-
-      // Impact flash at end
-      if (t > 0.85) {
-        const flashAlpha = (t - 0.85) / 0.15;
-        const flashR = (40 + 30 * flashAlpha) / cam.zoom;
         ctx.save();
-        ctx.beginPath();
-        ctx.arc(a.endX, a.endY, flashR, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 200, ${0.4 * (1 - flashAlpha)})`;
-        ctx.fill();
+        ctx.globalAlpha = alpha;
+        ctx.translate(a.endX + sway, floatY);
+        ctx.font = `${fontSize}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(255,200,50,0.5)';
+        ctx.shadowBlur = 12 / cam.zoom;
+        ctx.fillText(a.emoji, 0, 0);
         ctx.restore();
+      } else {
+        // Action: arc trajectory from source to target
+        const ease = 1 - Math.pow(1 - t, 3);
+        const x = a.startX + (a.endX - a.startX) * ease;
+        const y = a.startY + (a.endY - a.startY) * ease;
+        const arcHeight = Math.abs(a.endX - a.startX + a.endY - a.startY) * 0.3;
+        const arcY = y - Math.sin(t * Math.PI) * arcHeight;
+
+        const scale = (t < 0.3 ? t / 0.3 : t > 0.7 ? (1 - t) / 0.3 : 1) * 1.5;
+        const fontSize = Math.max(24, 48 * scale) / cam.zoom;
+        const rot = a.actionType === 'slap' ? Math.sin(t * Math.PI * 6) * 0.3 : 0;
+
+        ctx.save();
+        ctx.translate(x, arcY);
+        ctx.rotate(rot);
+        ctx.font = `${fontSize}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(255,255,255,0.6)';
+        ctx.shadowBlur = 10 / cam.zoom;
+        ctx.fillText(a.emoji, 0, 0);
+        ctx.restore();
+
+        // Impact flash
+        if (t > 0.85) {
+          const flashAlpha = (t - 0.85) / 0.15;
+          const flashR = (40 + 30 * flashAlpha) / cam.zoom;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(a.endX, a.endY, flashR, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 200, ${0.4 * (1 - flashAlpha)})`;
+          ctx.fill();
+          ctx.restore();
+        }
       }
     }
 
