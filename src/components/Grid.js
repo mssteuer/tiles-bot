@@ -692,10 +692,18 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             ctx.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
 
             if (cam.zoom > 0.2) {
-              ctx.font = `${Math.min(20, TILE_SIZE * 0.5)}px system-ui`;
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(tile.avatar || '🤖', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+              const emoji = tile.avatar || '🤖';
+              const emojiSize = Math.min(20, TILE_SIZE * 0.5);
+              ctx.font = `${emojiSize}px system-ui`;
+              ctx.textAlign = 'left';
+              ctx.textBaseline = 'alphabetic';
+              const m = ctx.measureText(emoji);
+              // Use actual bounding box for precise centering (works across platforms)
+              const mw = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+              const mh = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+              const ex = x + (TILE_SIZE - mw) / 2 + m.actualBoundingBoxLeft;
+              const ey = y + (TILE_SIZE - mh) / 2 + m.actualBoundingBoxAscent;
+              ctx.fillText(emoji, ex, ey);
             }
           }
 
