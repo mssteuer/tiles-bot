@@ -584,12 +584,34 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         if (!cachedSpanImg) {
           imageCache[spanImgKey] = 'loading';
           fetch(span.imageUrl)
-            .then(r => r.blob())
+            .then(r => { if (!r.ok) throw new Error('404'); return r.blob(); })
             .then(blob => createImageBitmap(blob))
             .then(bmp => { imageCache[spanImgKey] = bmp; })
             .catch(() => { imageCache[spanImgKey] = 'error'; });
         } else if (cachedSpanImg !== 'loading' && cachedSpanImg !== 'error') {
           ctx.drawImage(cachedSpanImg, sx, sy, sw, sh);
+        }
+      }
+      // Fallback: if master image failed, render individual tile slices
+      if (imageCache[spanImgKey] === 'error' && span.sliceImageUrls) {
+        const sliceUrls = span.sliceImageUrls;
+        for (const tileId of (span.tileIds || [])) {
+          const sliceUrl = sliceUrls[String(tileId)];
+          if (!sliceUrl) continue;
+          const sliceKey = `slice:${tileId}:${sliceUrl}`;
+          let sliceBmp = imageCache[sliceKey];
+          if (!sliceBmp) {
+            imageCache[sliceKey] = 'loading';
+            fetch(sliceUrl)
+              .then(r => { if (!r.ok) throw new Error('404'); return r.blob(); })
+              .then(blob => createImageBitmap(blob))
+              .then(bmp => { imageCache[sliceKey] = bmp; })
+              .catch(() => { imageCache[sliceKey] = 'error'; });
+          } else if (sliceBmp !== 'loading' && sliceBmp !== 'error') {
+            const tRow = Math.floor(tileId / GRID_SIZE);
+            const tCol = tileId % GRID_SIZE;
+            ctx.drawImage(sliceBmp, tCol * TILE_SIZE, tRow * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          }
         }
       }
       // Outer span border
