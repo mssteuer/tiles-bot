@@ -85,10 +85,15 @@ function HomeInner() {
   const [spans, setSpans] = useState([]);
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
-  // Skip intro if: deep link (?tile=), OR returning from SPA navigation (window flag survives SPA nav but not refresh)
+  // Intro readiness:
+  // - Deep link (?tile=): skip intro, fly to tile
+  // - Return from SPA nav: skip intro, restore camera
+  // - Already onboarded: intro plays immediately (no wait for modal)
+  // - First visit: intro waits for onboarding modal to complete
   const hasDeepLink = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tile');
   const isReturnNav = typeof window !== 'undefined' && !!window.__tiles_camera;
-  const [introReady, setIntroReady] = useState(hasDeepLink || isReturnNav);
+  const alreadyOnboarded = typeof window !== 'undefined' && !!localStorage.getItem('tiles_onboarded');
+  const [introReady, setIntroReady] = useState(hasDeepLink || isReturnNav || alreadyOnboarded);
   // blockClaimTopLeft removed — block tiles feature killed
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });

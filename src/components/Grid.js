@@ -241,6 +241,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   // Intro animation: full grid overview → zoom into densest tile cluster
   useEffect(() => {
+    console.log('[INTRO]', { introPlayed: introPlayed.current, initialCamera: !!initialCamera, flyToTileId: !!flyToTileId, introReady, tileCount: Object.keys(tiles).length, container: !!containerRef.current });
     if (introPlayed.current) {
       if (onIntroFinished) onIntroFinished();
       return;
@@ -248,6 +249,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     // Skip intro if returning from SPA navigation (camera restored) or deep link
     if (initialCamera || flyToTileId) {
+      console.log('[INTRO] skipped — initialCamera or flyToTileId');
       introPlayed.current = true;
       if (onIntroFinished) onIntroFinished();
       return;
@@ -256,7 +258,10 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     // Wait until tiles loaded, canvas mounted, AND onboarding complete
     const ids = Object.keys(tiles).map(Number);
     const container = containerRef.current;
-    if (ids.length === 0 || !container || !introReady) return;
+    if (ids.length === 0 || !container || !introReady) {
+      console.log('[INTRO] waiting —', { ids: ids.length, container: !!container, introReady });
+      return;
+    }
 
     introPlayed.current = true;
 
@@ -310,10 +315,12 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     // Store animation params — the main draw loop will drive this
     cameraRef.current = { x: startX, y: startY, zoom: startZoom };
 
+    console.log('[INTRO] scheduling animation in 1s, target:', { targetX, targetY, targetZoom });
     setTimeout(() => {
+      console.log('[INTRO] setTimeout fired — setting introAnimRef');
       introAnimRef.current = {
         startX, startY, startZoom, targetX, targetY, targetZoom,
-        duration, startTime: null, ease: easeInOutCubic, // startTime set lazily on first frame
+        duration, startTime: null, ease: easeInOutCubic,
       };
     }, 1000);
   }, [tiles, zoom, introReady]);
@@ -1001,7 +1008,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       // Drive intro animation from this single rAF loop (no separate chain)
       const ia = introAnimRef.current;
       if (ia) {
-        if (ia.startTime === null) ia.startTime = t; // lazy init on first frame
+        if (ia.startTime === null) { ia.startTime = t; console.log('[INTRO] rAF picked up animation at t=', t); }
         const elapsed = t - ia.startTime;
         const p = Math.min(1, elapsed / ia.duration);
         const e = ia.ease(p);
