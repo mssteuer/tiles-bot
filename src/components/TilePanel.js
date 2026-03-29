@@ -862,6 +862,11 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     }).catch(() => {});
   }, [address]);
 
+  // Smart wallet fix: if isOwner (on-chain verified) but current tile not in ownedTileIds, add it
+  const effectiveOwnedTileIds = (isOwner && tile.id != null && !ownedTileIds.includes(tile.id))
+    ? [tile.id, ...ownedTileIds]
+    : ownedTileIds;
+
   // Check if connected wallet owns this tile (supports smart wallets via on-chain check)
   const [isOwner, setIsOwner] = useState(false);
   useEffect(() => {
@@ -1658,7 +1663,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               <InteractionsPanel
                 tile={tile}
                 address={address}
-                ownedTiles={ownedTileIds}
+                ownedTiles={effectiveOwnedTileIds}
                 isOwner={isOwner}
               />
             )}
