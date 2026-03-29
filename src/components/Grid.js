@@ -586,6 +586,17 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
       const spanImgKey = `span:${span.id}`;
       ctx.save();
+
+      // ── Span-level heartbeat glow — if ANY tile in span is online ──
+      const spanHasOnline = tileIds.some(tid => tiles[tid]?.status === 'online');
+      if (spanHasOnline) {
+        const a = 0.06 + 0.08 * pulse;
+        ctx.fillStyle = `rgba(34,197,94,${a.toFixed(3)})`;
+        ctx.fillRect(sx - 6, sy - 6, sw + 12, sh + 12);
+        ctx.fillStyle = `rgba(34,197,94,${(a * 1.5).toFixed(3)})`;
+        ctx.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
+      }
+
       ctx.fillStyle = 'rgba(14,165,233,0.10)';
       ctx.fillRect(sx, sy, sw, sh);
       if (span.imageUrl) {
@@ -687,22 +698,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       const x = col * TILE_SIZE;
       const y = row * TILE_SIZE;
 
-        // ── Heartbeat glow halo — rendered BEFORE span skip so span tiles still glow ──
-        if (tile && tile.status === 'online') {
-          const a = 0.06 + 0.08 * pulse;
-          ctx.fillStyle = `rgba(34,197,94,${a.toFixed(3)})`;
-          ctx.fillRect(x - 4, y - 4, TILE_SIZE + 8, TILE_SIZE + 8);
-          ctx.fillStyle = `rgba(34,197,94,${(a * 1.5).toFixed(3)})`;
-          ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
-        } else if (tile && tile.lastHeartbeat) {
-          const age = now - tile.lastHeartbeat;
-          if (age <= HB_YELLOW) {
-            ctx.fillStyle = 'rgba(234,179,8,0.04)';
-            ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
-          }
-        }
-
-        // Skip tiles that belong to a rendered span — span already drew the image
+        // Skip tiles that belong to a rendered span — span already drew the image + glow
         if (tilesInSpans.has(id)) continue;
 
         if (tile) {
@@ -711,6 +707,21 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
           ctx.save();
           if (!tileMatches) ctx.globalAlpha = 0.25;
+
+          // ── Heartbeat glow halo (non-span tiles only) ──
+          if (tile.status === 'online') {
+            const a = 0.06 + 0.08 * pulse;
+            ctx.fillStyle = `rgba(34,197,94,${a.toFixed(3)})`;
+            ctx.fillRect(x - 4, y - 4, TILE_SIZE + 8, TILE_SIZE + 8);
+            ctx.fillStyle = `rgba(34,197,94,${(a * 1.5).toFixed(3)})`;
+            ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
+          } else if (tile.lastHeartbeat) {
+            const age = now - tile.lastHeartbeat;
+            if (age <= HB_YELLOW) {
+              ctx.fillStyle = 'rgba(234,179,8,0.04)';
+              ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
+            }
+          }
 
           // Try to draw image first (no clip — draw at exact tile bounds)
           const cachedImg = tile.imageUrl ? imageCache[`${tile.id}:64:${tile.imageUrl}`] : null;
