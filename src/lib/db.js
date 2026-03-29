@@ -1460,3 +1460,157 @@ export function getPendingMintTilesLimit(limit = 50) {
     LIMIT ?
   `).all(limit);
 }
+
+// — Tile Notes / Guestbook —
+
+function ensureNotesTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_notes (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      tile_id    INTEGER NOT NULL,
+      author     TEXT NOT NULL,
+      author_tile INTEGER,
+      body       TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_notes_tile ON tile_notes(tile_id);
+    CREATE INDEX IF NOT EXISTS idx_notes_created ON tile_notes(created_at DESC);
+  `);
+}
+ensureNotesTable();
+
+export function addNote(tileId, author, body, authorTile = null) {
+  const db = getDb();
+  const r = db.prepare(`INSERT INTO tile_notes (tile_id, author, author_tile, body) VALUES (?, ?, ?, ?)`).run(tileId, author, authorTile, body.slice(0, 500));
+  return r.lastInsertRowid;
+}
+
+export function getNotes(tileId, limit = 50, offset = 0) {
+  const db = getDb();
+  return db.prepare(`SELECT id, tile_id, author, author_tile, body, created_at FROM tile_notes WHERE tile_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(tileId, limit, offset);
+}
+
+export function deleteNote(noteId, wallet) {
+  const db = getDb();
+  return db.prepare(`DELETE FROM tile_notes WHERE id = ? AND author = ?`).run(noteId, wallet);
+}
+
+// — Tile Actions (/slap, /praise, etc.) —
+
+function ensureActionsTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_actions (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_tile   INTEGER NOT NULL,
+      to_tile     INTEGER NOT NULL,
+      action_type TEXT NOT NULL,
+      message     TEXT,
+      actor       TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_actions_to ON tile_actions(to_tile);
+    CREATE INDEX IF NOT EXISTS idx_actions_created ON tile_actions(created_at DESC);
+  `);
+}
+ensureActionsTable();
+
+const VALID_ACTIONS = ['slap', 'challenge', 'praise', 'wave', 'poke', 'taunt', 'hug', 'high-five'];
+
+export function addAction(fromTile, toTile, actionType, actor, message = null) {
+  if (!VALID_ACTIONS.includes(actionType)) return null;
+  const db = getDb();
+  const r = db.prepare(`INSERT INTO tile_actions (from_tile, to_tile, action_type, message, actor) VALUES (?, ?, ?, ?, ?)`).run(fromTile, toTile, actionType, message?.slice(0, 200) || null, actor);
+  return r.lastInsertRowid;
+}
+
+export function getActions(tileId, limit = 20) {
+  const db = getDb();
+  return db.prepare(`SELECT * FROM tile_actions WHERE from_tile = ? OR to_tile = ? ORDER BY created_at DESC LIMIT ?`).all(tileId, tileId, limit);
+}
+
+export function getRecentActions(limit = 30) {
+  const db = getDb();
+  return db.prepare(`SELECT * FROM tile_actions ORDER BY created_at DESC LIMIT ?`).all(limit);
+}
+
+export { VALID_ACTIONS };
+
+// — Direct Messages (encrypted tile-to-tile) —
+
+function ensureMessagesTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_messages (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_tile     INTEGER NOT NULL,
+      to_tile       INTEGER NOT NULL,
+      sender        TEXT NOT NULL,
+      encrypted_body TEXT NOT NULL,
+      nonce         TEXT,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      read_at       TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_to ON tile_messages(to_tile);
+    CREATE INDEX IF NOT EXISTS idx_messages_from ON tile_messages(from_tile);
+    CREATE INDEX IF NOT EXISTS idx_messages_created ON tile_messages(created_at DESC);
+  `);
+}
+ensureMessagesTable();
+
+export function sendMessage(fromTile, toTile, sender, encryptedBody, nonce) {
+  const db = getDb();
+  const r = db.prepare(`INSERT INTO tile_messages (from_tile, to_tile, sender, encrypted_body, nonce) VALUES (?, ?, ?, ?, ?)`).run(fromTile, toTile, sender, encryptedBody, nonce);
+  return r.lastInsertRowid;
+}
+
+export function getMessages(tileId, limit = 50) {
+  const db = getDb();
+  return db.prepare(`SELECT * FROM tile_messages WHERE from_tile = ? OR to_tile = ? ORDER BY created_at DESC LIMIT ?`).all(tileId, tileId, limit);
+}
+
+export function markMessageRead(messageId, wallet) {
+  const db = getDb();
+  return db.prepare(`UPDATE tile_messages SET read_at = datetime('now') WHERE id = ? AND to_tile IN (SELECT id FROM tiles WHERE owner = ?)`).run(messageId, wallet);
+}
+
+// — Tile Emotes / Reactions —
+
+function ensureEmotesTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_emotes (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_tile  INTEGER NOT NULL,
+      to_tile    INTEGER NOT NULL,
+      emoji      TEXT NOT NULL,
+      actor      TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_emotes_to ON tile_emotes(to_tile);
+    CREATE INDEX IF NOT EXISTS idx_emotes_created ON tile_emotes(created_at DESC);
+  `);
+}
+ensureEmotesTable();
+
+const ALLOWED_EMOTES = ['👍', '❤️', '🔥', '😂', '🤔', '👏', '🙌', '💀', '🎉', '⚔️', '🐟', '👀', '🫡', '💪', '🤝'];
+
+export function addEmote(fromTile, toTile, emoji, actor) {
+  if (!ALLOWED_EMOTES.includes(emoji)) return null;
+  const db = getDb();
+  const r = db.prepare(`INSERT INTO tile_emotes (from_tile, to_tile, emoji, actor) VALUES (?, ?, ?, ?)`).run(fromTile, toTile, emoji, actor);
+  return r.lastInsertRowid;
+}
+
+export function getEmotes(tileId, limit = 30) {
+  const db = getDb();
+  return db.prepare(`SELECT * FROM tile_emotes WHERE to_tile = ? ORDER BY created_at DESC LIMIT ?`).all(tileId, limit);
+}
+
+export function getRecentEmotes(limit = 50) {
+  const db = getDb();
+  return db.prepare(`SELECT * FROM tile_emotes ORDER BY created_at DESC LIMIT ?`).all(limit);
+}
+
+export { ALLOWED_EMOTES };
