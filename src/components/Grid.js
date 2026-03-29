@@ -293,32 +293,15 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     }
 
-    function animate(now) {
-      const elapsed = now - startTime;
-      const t = Math.min(1, elapsed / duration);
-      const e = easeInOutCubic(t);
-
-      // Write directly to ref — avoids 60 React re-renders per second
-      cameraRef.current = {
-        x: startX + (targetX - startX) * e,
-        y: startY + (targetY - startY) * e,
-        zoom: startZoom * Math.pow(targetZoom / startZoom, e),
-      };
-
-      if (t < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        introFinished.current = true;
-        // Sync React state once at the end so UI controls reflect final position
-        setCamera(cameraRef.current);
-      }
-    }
-
-    // Write initial position to ref too
+    // Store animation params — the main draw loop will drive this
     cameraRef.current = { x: startX, y: startY, zoom: startZoom };
 
-    // 1s pause so user sees the tiny grid floating in space
-    setTimeout(() => requestAnimationFrame(animate), 1000);
+    setTimeout(() => {
+      introAnimRef.current = {
+        startX, startY, startZoom, targetX, targetY, targetZoom,
+        duration, startTime: performance.now(), ease: easeInOutCubic,
+      };
+    }, 1000);
   }, [tiles, zoom, introReady]);
 
   // Fly-to animation: smooth zoom-out → arc pan → zoom-in
@@ -351,44 +334,12 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       return x < 0.5 ? 8 * x ** 4 : 1 - (-2 * x + 2) ** 4 / 2;
     }
 
-    function animate(now) {
-      const elapsed = now - startTime;
-      const t = Math.min(1, elapsed / duration);
-      const e = easeInOutQuart(t);
-
-      // Three-phase zoom: start → mid (zoom out) → target (zoom in)
-      let z;
-      if (t < 0.4) {
-        const p = t / 0.4;
-        z = startZoom + (midZoom - startZoom) * p;
-      } else {
-        const p = (t - 0.4) / 0.6;
-        z = midZoom + (targetZoom - midZoom) * easeInOutQuart(p);
-      }
-
-      // Slight arc on the pan path (perpendicular offset)
-      const dx = targetX - startX;
-      const dy = targetY - startY;
-      const arcStrength = dist * 0.08;
-      const arcT = Math.sin(e * Math.PI); // peaks at midpoint
-      const perpX = -dy / (dist || 1) * arcStrength * arcT;
-      const perpY = dx / (dist || 1) * arcStrength * arcT;
-
-      cameraRef.current = {
-        x: startX + dx * e + perpX,
-        y: startY + dy * e + perpY,
-        zoom: z,
-      };
-
-      if (t < 1) {
-        flyToRef.current = requestAnimationFrame(animate);
-      } else {
-        setCamera(cameraRef.current);
-      }
-    }
-
-    flyToRef.current = requestAnimationFrame(animate);
-    return () => { if (flyToRef.current) cancelAnimationFrame(flyToRef.current); };
+    // Store animation params — the main draw loop drives this
+    flyToAnimRef.current = {
+      startX, startY, startZoom, targetX, targetY, targetZoom,
+      midZoom, dist, duration, startTime: performance.now(),
+      ease: easeInOutQuart,
+    };
   }, [flyToTileId]);
 
   // Action animation trigger
@@ -485,6 +436,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   // Sync zoom prop into camera — but NOT until intro animation is done
   const introFinished = useRef(false);
+  const introAnimRef = useRef(null);
+  const flyToAnimRef = useRef(null);
   useEffect(() => {
     if (!introFinished.current) return; // don't override camera during intro
     if (zoom !== undefined && zoom !== camera.zoom) {
@@ -1206,6 +1159,54 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       const dt = (t - lastT) / 1000;
       lastT = t;
       pulsePhase.current += dt * 2.5; // ~2.5 rad/sec
+
+      // Drive intro animation from this single rAF loop (no separate chain)
+      const ia = introAnimRef.current;
+      if (ia) {
+        const elapsed = t - ia.startTime;
+        const p = Math.min(1, elapsed / ia.duration);
+        const e = ia.ease(p);
+        cameraRef.current = {
+          x: ia.startX + (ia.targetX - ia.startX) * e,
+          y: ia.startY + (ia.targetY - ia.startY) * e,
+          zoom: ia.startZoom * Math.pow(ia.targetZoom / ia.startZoom, e),
+        };
+        if (p >= 1) {
+          introAnimRef.current = null;
+          introFinished.current = true;
+          setCamera(cameraRef.current);
+        }
+      }
+
+      // Drive fly-to animation
+      const fa = flyToAnimRef.current;
+      if (fa) {
+        const elapsed = t - fa.startTime;
+        const p = Math.min(1, elapsed / fa.duration);
+        const e = fa.ease(p);
+        let z;
+        if (p < 0.4) {
+          z = fa.startZoom + (fa.midZoom - fa.startZoom) * (p / 0.4);
+        } else {
+          z = fa.midZoom + (fa.targetZoom - fa.midZoom) * fa.ease((p - 0.4) / 0.6);
+        }
+        const dx = fa.targetX - fa.startX;
+        const dy = fa.targetY - fa.startY;
+        const arcStrength = fa.dist * 0.08;
+        const arcT = Math.sin(e * Math.PI);
+        const perpX = -dy / (fa.dist || 1) * arcStrength * arcT;
+        const perpY = dx / (fa.dist || 1) * arcStrength * arcT;
+        cameraRef.current = {
+          x: fa.startX + dx * e + perpX,
+          y: fa.startY + dy * e + perpY,
+          zoom: z,
+        };
+        if (p >= 1) {
+          flyToAnimRef.current = null;
+          setCamera(cameraRef.current);
+        }
+      }
+
       draw();
       frame = requestAnimationFrame(loop);
     };
