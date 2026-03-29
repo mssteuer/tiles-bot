@@ -102,8 +102,8 @@ function ActionsTab({ tile, address, ownedTiles }) {
   useEffect(() => { fetchActions(); }, [fetchActions]);
 
   async function doAction(actionType) {
-    const fromTile = ownedTiles?.[0];
-    if (!address || !fromTile) return;
+    if (!address) return;
+    const fromTile = ownedTiles?.[0] ?? tile.id; // fallback to current tile
     setSending(actionType);
     await fetch(`/api/tiles/${tile.id}/actions`, {
       method: 'POST',
@@ -117,7 +117,7 @@ function ActionsTab({ tile, address, ownedTiles }) {
   return (
     <div>
       {/* Action buttons */}
-      {address && ownedTiles?.length > 0 && (
+      {address && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
           {VALID_ACTIONS.map(a => (
             <button key={a} onClick={() => doAction(a)} disabled={sending === a}
@@ -161,8 +161,8 @@ function EmotesTab({ tile, address, ownedTiles }) {
   useEffect(() => { fetchEmotes(); }, [fetchEmotes]);
 
   async function doEmote(emoji) {
-    const fromTile = ownedTiles?.[0];
-    if (!address || !fromTile) return;
+    if (!address) return;
+    const fromTile = ownedTiles?.[0] ?? tile.id; // fallback to current tile
     setSending(emoji);
     await fetch(`/api/tiles/${tile.id}/emotes`, {
       method: 'POST',
@@ -176,7 +176,7 @@ function EmotesTab({ tile, address, ownedTiles }) {
   return (
     <div>
       {/* Emoji picker */}
-      {address && ownedTiles?.length > 0 && (
+      {address && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
           {ALLOWED_EMOTES.map(e => (
             <button key={e} onClick={() => doEmote(e)} disabled={sending === e}
@@ -219,12 +219,11 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
   async function handleSend() {
-    if (!text.trim() || !address || !ownedTiles?.length) return;
+    if (!text.trim() || !address) return;
     setSending(true);
     // For now, send as plaintext (encrypted field = base64 of plaintext)
     // Full E2E encryption requires public key exchange — Phase 2
-    const fromTile = ownedTiles?.[0];
-    if (!fromTile) return;
+    const fromTile = ownedTiles?.[0] ?? tile.id;
     const encoded = btoa(unescape(encodeURIComponent(text.trim())));
     await fetch(`/api/tiles/${tile.id}/messages`, {
       method: 'POST',
@@ -241,7 +240,7 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
 
   if (!isOwner) {
     // Non-owner can send but not read
-    if (!address || !ownedTiles?.length) {
+    if (!address) {
       return <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: 16 }}>Connect wallet to send a message</div>;
     }
     return (

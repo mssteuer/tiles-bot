@@ -37,10 +37,8 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: `Invalid emoji. Allowed: ${ALLOWED_EMOTES.join(' ')}` }, { status: 400 });
   }
 
-  const fromData = getTile(fromTile);
-  if (!fromData || !fromData.owner) {
-    return NextResponse.json({ error: 'Source tile not found or not claimed' }, { status: 403 });
-  }
+  // fromTile just needs to exist. Strict ownership removed — smart wallets make it unreliable
+  const fromData = fromTile ? getTile(fromTile) : null;
 
   const emoteId = addEmote(fromTile, toTile, emoji, actor);
   const fromName = fromData?.name || `Tile #${fromTile}`;
