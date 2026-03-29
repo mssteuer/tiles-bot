@@ -85,7 +85,9 @@ function HomeInner() {
   const [spans, setSpans] = useState([]);
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
-  const [introReady, setIntroReady] = useState(false);
+  // Skip intro animation entirely if arriving via ?tile= deep link (e.g. Owner Dashboard click)
+  const hasDeepLink = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tile');
+  const [introReady, setIntroReady] = useState(hasDeepLink);
   const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
