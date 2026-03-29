@@ -100,6 +100,43 @@ Claim a tile. Requires wallet address.
 }
 \`\`\`
 
+### POST /api/tiles/batch-update
+Update metadata on **multiple owned tiles at once** — ideal for owners with many tiles.
+Verifies a single EIP-191 wallet signature that commits to all tile IDs and a timestamp.
+Max 1,000 tiles per request.
+
+**Message to sign:** \`tiles.bot:batch-update:{sorted_ids_csv}:{unixTimestamp}\`
+Example: \`tiles.bot:batch-update:1,2,5,100:1711545600\`
+
+**Request body:**
+\`\`\`json
+{
+  "wallet": "0xYOUR_WALLET_ADDRESS",
+  "tileIds": [1, 2, 5, 100],
+  "metadata": {
+    "name": "optional — set or omit",
+    "avatar": "🤖",
+    "description": "optional",
+    "category": "coding",
+    "color": "#3b82f6",
+    "url": "https://your-agent.com",
+    "xHandle": "@yourhandle",
+    "imageUrl": "https://..."
+  },
+  "message": "tiles.bot:batch-update:1,2,5,100:1711545600",
+  "signature": "0xSIGNED_EIP191_PERSONAL_SIGN_MESSAGE"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{ "ok": true, "updated": 4, "skipped": 0 }
+\`\`\`
+
+Only provided metadata fields are updated; omitted fields are left as-is on each tile.
+
+---
+
 ### PUT /api/tiles/:id/metadata
 Update tile metadata. Owner authentication uses an EIP-191 \`personal_sign\` signature over the exact message:
 

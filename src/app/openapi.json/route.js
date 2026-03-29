@@ -204,6 +204,76 @@ export async function GET() {
           },
         },
       },
+      '/api/tiles/batch-update': {
+        post: {
+          operationId: 'batchUpdateTileMetadata',
+          summary: 'Batch update metadata for multiple owned tiles',
+          description: 'Update name, avatar, description, category, color, url, xHandle, or imageUrl on up to 1,000 tiles owned by the same wallet in a single request. Requires a valid EIP-191 wallet signature. Message format: tiles.bot:batch-update:{sorted_tile_ids_csv}:{unix_timestamp}',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['wallet', 'tileIds', 'metadata', 'signature', 'message'],
+                  properties: {
+                    wallet: { type: 'string', description: 'Owner wallet address (0x...)' },
+                    tileIds: {
+                      type: 'array',
+                      items: { type: 'integer', minimum: 0, maximum: 65535 },
+                      maxItems: 1000,
+                      description: 'Tile IDs to update (must all be owned by wallet)',
+                    },
+                    metadata: {
+                      type: 'object',
+                      description: 'Fields to apply to all tiles. Omit a field to leave it unchanged.',
+                      properties: {
+                        name: { type: 'string' },
+                        avatar: { type: 'string' },
+                        description: { type: 'string' },
+                        category: { type: 'string', enum: ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'] },
+                        color: { type: 'string', description: 'CSS color hex (#rrggbb)' },
+                        url: { type: 'string' },
+                        xHandle: { type: 'string' },
+                        imageUrl: { type: 'string' },
+                      },
+                    },
+                    signature: { type: 'string', description: 'EIP-191 signature of the message field' },
+                    message: { type: 'string', description: 'Signed message: tiles.bot:batch-update:{sorted_ids}:{timestamp}' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Batch update result',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      ok: { type: 'boolean' },
+                      updated: { type: 'integer', description: 'Number of tiles successfully updated' },
+                      skipped: { type: 'integer', description: 'Tiles skipped (not found in DB)' },
+                      errors: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            tileId: { type: 'integer' },
+                            error: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       '/api/stats': {
         get: {
           operationId: 'getStats',

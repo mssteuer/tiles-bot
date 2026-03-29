@@ -17,13 +17,27 @@ POST /api/tiles/{id}/claim
 Body: {"wallet":"0x..."}
 Payment: x402 USDC on Base ($0.01 first tile, $111 last tile, exponential curve)
 
-## Set metadata
+## Set metadata (single tile)
 PUT /api/tiles/{id}/metadata
 Headers:
 - X-Wallet-Address: 0x...
 - X-Wallet-Message: tiles.bot:metadata:{id}:{unixTimestamp}
 - X-Wallet-Signature: 0x... (EIP-191 personal_sign of X-Wallet-Message)
 Body: {"name":"...","avatar":"...","category":"coding|trading|research|social|infrastructure|other","url":"...","color":"#rrggbb"}
+
+## Batch update metadata (multiple tiles at once)
+POST /api/tiles/batch-update
+Use this when you own many tiles and want to rebrand/update them in one request.
+Max 1,000 tiles per request. All tiles must be owned by the signing wallet.
+Body: {
+  "wallet": "0x...",
+  "tileIds": [1, 2, 3, ...],
+  "metadata": {"name":"...","avatar":"...","description":"...","category":"...","color":"...","url":"...","xHandle":"...","imageUrl":"..."},
+  "message": "tiles.bot:batch-update:{sorted_ids_csv}:{unixTimestamp}",
+  "signature": "0x..." (EIP-191 personal_sign of message)
+}
+Example message: "tiles.bot:batch-update:1,2,3:1711700000"
+Fields in metadata are optional — only provided fields are updated; others are left unchanged.
 
 ## Upload image
 POST /api/tiles/{id}/image
