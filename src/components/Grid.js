@@ -313,7 +313,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     setTimeout(() => {
       introAnimRef.current = {
         startX, startY, startZoom, targetX, targetY, targetZoom,
-        duration, startTime: performance.now(), ease: easeInOutCubic,
+        duration, startTime: null, ease: easeInOutCubic, // startTime set lazily on first frame
       };
     }, 1000);
   }, [tiles, zoom, introReady]);
@@ -351,7 +351,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     // Store animation params — the main draw loop drives this
     flyToAnimRef.current = {
       startX, startY, startZoom, targetX, targetY, targetZoom,
-      midZoom, dist, duration, startTime: performance.now(),
+      midZoom, dist, duration, startTime: null, // lazy init on first frame
       ease: easeInOutQuart,
     };
   }, [flyToTileId]);
@@ -1001,6 +1001,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       // Drive intro animation from this single rAF loop (no separate chain)
       const ia = introAnimRef.current;
       if (ia) {
+        if (ia.startTime === null) ia.startTime = t; // lazy init on first frame
         const elapsed = t - ia.startTime;
         const p = Math.min(1, elapsed / ia.duration);
         const e = ia.ease(p);
@@ -1020,6 +1021,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       // Drive fly-to animation
       const fa = flyToAnimRef.current;
       if (fa) {
+        if (fa.startTime === null) fa.startTime = t; // lazy init on first frame
         const elapsed = t - fa.startTime;
         const p = Math.min(1, elapsed / fa.duration);
         const e = fa.ease(p);
