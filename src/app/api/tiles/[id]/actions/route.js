@@ -47,7 +47,7 @@ export async function POST(req, { params }) {
   const body = await req.json();
   const { fromTile, actionType, actor, message } = body;
 
-  if (!fromTile || !actionType || !actor) {
+  if (fromTile == null || !actionType || !actor) {
     return NextResponse.json({ error: 'fromTile, actionType, and actor required' }, { status: 400 });
   }
   if (!VALID_ACTIONS.includes(actionType)) {
