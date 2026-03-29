@@ -1028,10 +1028,23 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       }
     }
 
-    // Grid border
-    ctx.strokeStyle = '#1a1a2e';
+    // Grid border with animated glow
+    const t = Date.now() / 1000;
+    const borderPulse = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 0.8)); // slow breathe 0.4–1.0
+    const glowSize = (12 + 8 * Math.sin(t * 0.6)) / cam.zoom;
+    ctx.save();
+    ctx.shadowColor = `rgba(59, 130, 246, ${0.5 * borderPulse})`;
+    ctx.shadowBlur = glowSize;
+    ctx.strokeStyle = `rgba(59, 130, 246, ${0.25 * borderPulse})`;
     ctx.lineWidth = 2 / cam.zoom;
     ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
+    // Second pass for brighter inner edge
+    ctx.shadowBlur = glowSize * 0.5;
+    ctx.shadowColor = `rgba(147, 197, 253, ${0.3 * borderPulse})`;
+    ctx.strokeStyle = `rgba(147, 197, 253, ${0.15 * borderPulse})`;
+    ctx.lineWidth = 1 / cam.zoom;
+    ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
+    ctx.restore();
 
     ctx.restore();
   }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter, heatmapMode]); // camera via ref, connections via ref, heatmapMode via ref
