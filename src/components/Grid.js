@@ -554,7 +554,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     const minRow = Math.max(0, Math.floor(top / TILE_SIZE));
     const maxRow = Math.min(GRID_SIZE - 1, Math.floor(bottom / TILE_SIZE));
 
-    // Grid lines (only when zoomed enough)
+    const visibleCells = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+
+    // Grid lines (only when zoomed enough and not too many cells)
     if (cam.zoom > 0.08 && visibleCells < 20000) {
       ctx.strokeStyle = 'rgba(255,255,255,0.06)';
       ctx.lineWidth = 1 / cam.zoom;
@@ -746,7 +748,6 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     // Perf: at very low zoom, the visible range can be the entire 256×256 grid (65536 cells).
     // Only ~130 tiles are claimed. Instead of iterating all cells, iterate only claimed tiles
     // when the visible area is large (> 10000 cells).
-    const visibleCells = (maxRow - minRow + 1) * (maxCol - minCol + 1);
     const tileEntries = visibleCells > 10000
       ? Object.keys(tiles).map(k => {
           const id = Number(k);
