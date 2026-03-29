@@ -716,6 +716,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     }
 
     // Always draw claimed tiles first (fast: only iterate tiles with data)
+    const tileBorders = []; // Collect borders to batch-stroke after tile loop
     const claimedIds = Object.keys(tiles);
     for (let ci = 0; ci < claimedIds.length; ci++) {
       const id = Number(claimedIds[ci]);
@@ -743,38 +744,25 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           ctx.save();
           if (!tileMatches) ctx.globalAlpha = 0.25;
 
-          // ── Heartbeat glow halo ──────────────────────────────────────
+          // ── Heartbeat glow halo (no shadowBlur — uses layered fills instead) ──
           if (tile.lastHeartbeat) {
             const age = now - tile.lastHeartbeat;
             if (age <= HB_GREEN) {
-              // Pulsing green glow
-              const alpha = (0.3 + 0.5 * pulse).toFixed(2);
-              ctx.save();
-              ctx.shadowColor = `rgba(34,197,94,${alpha})`;
-              ctx.shadowBlur = 12 / cam.zoom;
-              ctx.fillStyle = `rgba(34,197,94,${(0.1 * pulse).toFixed(2)})`;
+              const a = 0.06 + 0.08 * pulse;
+              ctx.fillStyle = `rgba(34,197,94,${a.toFixed(3)})`;
+              ctx.fillRect(x - 4, y - 4, TILE_SIZE + 8, TILE_SIZE + 8);
+              ctx.fillStyle = `rgba(34,197,94,${(a * 1.5).toFixed(3)})`;
               ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
-              ctx.restore();
             } else if (age <= HB_YELLOW) {
-              // Dim yellow glow
-              ctx.save();
-              ctx.shadowColor = 'rgba(234,179,8,0.3)';
-              ctx.shadowBlur = 8 / cam.zoom;
-              ctx.fillStyle = 'rgba(234,179,8,0.06)';
-              ctx.fillRect(x - 1, y - 1, TILE_SIZE + 2, TILE_SIZE + 2);
-              ctx.restore();
+              ctx.fillStyle = 'rgba(234,179,8,0.04)';
+              ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
             }
           }
 
-          // Try to draw image first
+          // Try to draw image first (no clip — draw at exact tile bounds)
           const cachedImg = tile.imageUrl ? imageCache[`${tile.id}:64:${tile.imageUrl}`] : null;
           if (cachedImg && cachedImg !== 'loading' && cachedImg !== 'error') {
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-            ctx.clip();
             ctx.drawImage(cachedImg, x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-            ctx.restore();
           } else {
             // Colored background + emoji
             ctx.fillStyle = baseColor;
@@ -788,10 +776,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             }
           }
 
-          // Border
-          ctx.strokeStyle = baseColor;
-          ctx.lineWidth = 1.5 / cam.zoom;
-          ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+          // Border (collected for batch stroke below)
+          tileBorders.push({ x: x + 1, y: y + 1, w: TILE_SIZE - 2, h: TILE_SIZE - 2, color: baseColor });
 
           // Status dot, verification badges, and name overlays disabled for clean tile display
 
@@ -857,6 +843,23 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         }
       }
 
+    // Batch-stroke tile borders (grouped by color → one path per color group)
+    if (tileBorders.length > 0) {
+      const byColor = {};
+      for (const b of tileBorders) {
+        (byColor[b.color] || (byColor[b.color] = [])).push(b);
+      }
+      ctx.lineWidth = 1.5 / cam.zoom;
+      for (const color in byColor) {
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        for (const b of byColor[color]) {
+          ctx.rect(b.x, b.y, b.w, b.h);
+        }
+        ctx.stroke();
+      }
+    }
+
     // Empty cell hover/selection highlights (only when zoomed in enough to see cells)
     if (visibleCells < 5000) {
       const hasDrag = dragSelectedTiles.current.size > 0;
@@ -909,15 +912,13 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           ctx.fillStyle = heatmapColor(score, overlayAlpha);
           ctx.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
 
-          // Glow halo for hot tiles (score >= 0.6)
+          // Glow halo for hot tiles (score >= 0.6) — layered fills instead of shadowBlur
           if (score >= 0.6) {
-            const glowAlpha = (score - 0.6) / 0.4 * 0.7; // 0–0.7
-            ctx.save();
-            ctx.shadowColor = heatmapColor(score, 1);
-            ctx.shadowBlur = 14 / cam.zoom * score;
-            ctx.fillStyle = heatmapColor(score, glowAlpha * 0.3);
-            ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
-            ctx.restore();
+            const glowAlpha = (score - 0.6) / 0.4 * 0.15; // 0–0.15
+            ctx.fillStyle = heatmapColor(score, glowAlpha);
+            ctx.fillRect(x - 6, y - 6, TILE_SIZE + 12, TILE_SIZE + 12);
+            ctx.fillStyle = heatmapColor(score, glowAlpha * 2);
+            ctx.fillRect(x - 3, y - 3, TILE_SIZE + 6, TILE_SIZE + 6);
           }
 
           // Score text when zoomed in (score > 0.3)
