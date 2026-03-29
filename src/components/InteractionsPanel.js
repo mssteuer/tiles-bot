@@ -38,7 +38,7 @@ function NotesTab({ tile, address, ownedTiles }) {
   async function handleSend() {
     if (!text.trim() || !address) return;
     setSending(true);
-    const fromTile = ownedTiles?.[0] || null;
+    const fromTile = ownedTiles?.[0] ?? null;
     await fetch(`/api/tiles/${tile.id}/notes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -102,12 +102,13 @@ function ActionsTab({ tile, address, ownedTiles }) {
   useEffect(() => { fetchActions(); }, [fetchActions]);
 
   async function doAction(actionType) {
-    if (!address || !ownedTiles?.length) return;
+    const fromTile = ownedTiles?.[0];
+    if (!address || !fromTile) return;
     setSending(actionType);
     await fetch(`/api/tiles/${tile.id}/actions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fromTile: ownedTiles[0], actionType, actor: address }),
+      body: JSON.stringify({ fromTile, actionType, actor: address }),
     });
     setSending(null);
     fetchActions();
@@ -160,12 +161,13 @@ function EmotesTab({ tile, address, ownedTiles }) {
   useEffect(() => { fetchEmotes(); }, [fetchEmotes]);
 
   async function doEmote(emoji) {
-    if (!address || !ownedTiles?.length) return;
+    const fromTile = ownedTiles?.[0];
+    if (!address || !fromTile) return;
     setSending(emoji);
     await fetch(`/api/tiles/${tile.id}/emotes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fromTile: ownedTiles[0], emoji, actor: address }),
+      body: JSON.stringify({ fromTile, emoji, actor: address }),
     });
     setSending(null);
     fetchEmotes();
@@ -221,12 +223,14 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
     setSending(true);
     // For now, send as plaintext (encrypted field = base64 of plaintext)
     // Full E2E encryption requires public key exchange — Phase 2
+    const fromTile = ownedTiles?.[0];
+    if (!fromTile) return;
     const encoded = btoa(unescape(encodeURIComponent(text.trim())));
     await fetch(`/api/tiles/${tile.id}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fromTile: ownedTiles[0], sender: address,
+        fromTile, sender: address,
         encryptedBody: encoded, nonce: null,
       }),
     });
