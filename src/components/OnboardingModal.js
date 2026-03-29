@@ -42,7 +42,7 @@ const SLIDES = [
   },
 ];
 
-export default function OnboardingModal() {
+export default function OnboardingModal({ onComplete }) {
   const [show, setShow] = useState(false);
   const [slide, setSlide] = useState(0);
 
@@ -50,12 +50,16 @@ export default function OnboardingModal() {
     if (typeof window === 'undefined') return;
     if (!localStorage.getItem(STORAGE_KEY)) {
       setShow(true);
+    } else {
+      // Already onboarded — signal immediately
+      onComplete?.();
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function dismiss() {
     localStorage.setItem(STORAGE_KEY, 'true');
     setShow(false);
+    onComplete?.();
   }
 
   if (!show) return null;

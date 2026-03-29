@@ -85,6 +85,7 @@ function HomeInner() {
   const [spans, setSpans] = useState([]);
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
+  const [introReady, setIntroReady] = useState(false);
   const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
@@ -249,7 +250,7 @@ function HomeInner() {
 
   return (
     <div className="app-shell">
-      <OnboardingModal />
+      <OnboardingModal onComplete={() => setIntroReady(true)} />
       {claimModalTile !== null && (
         <ClaimModal
           tileId={claimModalTile}
@@ -328,6 +329,7 @@ function HomeInner() {
           onSpanClaimRequest={setSpanClaimTopLeft}
           flyToTileId={flyToTileId}
           actionAnimation={actionAnimation}
+          introReady={introReady}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}

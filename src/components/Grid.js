@@ -179,7 +179,7 @@ function MobileHints() {
   );
 }
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -239,10 +239,10 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   useEffect(() => {
     if (introPlayed.current) return;
 
-    // Wait until tiles are actually loaded AND canvas is mounted
+    // Wait until tiles loaded, canvas mounted, AND onboarding complete
     const ids = Object.keys(tiles).map(Number);
     const container = containerRef.current;
-    if (ids.length === 0 || !container) return;
+    if (ids.length === 0 || !container || !introReady) return;
 
     introPlayed.current = true;
 
@@ -310,7 +310,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     // 1s pause so user sees the tiny grid floating in space
     setTimeout(() => requestAnimationFrame(animate), 1000);
-  }, [tiles, zoom]);
+  }, [tiles, zoom, introReady]);
 
   // Fly-to animation: smooth zoom-out → arc pan → zoom-in
   const flyToRef = useRef(null);
