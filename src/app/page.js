@@ -85,9 +85,10 @@ function HomeInner() {
   const [spans, setSpans] = useState([]);
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
-  // Skip intro animation entirely if arriving via ?tile= deep link (e.g. Owner Dashboard click)
+  // Skip intro if: deep link (?tile=), OR returning from another page (camera saved in sessionStorage)
   const hasDeepLink = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tile');
-  const [introReady, setIntroReady] = useState(hasDeepLink);
+  const hasSavedCamera = typeof window !== 'undefined' && !!sessionStorage.getItem('tiles_camera');
+  const [introReady, setIntroReady] = useState(hasDeepLink || hasSavedCamera);
   const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
@@ -343,6 +344,7 @@ function HomeInner() {
           actionAnimation={actionAnimation}
           introReady={introReady}
           onIntroFinished={onIntroFinished}
+          initialCamera={hasSavedCamera ? (() => { try { return JSON.parse(sessionStorage.getItem('tiles_camera')); } catch { return null; } })() : null}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}
