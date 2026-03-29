@@ -696,10 +696,11 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
               const emojiSize = Math.min(20, TILE_SIZE * 0.5);
               ctx.font = `${emojiSize}px system-ui`;
               // Draw emoji as image via offscreen canvas for pixel-perfect centering
-              // Render at 4x size for crisp display when zoomed in
-              const renderScale = 4;
+              // Render at high res: 4x base × devicePixelRatio for Retina crispness
+              const dpr = window.devicePixelRatio || 1;
+              const renderScale = 4 * dpr;
               const renderSize = emojiSize * renderScale;
-              const eCacheKey = emoji + ':' + emojiSize;
+              const eCacheKey = emoji + ':' + emojiSize + ':' + dpr;
               let eBmp = imageCache[eCacheKey];
               if (!eBmp) {
                 imageCache[eCacheKey] = 'loading';
