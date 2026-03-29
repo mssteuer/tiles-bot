@@ -96,7 +96,10 @@ function heatmapColor(score, alpha = 0.72) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-// Image cache: tileId -> HTMLImageElement or 'loading' or 'error'
+// Image cache: cacheKey -> ImageBitmap | 'loading' | 'error'
+// Uses createImageBitmap() for off-main-thread decoding — drawImage(bitmap) is a
+// zero-decode blit, unlike drawImage(HTMLImageElement) which decodes synchronously
+// on the main thread every frame (the 557ms "Image decode" in the profile).
 const imageCache = {};
 
 function getSizedImageUrl(url, size) {
@@ -108,7 +111,6 @@ function getSizedImageUrl(url, size) {
 function loadTileImage(tile) {
   const url = getSizedImageUrl(tile.imageUrl, 64);
   if (!url) return null;
-  // Include URL in cache key so new images replace stale cached versions
   const cacheKey = `${tile.id}:64:${tile.imageUrl}`;
   if (imageCache[cacheKey]) return imageCache[cacheKey];
   // Clear any old cache entry for this tile
@@ -116,10 +118,12 @@ function loadTileImage(tile) {
     if (k.startsWith(`${tile.id}:64:`) && k !== cacheKey) delete imageCache[k];
   }
   imageCache[cacheKey] = 'loading';
-  const img = new Image();
-  img.onload = () => { imageCache[cacheKey] = img; };
-  img.onerror = () => { imageCache[cacheKey] = 'error'; };
-  img.src = url;
+  // Fetch + decode off-main-thread via createImageBitmap
+  fetch(url)
+    .then(r => r.blob())
+    .then(blob => createImageBitmap(blob))
+    .then(bmp => { imageCache[cacheKey] = bmp; })
+    .catch(() => { imageCache[cacheKey] = 'error'; });
   return null;
 }
 
@@ -571,10 +575,11 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         let cachedSpanImg = imageCache[spanImgKey];
         if (!cachedSpanImg) {
           imageCache[spanImgKey] = 'loading';
-          const img = new window.Image();
-          img.src = span.imageUrl;
-          img.onload = () => { imageCache[spanImgKey] = img; };
-          img.onerror = () => { imageCache[spanImgKey] = 'error'; };
+          fetch(span.imageUrl)
+            .then(r => r.blob())
+            .then(blob => createImageBitmap(blob))
+            .then(bmp => { imageCache[spanImgKey] = bmp; })
+            .catch(() => { imageCache[spanImgKey] = 'error'; });
         } else if (cachedSpanImg !== 'loading' && cachedSpanImg !== 'error') {
           ctx.drawImage(cachedSpanImg, sx, sy, sw, sh);
         }
@@ -663,10 +668,11 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         let cachedBlockImg = imageCache[blockImgKey];
         if (!cachedBlockImg) {
           imageCache[blockImgKey] = 'loading';
-          const img = new window.Image();
-          img.src = block.imageUrl;
-          img.onload = () => { imageCache[blockImgKey] = img; };
-          img.onerror = () => { imageCache[blockImgKey] = 'error'; };
+          fetch(block.imageUrl)
+            .then(r => r.blob())
+            .then(blob => createImageBitmap(blob))
+            .then(bmp => { imageCache[blockImgKey] = bmp; })
+            .catch(() => { imageCache[blockImgKey] = 'error'; });
         } else if (cachedBlockImg !== 'loading' && cachedBlockImg !== 'error') {
           ctx.save();
           ctx.beginPath();
