@@ -183,13 +183,13 @@ function MobileHints() {
   );
 }
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
   const starfieldRef = useRef(null);
   const activeAnimationsRef = useRef([]);
-  const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.008 }); // grid is ~1/8 of viewport at ~1920px wide
+  const [camera, setCamera] = useState(() => initialCamera || { x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.008 });
 
   // Generate starfield once (off-screen canvas)
   useEffect(() => {
@@ -246,8 +246,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       return;
     }
 
-    // Skip intro if arriving via deep link (fly-to already queued)
-    if (flyToTileId) {
+    // Skip intro if returning from another page (camera restored) or deep link
+    if (initialCamera || flyToTileId) {
       introPlayed.current = true;
       if (onIntroFinished) onIntroFinished();
       return;
@@ -402,7 +402,11 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const pulsePhase = useRef(0);
 
   const cameraRef = useRef(camera);
-  useEffect(() => { cameraRef.current = camera; }, [camera]);
+  useEffect(() => {
+    cameraRef.current = camera;
+    // Persist camera for navigation return (skip intro on back-nav)
+    try { sessionStorage.setItem('tiles_camera', JSON.stringify(camera)); } catch {}
+  }, [camera]);
 
   // Connections ref (kept in sync with prop for draw callback)
   const connectionsRef = useRef(connections || []);
