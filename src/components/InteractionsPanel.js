@@ -90,10 +90,33 @@ function NotesTab({ tile, address, ownedTiles }) {
   );
 }
 
+// — From-Tile Selector —
+function FromTileSelector({ ownedTiles, allTiles, selected, onChange }) {
+  if (!ownedTiles || ownedTiles.length <= 1) return null;
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <label style={{ fontSize: 11, color: '#64748b', display: 'block', marginBottom: 3 }}>Acting as:</label>
+      <select value={selected ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))} style={{
+        width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #2a2a3e',
+        background: '#111', color: '#e2e8f0', fontSize: 12, outline: 'none',
+      }}>
+        {ownedTiles.map(id => {
+          const t = allTiles?.[String(id)];
+          const label = t?.name ? `${t.name} (#${id})` : `Tile #${id}`;
+          return <option key={id} value={id}>{label}</option>;
+        })}
+      </select>
+    </div>
+  );
+}
+
 // — Actions Tab —
-function ActionsTab({ tile, address, ownedTiles }) {
+function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
   const [actions, setActions] = useState([]);
   const [sending, setSending] = useState(null);
+  const [fromTile, setFromTile] = useState(ownedTiles?.[0] ?? tile.id);
+
+  useEffect(() => { setFromTile(ownedTiles?.[0] ?? tile.id); }, [ownedTiles, tile.id]);
 
   const fetchActions = useCallback(() => {
     fetch(`/api/tiles/${tile.id}/actions`).then(r => r.json()).then(d => setActions(d.actions || [])).catch(() => {});
@@ -103,19 +126,22 @@ function ActionsTab({ tile, address, ownedTiles }) {
 
   async function doAction(actionType) {
     if (!address) return;
-    const fromTile = ownedTiles?.[0] ?? tile.id; // fallback to current tile
     setSending(actionType);
-    await fetch(`/api/tiles/${tile.id}/actions`, {
+    const res = await fetch(`/api/tiles/${tile.id}/actions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fromTile, actionType, actor: address }),
     });
+    const data = await res.json().catch(() => ({}));
     setSending(null);
     fetchActions();
+    // Trigger canvas animation
+    if (data.ok && onAction) onAction({ fromTile, toTile: tile.id, actionType, emoji: ACTION_EMOJIS[actionType] });
   }
 
   return (
     <div>
+      <FromTileSelector ownedTiles={ownedTiles} allTiles={allTiles} selected={fromTile} onChange={setFromTile} />
       {/* Action buttons */}
       {address && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
@@ -305,7 +331,7 @@ const TABS = [
   { id: 'messages', label: '💌 DMs', shortLabel: '💌' },
 ];
 
-export default function InteractionsPanel({ tile, address, ownedTiles, isOwner }) {
+export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, allTiles, onAction }) {
   const [tab, setTab] = useState('notes');
 
   if (!tile) return null;
@@ -331,7 +357,7 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner }
       </div>
       {/* Tab content */}
       {tab === 'notes' && <NotesTab tile={tile} address={address} ownedTiles={ownedTiles} />}
-      {tab === 'actions' && <ActionsTab tile={tile} address={address} ownedTiles={ownedTiles} />}
+      {tab === 'actions' && <ActionsTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} onAction={onAction} />}
       {tab === 'emotes' && <EmotesTab tile={tile} address={address} ownedTiles={ownedTiles} />}
       {tab === 'messages' && <MessagesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
     </div>

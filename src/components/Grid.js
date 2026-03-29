@@ -179,11 +179,12 @@ function MobileHints() {
   );
 }
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
   const starfieldRef = useRef(null);
+  const activeAnimationsRef = useRef([]);
   const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.05 }); // start zoomed out (full grid visible)
 
   // Generate starfield once (off-screen canvas)
@@ -379,6 +380,25 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     flyToRef.current = requestAnimationFrame(animate);
     return () => { if (flyToRef.current) cancelAnimationFrame(flyToRef.current); };
   }, [flyToTileId]);
+
+  // Action animation trigger
+  useEffect(() => {
+    if (!actionAnimation) return;
+    const { fromTile, toTile, emoji, actionType } = actionAnimation;
+    const fromRow = Math.floor(fromTile / 256), fromCol = fromTile % 256;
+    const toRow = Math.floor(toTile / 256), toCol = toTile % 256;
+    const startX = fromCol * TILE_SIZE + TILE_SIZE / 2;
+    const startY = fromRow * TILE_SIZE + TILE_SIZE / 2;
+    const endX = toCol * TILE_SIZE + TILE_SIZE / 2;
+    const endY = toRow * TILE_SIZE + TILE_SIZE / 2;
+    activeAnimationsRef.current.push({
+      startX, startY, endX, endY,
+      emoji: emoji || '🐟',
+      actionType: actionType || 'slap',
+      startTime: Date.now(),
+      duration: 1500, // 1.5 seconds
+    });
+  }, [actionAnimation]);
 
   const [hoveredTile, setHoveredTile] = useState(null);
   const [batchTiles, setBatchTiles] = useState(null); // array of tile IDs for batch modal
@@ -1052,6 +1072,55 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     ctx.lineWidth = 1.5 / cam.zoom;
     ctx.strokeRect(0, 0, GRID_PX, GRID_PX);
     ctx.restore();
+
+    // — Action animations (flying emoji between tiles) —
+    const animNow = Date.now();
+    const anims = activeAnimationsRef.current;
+    for (let i = anims.length - 1; i >= 0; i--) {
+      const a = anims[i];
+      const elapsed = animNow - a.startTime;
+      const t = Math.min(elapsed / a.duration, 1);
+      if (t >= 1) { anims.splice(i, 1); continue; }
+
+      // Ease-out arc trajectory
+      const ease = 1 - Math.pow(1 - t, 3); // cubic ease-out
+      const x = a.startX + (a.endX - a.startX) * ease;
+      const y = a.startY + (a.endY - a.startY) * ease;
+      // Arc: rise up in the middle
+      const arcHeight = Math.abs(a.endX - a.startX + a.endY - a.startY) * 0.3;
+      const arcY = y - Math.sin(t * Math.PI) * arcHeight;
+
+      // Size: grow then shrink
+      const scale = (t < 0.3 ? t / 0.3 : t > 0.7 ? (1 - t) / 0.3 : 1) * 1.5;
+      const fontSize = Math.max(24, 48 * scale) / cam.zoom;
+
+      // Rotation for slap (wobble)
+      const rot = a.actionType === 'slap' ? Math.sin(t * Math.PI * 6) * 0.3 : 0;
+
+      ctx.save();
+      ctx.translate(x, arcY);
+      ctx.rotate(rot);
+      ctx.font = `${fontSize}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Glow behind emoji
+      ctx.shadowColor = 'rgba(255,255,255,0.6)';
+      ctx.shadowBlur = 10 / cam.zoom;
+      ctx.fillText(a.emoji, 0, 0);
+      ctx.restore();
+
+      // Impact flash at end
+      if (t > 0.85) {
+        const flashAlpha = (t - 0.85) / 0.15;
+        const flashR = (40 + 30 * flashAlpha) / cam.zoom;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(a.endX, a.endY, flashR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 200, ${0.4 * (1 - flashAlpha)})`;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
 
     ctx.restore();
   }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter, heatmapMode]); // camera via ref, connections via ref, heatmapMode via ref
