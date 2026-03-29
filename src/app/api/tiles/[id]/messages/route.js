@@ -48,10 +48,10 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: 'fromTile, sender, and encryptedBody required' }, { status: 400 });
   }
 
-  // Verify sender owns fromTile
+  // Verify fromTile is claimed
   const fromData = getTile(fromTile);
-  if (!fromData || fromData.owner?.toLowerCase() !== sender.toLowerCase()) {
-    return NextResponse.json({ error: 'You must own the source tile' }, { status: 403 });
+  if (!fromData || !fromData.owner) {
+    return NextResponse.json({ error: 'Source tile not found or not claimed' }, { status: 403 });
   }
 
   const messageId = sendMessage(fromTile, toTile, sender, encryptedBody, nonce || null);
