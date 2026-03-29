@@ -613,12 +613,10 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       if (span.imageUrl) {
         let cachedSpanImg = imageCache[spanImgKey];
         if (!cachedSpanImg) {
+          // Use pre-generated WebP thumbnail if available, fall back to full-size
+          const thumbUrl = `/tile-images/spans/${span.id}/thumb.webp`;
           imageCache[spanImgKey] = 'loading';
-          fetch(span.imageUrl)
-            .then(r => { if (!r.ok) throw new Error('404'); return r.blob(); })
-            .then(blob => createImageBitmap(blob))
-            .then(bmp => { imageCache[spanImgKey] = bmp; })
-            .catch(() => { imageCache[spanImgKey] = 'error'; });
+          scheduleFetch(thumbUrl, spanImgKey);
         } else if (cachedSpanImg !== 'loading' && cachedSpanImg !== 'error') {
           ctx.drawImage(cachedSpanImg, sx, sy, sw, sh);
         }
@@ -633,11 +631,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           let sliceBmp = imageCache[sliceKey];
           if (!sliceBmp) {
             imageCache[sliceKey] = 'loading';
-            fetch(sliceUrl)
-              .then(r => { if (!r.ok) throw new Error('404'); return r.blob(); })
-              .then(blob => createImageBitmap(blob))
-              .then(bmp => { imageCache[sliceKey] = bmp; })
-              .catch(() => { imageCache[sliceKey] = 'error'; });
+            // Use thumb version of slice tile image
+            const sliceThumb = `/tile-images/thumb/${tileId}.webp`;
+            scheduleFetch(sliceThumb, sliceKey);
           } else if (sliceBmp !== 'loading' && sliceBmp !== 'error') {
             const tRow = Math.floor(tileId / GRID_SIZE);
             const tCol = tileId % GRID_SIZE;
