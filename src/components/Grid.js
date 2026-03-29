@@ -298,18 +298,24 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       const t = Math.min(1, elapsed / duration);
       const e = easeInOutCubic(t);
 
-      setCamera({
+      // Write directly to ref — avoids 60 React re-renders per second
+      cameraRef.current = {
         x: startX + (targetX - startX) * e,
         y: startY + (targetY - startY) * e,
-        zoom: startZoom * Math.pow(targetZoom / startZoom, e), // exponential zoom feels natural
-      });
+        zoom: startZoom * Math.pow(targetZoom / startZoom, e),
+      };
 
       if (t < 1) {
         requestAnimationFrame(animate);
       } else {
         introFinished.current = true;
+        // Sync React state once at the end so UI controls reflect final position
+        setCamera(cameraRef.current);
       }
     }
+
+    // Write initial position to ref too
+    cameraRef.current = { x: startX, y: startY, zoom: startZoom };
 
     // 1s pause so user sees the tiny grid floating in space
     setTimeout(() => requestAnimationFrame(animate), 1000);
@@ -368,14 +374,16 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       const perpX = -dy / (dist || 1) * arcStrength * arcT;
       const perpY = dx / (dist || 1) * arcStrength * arcT;
 
-      setCamera({
+      cameraRef.current = {
         x: startX + dx * e + perpX,
         y: startY + dy * e + perpY,
         zoom: z,
-      });
+      };
 
       if (t < 1) {
         flyToRef.current = requestAnimationFrame(animate);
+      } else {
+        setCamera(cameraRef.current);
       }
     }
 
