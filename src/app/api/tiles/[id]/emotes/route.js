@@ -30,7 +30,7 @@ export async function POST(req, { params }) {
   const body = await req.json();
   const { fromTile, emoji, actor } = body;
 
-  if (!fromTile || !emoji || !actor) {
+  if (fromTile == null || !emoji || !actor) {
     return NextResponse.json({ error: 'fromTile, emoji, and actor required' }, { status: 400 });
   }
   if (!ALLOWED_EMOTES.includes(emoji)) {
