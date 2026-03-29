@@ -233,7 +233,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     const targetX = bestC * TILE_SIZE + TILE_SIZE / 2;
     const targetY = bestR * TILE_SIZE + TILE_SIZE / 2;
-    const targetZoom = 6; // deep zoom so individual tiles are clearly visible
+    const targetZoom = 2; // deep zoom so individual tiles are clearly visible
 
     // Set initial camera to show full grid
     setCamera({ x: startX, y: startY, zoom: startZoom });
@@ -276,7 +276,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     const row = Math.floor(targetId / GRID_SIZE);
     const targetX = col * TILE_SIZE + TILE_SIZE / 2;
     const targetY = row * TILE_SIZE + TILE_SIZE / 2;
-    const targetZoom = 6;
+    const targetZoom = 2;
 
     // Capture start state
     const startX = camera.x;
