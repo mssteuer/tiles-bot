@@ -21,9 +21,9 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const wallet = getWalletFromRequest(request);
+  const wallet = getWalletFromRequest(request) || body.wallet;
   if (!wallet) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Wallet address required. Pass x-wallet header or wallet in JSON body.' }, { status: 401 });
   }
 
   const { topLeftId, width, height } = body;

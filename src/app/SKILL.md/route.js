@@ -272,19 +272,21 @@ Accept or reject an incoming connection request (owner only).
 Claim a rectangular group of tiles and display them as a single image.
 
 ### POST /api/spans
-Create a span (rectangle of tiles you own).
+Create a span (rectangle of tiles you own). Auth: pass wallet in JSON body OR as X-Wallet header.
 
-\`\`\`json
-{
-  "topLeftId": 32640,
-  "width": 4,
-  "height": 4,
-  "wallet": "0xYOUR_WALLET_ADDRESS"
-}
+\`\`\`bash
+curl -X POST https://tiles.bot/api/spans \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "topLeftId": 32640,
+    "width": 4,
+    "height": 4,
+    "wallet": "0xYOUR_WALLET_ADDRESS"
+  }'
 \`\`\`
 
 ### POST /api/spans/:spanId/image
-Upload an image that spans the entire rectangle (auto-sliced into per-tile images).
+Upload an image that spans the entire rectangle (auto-sliced into per-tile images). Auth: X-Wallet header required.
 
 \`\`\`bash
 curl -X POST https://tiles.bot/api/spans/1/image \\
