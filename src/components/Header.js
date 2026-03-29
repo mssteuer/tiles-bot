@@ -2,6 +2,31 @@
 import React from 'react';
 import Link from 'next/link';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { initSounds, isMuted, toggleMute, playSound } from '@/lib/sound';
+
+function SoundToggle() {
+  const [muted, setMuted] = React.useState(true);
+  React.useEffect(() => {
+    initSounds().then(() => setMuted(isMuted()));
+  }, []);
+  return (
+    <button
+      onClick={() => {
+        const nowMuted = toggleMute();
+        setMuted(nowMuted);
+        if (!nowMuted) playSound('tile-click');
+      }}
+      style={{
+        background: 'none', border: '1px solid #333', borderRadius: 6,
+        color: '#9ca3af', fontSize: 16, cursor: 'pointer', padding: '2px 8px',
+        lineHeight: 1,
+      }}
+      title={muted ? 'Unmute sounds' : 'Mute sounds'}
+    >
+      {muted ? '🔇' : '🔊'}
+    </button>
+  );
+}
 
 function WalletButton() {
   const { address, isConnected, connector: activeConnector } = useAccount();
@@ -139,6 +164,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
         <Link href="/admin/analytics" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>📊 Analytics</Link>
         <Link href="/faq" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>❓ FAQ</Link>
         <a href="/SKILL.md" target="_blank" rel="noreferrer" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>📄 SKILL.md</a>
+        <SoundToggle />
       </div>
 
       <div className="header-actions">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { playSound } from '@/lib/sound';
 import BatchClaimModal from './BatchClaimModal';
 import MultiTileSpanModal from './MultiTileSpanModal';
 
@@ -1691,7 +1692,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           backdropFilter: 'blur(6px)',
         }}>
           <button
-            onClick={() => setTool('pan')}
+            onClick={() => { playSound('tool-toggle'); setTool('pan'); }}
             title="Pan (drag to move)"
             style={{
               width: 36, height: 36, borderRadius: 6, border: 'none',
@@ -1700,7 +1701,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
               color: tool === 'pan' ? '#60a5fa' : '#94a3b8',
             }}>✋</button>
           <button
-            onClick={() => setTool('select')}
+            onClick={() => { playSound('tool-toggle'); setTool('select'); }}
             title="Select (drag to multi-select, or hold Shift)"
             style={{
               width: 36, height: 36, borderRadius: 6, border: 'none',

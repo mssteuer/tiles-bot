@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { initSounds, playSound } from '@/lib/sound';
 import { useAccount } from 'wagmi';
 import Grid from '../components/Grid';
 import TilePanel from '../components/TilePanel';
@@ -177,6 +178,7 @@ function HomeInner() {
             return { ...prev, [event.tileId]: { ...existing, imageUrl: event.imageUrl } };
           });
         } else if (event.type === 'tile_claimed') {
+          playSound('claim');
           setTiles(prev => ({ ...prev, [event.tileId]: event.tile }));
           setStats(prev => {
             const claimed = event.claimedCount ?? (prev.claimed + 1);
@@ -193,16 +195,19 @@ function HomeInner() {
             setNextAvailableTileId(event.nextAvailableTileId);
           }
         } else if (event.type === 'tile_action') {
+          playSound('slap');
           setActionAnimation({
             fromTile: event.fromTile, toTile: event.toTile,
             emoji: event.emoji, actionType: event.actionType, ts: Date.now(),
           });
         } else if (event.type === 'tile_emote') {
+          playSound('emote-pop');
           setActionAnimation({
             fromTile: event.fromTile, toTile: event.toTile,
             emoji: event.emoji, actionType: 'emote', ts: Date.now(),
           });
         } else if (event.type === 'connection_request') {
+          playSound('notification');
           setPendingRequests(prev => ({
             ...prev,
             [event.toTileId]: (prev[event.toTileId] || 0) + 1,
@@ -259,6 +264,7 @@ function HomeInner() {
   }, [tiles]);
 
   const handleTileClick = useCallback((tileId) => {
+    playSound('tile-click');
     setSelectedTile(tileId);
     // If unclaimed, open claim modal
     if (!tiles[tileId]) setClaimModalTile(tileId);
@@ -356,6 +362,7 @@ function HomeInner() {
             }}
             onConnectionsChange={setConnections}
             onNavigateToTile={(tileId) => {
+              playSound('whoosh');
               setFlyToTileId({ id: tileId, ts: Date.now() });
               setSelectedTile(tileId);
             }}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { playSound } from '@/lib/sound';
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { parseAbi } from 'viem';
 
@@ -144,6 +145,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
       } catch {}
 
       setStep('success');
+      playSound('batch-claim');
       if (onClaimed) onClaimed(unclaimed);
     } catch (err) {
       const msg = err?.shortMessage || err?.message || 'Transaction failed';

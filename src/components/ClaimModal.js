@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { playSound } from '@/lib/sound';
 import { useAccount, useWriteContract, useReadContract, useSwitchChain, useConnect, useDisconnect, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, MBH_ABI, ERC20_ABI, TARGET_CHAIN } from '@/lib/wagmi';
@@ -136,6 +137,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       }
 
       setStep('success');
+      playSound('claim');
       if (onClaimed) onClaimed(tileId, address);
     } catch (e) {
       console.error('[tiles.bot] Claim error:', e);

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
+import { playSound } from '@/lib/sound';
 import InteractionsPanel from './InteractionsPanel';
 
 function getSizedImageUrl(url, size) {
@@ -973,6 +974,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
 
       const data = await res.json();
       setImagePreview(data.imageUrl + '?t=' + Date.now());
+      playSound('upload-success');
       setSaveMsg('✓ Image uploaded');
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err) {
