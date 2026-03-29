@@ -304,7 +304,11 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         zoom: startZoom * Math.pow(targetZoom / startZoom, e), // exponential zoom feels natural
       });
 
-      if (t < 1) requestAnimationFrame(animate);
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        introFinished.current = true;
+      }
     }
 
     // 1s pause so user sees the tiny grid floating in space
@@ -471,8 +475,10 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     };
   }, []);
 
-  // Sync zoom prop into camera
+  // Sync zoom prop into camera — but NOT until intro animation is done
+  const introFinished = useRef(false);
   useEffect(() => {
+    if (!introFinished.current) return; // don't override camera during intro
     if (zoom !== undefined && zoom !== camera.zoom) {
       setCamera(prev => ({ ...prev, zoom }));
     }
