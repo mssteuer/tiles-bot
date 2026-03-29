@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 
 const CATEGORIES = [
   { id: 'all', label: 'All', emoji: '🌐' },
@@ -147,6 +148,8 @@ export default function AgentsPage() {
   const [search, setSearch] = React.useState('');
   const [category, setCategory] = React.useState('all');
   const [view, setView] = React.useState('grid');
+  const [showMyAgents, setShowMyAgents] = React.useState(false);
+  const { address, isConnected } = useAccount();
 
   React.useEffect(() => {
     setLoading(true);
@@ -165,6 +168,9 @@ export default function AgentsPage() {
   // Client-side filter
   const filtered = React.useMemo(() => {
     let result = agents;
+    if (showMyAgents && address) {
+      result = result.filter(a => a.owner?.toLowerCase() === address.toLowerCase());
+    }
     if (category !== 'all') {
       result = result.filter(a => (a.category || 'uncategorized') === category);
     }
@@ -217,6 +223,17 @@ export default function AgentsPage() {
             fontSize: 14, outline: 'none',
           }}
         />
+        {isConnected && (
+          <button onClick={() => setShowMyAgents(!showMyAgents)} style={{
+            padding: '8px 16px', borderRadius: 8,
+            border: showMyAgents ? '1px solid #3b82f6' : '1px solid #2a2a3e',
+            background: showMyAgents ? 'rgba(59,130,246,0.15)' : '#0f0f1a',
+            color: showMyAgents ? '#3b82f6' : '#94a3b8',
+            cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+          }}>
+            👤 My Agents
+          </button>
+        )}
         <div style={{ display: 'flex', gap: 4 }}>
           {['grid', 'list'].map(v => (
             <button key={v} onClick={() => setView(v)} style={{

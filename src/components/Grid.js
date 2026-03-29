@@ -183,7 +183,55 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
+  const starfieldRef = useRef(null);
   const [camera, setCamera] = useState({ x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.05 }); // start zoomed out (full grid visible)
+
+  // Generate starfield once (off-screen canvas)
+  useEffect(() => {
+    const sw = 2048, sh = 2048;
+    const c = document.createElement('canvas');
+    c.width = sw; c.height = sh;
+    const sx = c.getContext('2d');
+    // Deep space gradient
+    const grd = sx.createRadialGradient(sw/2, sh/2, 0, sw/2, sh/2, sw * 0.7);
+    grd.addColorStop(0, '#0d0d1a');
+    grd.addColorStop(0.5, '#080812');
+    grd.addColorStop(1, '#050508');
+    sx.fillStyle = grd;
+    sx.fillRect(0, 0, sw, sh);
+    // Nebula clouds
+    for (let i = 0; i < 5; i++) {
+      const nx = Math.random() * sw, ny = Math.random() * sh;
+      const nr = 150 + Math.random() * 300;
+      const ng = sx.createRadialGradient(nx, ny, 0, nx, ny, nr);
+      const hue = [220, 270, 190, 320, 200][i]; // blue, purple, teal, pink, cyan
+      ng.addColorStop(0, `hsla(${hue}, 60%, 30%, 0.06)`);
+      ng.addColorStop(0.5, `hsla(${hue}, 50%, 20%, 0.03)`);
+      ng.addColorStop(1, 'transparent');
+      sx.fillStyle = ng;
+      sx.fillRect(0, 0, sw, sh);
+    }
+    // Stars
+    for (let i = 0; i < 800; i++) {
+      const x = Math.random() * sw, y = Math.random() * sh;
+      const r = Math.random() < 0.05 ? 1.5 + Math.random() : 0.5 + Math.random() * 0.8;
+      const brightness = 0.3 + Math.random() * 0.7;
+      sx.beginPath();
+      sx.arc(x, y, r, 0, Math.PI * 2);
+      sx.fillStyle = `rgba(255,255,255,${brightness})`;
+      sx.fill();
+    }
+    // A few colored stars
+    for (let i = 0; i < 20; i++) {
+      const x = Math.random() * sw, y = Math.random() * sh;
+      const hue = [0, 30, 200, 220, 60][i % 5]; // red, orange, blue, cyan, yellow
+      sx.beginPath();
+      sx.arc(x, y, 1 + Math.random(), 0, Math.PI * 2);
+      sx.fillStyle = `hsla(${hue}, 80%, 70%, ${0.4 + Math.random() * 0.4})`;
+      sx.fill();
+    }
+    starfieldRef.current = c;
+  }, []);
   const introPlayed = useRef(false);
 
   // Intro animation: full grid overview → zoom into densest tile cluster
@@ -450,9 +498,21 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     const w = rect.width;
     const h = rect.height;
 
-    // Clear
-    ctx.fillStyle = '#0a0a0f';
+    // Clear with starfield background
+    ctx.fillStyle = '#050508';
     ctx.fillRect(0, 0, w, h);
+    if (starfieldRef.current) {
+      // Tile the starfield with slight parallax (moves slower than camera)
+      const sf = starfieldRef.current;
+      const parallax = 0.15;
+      const offX = (-cam.x * parallax * cam.zoom) % sf.width;
+      const offY = (-cam.y * parallax * cam.zoom) % sf.height;
+      for (let tx = offX - sf.width; tx < w + sf.width; tx += sf.width) {
+        for (let ty = offY - sf.height; ty < h + sf.height; ty += sf.height) {
+          ctx.drawImage(sf, tx, ty);
+        }
+      }
+    }
 
     ctx.save();
     ctx.translate(w / 2, h / 2);

@@ -11,6 +11,7 @@ import FilterBar from '../components/FilterBar';
 import ClaimModal from '../components/ClaimModal';
 import BlockClaimModal from '../components/BlockClaimModal';
 import MultiTileSpanModal from '../components/MultiTileSpanModal';
+import OnboardingModal from '../components/OnboardingModal';
 
 
 const GRID_PX = 256 * 32;
@@ -94,13 +95,14 @@ function HomeInner() {
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
 
-  // Sync ?tile= query param → selectedTile (handles client-side navigation)
+  // Sync ?tile= query param → selectedTile + flyTo (handles activity/tile links)
   useEffect(() => {
     const tileParam = searchParams ? searchParams.get('tile') : null;
     if (tileParam !== null) {
       const n = parseInt(tileParam, 10);
       if (Number.isInteger(n) && n >= 0 && n < 65536) {
         setSelectedTile(n);
+        setFlyToTileId({ id: n, ts: Date.now() });
       }
     }
   }, [searchParams]);
@@ -234,6 +236,7 @@ function HomeInner() {
 
   return (
     <div className="app-shell">
+      <OnboardingModal />
       {claimModalTile !== null && (
         <ClaimModal
           tileId={claimModalTile}
