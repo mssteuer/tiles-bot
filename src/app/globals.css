@@ -28,7 +28,14 @@ body {
   background: #07071a;
   color: #e2e8f0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Grid page needs overflow hidden; sub-pages need scroll */
+body:has(.app-shell) {
   overflow: hidden;
+}
+body:not(:has(.app-shell)) {
+  overflow: auto;
 }
 
 /* ── Layout ── */
@@ -90,12 +97,14 @@ body {
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   border: none;
   color: #fff;
-  padding: 8px 14px;
+  padding: 6px 14px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
+  height: 32px;
+  box-sizing: border-box;
 }
 
 /* ── Filter Bar ── */

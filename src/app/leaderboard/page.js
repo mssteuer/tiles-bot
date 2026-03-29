@@ -51,9 +51,10 @@ export default function LeaderboardPage() {
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
       <header style={{
-        padding: '16px 24px', borderBottom: '1px solid #1a1a2e',
+        padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
         display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
         background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
+        position: 'sticky', top: 0, zIndex: 10,
       }}>
         <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
         <span style={{ color: '#94a3b8' }}>|</span>

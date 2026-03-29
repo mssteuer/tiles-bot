@@ -239,7 +239,7 @@ function HomeInner() {
       if (data.pendingRequests) setPendingRequests(data.pendingRequests);
       setBlocks(data.blocks || blockList0);
       setSpans(data.spans || spanList0);
-      setStats({ ...data.stats });
+      setStats(prev => ({ ...prev, ...data.stats }));
       if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
     })();
     return () => { cancelled = true; };
@@ -278,7 +278,7 @@ function HomeInner() {
             const data = await fetchGrid();
             if (data) {
               setTiles(data.tiles);
-              setStats({ ...data.stats });
+              setStats(prev => ({ ...prev, ...data.stats }));
             }
           }}
         />
@@ -294,7 +294,7 @@ function HomeInner() {
             const [data, sp] = await Promise.all([fetchGrid(), fetchSpans()]);
             if (data) {
               setTiles(data.tiles);
-              setStats({ ...data.stats });
+              setStats(prev => ({ ...prev, ...data.stats }));
               setSpans(data.spans || sp);
             }
           }}

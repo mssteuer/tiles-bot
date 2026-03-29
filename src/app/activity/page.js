@@ -190,23 +190,14 @@ export default function ActivityPage() {
     }}>
       {/* Header */}
       <div style={{
-        padding: '24px 20px 16px',
-        borderBottom: '1px solid #1a1a2e',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        maxWidth: 800,
-        margin: '0 auto',
+        padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
+        display: 'flex', alignItems: 'center', gap: 16,
+        background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
+        position: 'sticky', top: 0, zIndex: 10,
       }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
-            📡 Activity Feed
-          </h1>
-          <p style={{ fontSize: 13, color: '#cbd5e1', margin: '4px 0 0' }}>
-            Live feed of what&apos;s happening on the grid
-          </p>
-        </div>
         <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
+        <span style={{ color: '#94a3b8' }}>|</span>
+        <span style={{ fontSize: 18, fontWeight: 700 }}>📡 Activity Feed</span>
       </div>
 
       {/* Event List */}

@@ -59,6 +59,7 @@ function WalletButton() {
       <button onClick={() => setShowPicker(!showPicker)} style={{
         background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', border: 'none', borderRadius: 8,
         color: '#fff', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        height: 32, boxSizing: 'border-box',
       }}>
         Connect Wallet
       </button>
@@ -136,8 +137,8 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
         <Link href="/activity" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>📡 Activity</Link>
         <Link href="/network" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>🕸️ Network</Link>
         <Link href="/admin/analytics" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>📊 Analytics</Link>
-        <Link href="/faq" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>FAQ</Link>
-        <a href="/SKILL.md" target="_blank" rel="noreferrer" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>SKILL.md</a>
+        <Link href="/faq" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>❓ FAQ</Link>
+        <a href="/SKILL.md" target="_blank" rel="noreferrer" style={{ color: '#9ca3af', textDecoration: 'none', fontSize: 13 }}>📄 SKILL.md</a>
       </div>
 
       <div className="header-actions">
@@ -161,7 +162,7 @@ function Stat({ label, value, accent }) {
 
 function ProgressBar({ pct }) {
   return (
-    <div style={{ width: 100, height: 5, background: '#1a1a2e', borderRadius: 3, overflow: 'hidden' }}>
+    <div style={{ width: 100, height: 5, background: '#2a2a3e', borderRadius: 3, overflow: 'hidden' }}>
       <div style={{
         width: `${Math.min(pct, 100)}%`,
         height: '100%',
@@ -176,7 +177,7 @@ function ProgressBar({ pct }) {
 function RevenueBar({ pct }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <div style={{ width: 100, height: 5, background: '#1a1a2e', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{ width: 100, height: 5, background: '#2a2a3e', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{
           width: `${Math.max(pct, pct > 0 ? 2 : 0)}%`,
           height: '100%',
