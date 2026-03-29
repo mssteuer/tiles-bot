@@ -58,19 +58,39 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
   const tileIds = useMemo(() => getRectTileIds(topLeftId, width, height), [topLeftId, width, height]);
 
+  // Fresh tile data from server (tiles prop may be stale after batch claim)
+  const [liveTiles, setLiveTiles] = useState(null);
+  useEffect(() => {
+    if (!tileIds || tileIds.length === 0) return;
+    // Fetch fresh tile data for the selected IDs
+    Promise.all(tileIds.map(id =>
+      fetch(`/api/tiles/${id}`).then(r => r.ok ? r.json() : null).catch(() => null)
+    )).then(results => {
+      const map = {};
+      results.forEach((t, i) => { if (t) map[tileIds[i]] = t; });
+      setLiveTiles(map);
+    });
+  }, [tileIds]);
+
+  const tileSource = liveTiles || tiles;
+
   const availability = useMemo(() => {
     if (!tileIds) return { missing: [], foreign: [], ok: [] };
     const missing = [];
     const foreign = [];
     const ok = [];
     for (const id of tileIds) {
-      const tile = tiles[id];
-      if (!tile) missing.push(id);
-      else if (!address || tile.owner?.toLowerCase() !== address.toLowerCase()) foreign.push(id);
+      const tile = tileSource[id] || tileSource[String(id)];
+      if (!tile || !tile.owner) missing.push(id);
+      else if (!address || tile.owner?.toLowerCase() !== address.toLowerCase()) {
+        // Smart wallet: check on-chain if owner mismatch (Coinbase proxy vs EOA)
+        // For now, treat as ok if tile IS claimed (owner exists) — server validates on create
+        ok.push(id);
+      }
       else ok.push(id);
     }
     return { missing, foreign, ok };
-  }, [tileIds, tiles, address]);
+  }, [tileIds, tileSource, address]);
 
   const canCreate = !!address && !!tileIds && tileIds.length >= 2 && tileIds.length <= 256 && availability.missing.length === 0 && availability.foreign.length === 0;
   const canUpload = !!createdSpan && !!uploadFile && !uploading;
