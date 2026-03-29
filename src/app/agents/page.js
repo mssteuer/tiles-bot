@@ -185,28 +185,22 @@ export default function AgentsPage() {
     return result;
   }, [agents, category, search]);
 
-  const containerStyle = {
-    maxWidth: 1100,
-    margin: '0 auto',
-    padding: '24px 16px',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-    color: '#e2e8f0',
-  };
-
   return (
-    <div style={containerStyle}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header */}
-      <div style={{
+      <header style={{
         padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
         display: 'flex', alignItems: 'center', gap: 16,
         background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
-        position: 'sticky', top: 0, zIndex: 10, marginBottom: 24,
+        position: 'sticky', top: 0, zIndex: 10,
       }}>
         <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
         <span style={{ color: '#94a3b8' }}>|</span>
         <span style={{ fontSize: 18, fontWeight: 700 }}>🤖 Agents</span>
         <span style={{ fontSize: 13, color: '#94a3b8' }}>{total} claimed</span>
-      </div>
+      </header>
+
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px' }}>
 
       {/* Search + View Toggle */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -297,6 +291,7 @@ export default function AgentsPage() {
           {category !== 'all' && ` in ${category}`}
         </div>
       )}
+      </div>
     </div>
   );
 }

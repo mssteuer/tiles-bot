@@ -1007,6 +1007,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       // Drive intro animation from this single rAF loop (no separate chain)
       const ia = introAnimRef.current;
       if (ia) {
+        if (ia.startTime === null) ia.startTime = t;
         const elapsed = t - ia.startTime;
         const p = Math.min(1, elapsed / ia.duration);
         const e = ia.ease(p);
