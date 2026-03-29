@@ -524,8 +524,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     const visibleCells = (maxRow - minRow + 1) * (maxCol - minCol + 1);
 
-    // Grid lines (only when zoomed enough and not too many cells)
-    if (cam.zoom > 0.08 && visibleCells < 20000) {
+    // Grid lines (only when zoomed enough, not too many cells, and not animating)
+    const isAnimatingEarly = !!(introAnimRef.current || flyToAnimRef.current);
+    if (cam.zoom > 0.08 && visibleCells < 20000 && !isAnimatingEarly) {
       ctx.strokeStyle = 'rgba(255,255,255,0.06)';
       ctx.lineWidth = 1 / cam.zoom;
       ctx.beginPath();
@@ -843,8 +844,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         }
       }
 
-    // Batch-stroke tile borders (grouped by color → one path per color group)
-    if (tileBorders.length > 0) {
+    // Batch-stroke tile borders — skip during animation (subpixel at low zoom, invisible)
+    const isAnimating = !!(introAnimRef.current || flyToAnimRef.current);
+    if (tileBorders.length > 0 && !isAnimating) {
       const byColor = {};
       for (const b of tileBorders) {
         (byColor[b.color] || (byColor[b.color] = [])).push(b);
