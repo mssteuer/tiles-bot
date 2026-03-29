@@ -1,7 +1,7 @@
 'use client';
 
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import Grid from '../components/Grid';
@@ -110,7 +110,19 @@ function HomeInner() {
   }, [searchParams]);
 
   // SSE: real-time tile updates — re-sync on (re)connect and patch local grid on claim events
+  // Delay SSE connection until intro animation finishes to prevent React DOM thrash during canvas animation
+  const [introComplete, setIntroComplete] = useState(false);
+  const onIntroFinished = useCallback(() => setIntroComplete(true), []);
+
+  // Safety: connect SSE after 6s even if intro never fires
   useEffect(() => {
+    const t = setTimeout(() => setIntroComplete(true), 6000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!introComplete) return; // Wait for intro animation to finish
+
     let closed = false;
 
     async function refreshGridAndStats() {
@@ -328,6 +340,7 @@ function HomeInner() {
           flyToTileId={flyToTileId}
           actionAnimation={actionAnimation}
           introReady={introReady}
+          onIntroFinished={onIntroFinished}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}

@@ -179,7 +179,7 @@ function MobileHints() {
   );
 }
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -237,7 +237,10 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   // Intro animation: full grid overview → zoom into densest tile cluster
   useEffect(() => {
-    if (introPlayed.current) return;
+    if (introPlayed.current) {
+      if (onIntroFinished) onIntroFinished();
+      return;
+    }
 
     // Wait until tiles loaded, canvas mounted, AND onboarding complete
     const ids = Object.keys(tiles).map(Number);
@@ -1175,6 +1178,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           introAnimRef.current = null;
           introFinished.current = true;
           setCamera(cameraRef.current);
+          if (onIntroFinished) onIntroFinished();
         }
       }
 
