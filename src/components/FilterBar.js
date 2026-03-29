@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 const categories = ['All', 'Coding', 'Trading', 'Research', 'Social', 'Infra'];
 
-export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, onZoomOut, onZoomReset, viewMode, onViewModeChange, heatmapMode, onHeatmapToggle }) {
+export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, onZoomOut, onZoomReset, viewMode, onViewModeChange }) {
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
 
@@ -44,16 +44,6 @@ export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, on
         onChange={handleSearch}
         className="search-input"
       />
-
-      {/* Heat map toggle */}
-      {viewMode === 'grid' && (
-        <button
-          onClick={() => onHeatmapToggle && onHeatmapToggle(!heatmapMode)}
-          className={`icon-btn${heatmapMode ? ' active' : ''}`}
-          title={heatmapMode ? 'Disable heat map' : 'Enable heat map — shows activity intensity'}
-          style={heatmapMode ? { background: 'rgba(239,68,68,0.25)', color: '#ef4444', borderColor: '#ef4444' } : {}}
-        >🌡️</button>
-      )}
 
       {/* View toggle */}
       <div className="icon-btn-group">

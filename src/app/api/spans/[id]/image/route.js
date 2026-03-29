@@ -34,7 +34,7 @@ export async function POST(request, { params }) {
 
   const wallet = request.headers.get('x-wallet') || request.headers.get('x-address');
   if (!wallet) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Wallet address required. Pass x-wallet or x-address header.' }, { status: 401 });
   }
 
   const contentType = request.headers.get('content-type') || '';

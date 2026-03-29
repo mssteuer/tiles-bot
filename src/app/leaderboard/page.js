@@ -55,7 +55,7 @@ export default function LeaderboardPage() {
         display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
         background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
       }}>
-        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Back to grid</Link>
+        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
         <span style={{ color: '#94a3b8' }}>|</span>
         <span style={{ fontSize: 18, fontWeight: 700 }}>🏆 Leaderboard</span>
         {data && (

@@ -198,7 +198,7 @@ export default function AgentsPage() {
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <Link href="/" style={{ color: '#6366f1', fontSize: 13, textDecoration: 'none' }}>← Grid</Link>
+          <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
           <span style={{ color: '#2a2a3e' }}>|</span>
           <Link href="/leaderboard" style={{ color: '#6366f1', fontSize: 13, textDecoration: 'none' }}>Leaderboard</Link>
         </div>

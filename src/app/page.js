@@ -9,7 +9,7 @@ import TilePanel from '../components/TilePanel';
 import Header from '../components/Header';
 import FilterBar from '../components/FilterBar';
 import ClaimModal from '../components/ClaimModal';
-import BlockClaimModal from '../components/BlockClaimModal';
+// BlockClaimModal removed — feature killed
 import MultiTileSpanModal from '../components/MultiTileSpanModal';
 import OnboardingModal from '../components/OnboardingModal';
 
@@ -85,11 +85,11 @@ function HomeInner() {
   const [spans, setSpans] = useState([]);
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
-  // Skip intro if: deep link (?tile=), OR returning from another page (camera saved in sessionStorage)
+  // Skip intro if: deep link (?tile=), OR returning from SPA navigation (window flag survives SPA nav but not refresh)
   const hasDeepLink = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tile');
-  const hasSavedCamera = typeof window !== 'undefined' && !!sessionStorage.getItem('tiles_camera');
-  const [introReady, setIntroReady] = useState(hasDeepLink || hasSavedCamera);
-  const [blockClaimTopLeft, setBlockClaimTopLeft] = useState(null);
+  const isReturnNav = typeof window !== 'undefined' && !!window.__tiles_camera;
+  const [introReady, setIntroReady] = useState(hasDeepLink || isReturnNav);
+  // blockClaimTopLeft removed — block tiles feature killed
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -278,19 +278,7 @@ function HomeInner() {
           }}
         />
       )}
-      {blockClaimTopLeft !== null && (
-        <BlockClaimModal
-          topLeftId={blockClaimTopLeft}
-          tiles={tiles}
-          onClose={() => setBlockClaimTopLeft(null)}
-          onClaimed={async () => {
-            setBlockClaimTopLeft(null);
-            const [data, bl] = await Promise.all([fetchGrid(), fetchBlocks()]);
-            if (data) { setTiles(data.tiles); setStats({ ...data.stats }); }
-            setBlocks(data?.blocks || bl);
-          }}
-        />
-      )}
+      {/* Block tiles feature removed */}
       {spanClaimTopLeft !== null && (
         <MultiTileSpanModal
           topLeftId={spanClaimTopLeft}
@@ -338,13 +326,13 @@ function HomeInner() {
           }
           onConnectionsChange={setConnections}
           onTileClick={handleTileClick}
-          onBlockClaimRequest={setBlockClaimTopLeft}
+          onBlockClaimRequest={null}
           onSpanClaimRequest={setSpanClaimTopLeft}
           flyToTileId={flyToTileId}
           actionAnimation={actionAnimation}
           introReady={introReady}
           onIntroFinished={onIntroFinished}
-          initialCamera={hasSavedCamera ? (() => { try { return JSON.parse(sessionStorage.getItem('tiles_camera')); } catch { return null; } })() : null}
+          initialCamera={isReturnNav ? window.__tiles_camera : null}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}
