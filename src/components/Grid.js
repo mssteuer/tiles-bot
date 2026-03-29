@@ -241,7 +241,6 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   // Intro animation: full grid overview → zoom into densest tile cluster
   useEffect(() => {
-    console.log('[INTRO]', { introPlayed: introPlayed.current, initialCamera: !!initialCamera, flyToTileId: !!flyToTileId, introReady, tileCount: Object.keys(tiles).length, container: !!containerRef.current });
     if (introPlayed.current) {
       introFinished.current = true;
       if (onIntroFinished) onIntroFinished();
@@ -250,7 +249,6 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     // Skip intro if returning from SPA navigation (camera restored) or deep link
     if (initialCamera || flyToTileId) {
-      console.log('[INTRO] skipped — initialCamera or flyToTileId');
       introPlayed.current = true;
       introFinished.current = true;
       if (typeof window !== 'undefined') window.__tiles_camera = cameraRef.current;
@@ -262,7 +260,6 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     const ids = Object.keys(tiles).map(Number);
     const container = containerRef.current;
     if (ids.length === 0 || !container || !introReady) {
-      console.log('[INTRO] waiting —', { ids: ids.length, container: !!container, introReady });
       return;
     }
 
@@ -318,9 +315,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     // Store animation params — the main draw loop will drive this
     cameraRef.current = { x: startX, y: startY, zoom: startZoom };
 
-    console.log('[INTRO] scheduling animation in 1s, target:', { targetX, targetY, targetZoom });
     setTimeout(() => {
-      console.log('[INTRO] setTimeout fired — setting introAnimRef');
       introAnimRef.current = {
         startX, startY, startZoom, targetX, targetY, targetZoom,
         duration, startTime: null, ease: easeInOutCubic,
@@ -1012,7 +1007,6 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       // Drive intro animation from this single rAF loop (no separate chain)
       const ia = introAnimRef.current;
       if (ia) {
-        if (ia.startTime === null) { ia.startTime = t; console.log('[INTRO] rAF picked up animation at t=', t); }
         const elapsed = t - ia.startTime;
         const p = Math.min(1, elapsed / ia.duration);
         const e = ia.ease(p);
