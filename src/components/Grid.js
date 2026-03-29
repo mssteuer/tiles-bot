@@ -103,37 +103,47 @@ function heatmapColor(score, alpha = 0.72) {
 // on the main thread every frame (the 557ms "Image decode" in the profile).
 const imageCache = {};
 
-function getSizedImageUrl(url, size) {
-  if (!url) return null;
-  if (url.includes('?')) return `${url}&size=${size}`;
-  return `${url}?size=${size}`;
+function getThumbUrl(tile) {
+  // Use pre-generated 64px WebP thumbnails (1-5KB each vs 200-500KB originals)
+  return `/tile-images/thumb/${tile.id}.webp`;
+}
+
+// Concurrent fetch limiter — max 6 simultaneous image loads
+const fetchQueue = [];
+let activeFetches = 0;
+const MAX_CONCURRENT = 6;
+
+function scheduleFetch(url, cacheKey) {
+  return new Promise((resolve) => {
+    function run() {
+      activeFetches++;
+      fetch(url, { signal: AbortSignal.timeout(8000) })
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+        .then(blob => createImageBitmap(blob))
+        .then(bmp => { imageCache[cacheKey] = bmp; resolve(bmp); })
+        .catch(() => { imageCache[cacheKey] = 'error'; resolve(null); })
+        .finally(() => {
+          activeFetches--;
+          if (fetchQueue.length > 0) fetchQueue.shift()();
+        });
+    }
+    if (activeFetches < MAX_CONCURRENT) run();
+    else fetchQueue.push(run);
+  });
 }
 
 function loadTileImage(tile) {
-  const url = getSizedImageUrl(tile.imageUrl, 64);
-  if (!url) return null;
-  const cacheKey = `${tile.id}:64:${tile.imageUrl}`;
+  if (!tile.imageUrl) return null;
+  const cacheKey = `thumb:${tile.id}:${tile.imageUrl}`;
   if (imageCache[cacheKey]) return imageCache[cacheKey];
-  // Clear any old cache entry for this tile
+  // Clear old entries for this tile
   for (const k of Object.keys(imageCache)) {
-    if (k.startsWith(`${tile.id}:64:`) && k !== cacheKey) delete imageCache[k];
+    if (k.startsWith(`thumb:${tile.id}:`) && k !== cacheKey) delete imageCache[k];
   }
   imageCache[cacheKey] = 'loading';
-  // Fetch + decode off-main-thread via createImageBitmap
-  // Falls back to local URL if primary (IPFS) fails
-  const localFallback = `/tile-images/${tile.id}.png?size=64`;
-  fetch(url, { signal: AbortSignal.timeout(6000) })
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
-    .then(blob => createImageBitmap(blob))
-    .then(bmp => { imageCache[cacheKey] = bmp; })
-    .catch(() => {
-      // Try local fallback
-      fetch(localFallback, { signal: AbortSignal.timeout(5000) })
-        .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
-        .then(blob => createImageBitmap(blob))
-        .then(bmp => { imageCache[cacheKey] = bmp; })
-        .catch(() => { imageCache[cacheKey] = 'error'; });
-    });
+  // Load WebP thumbnail (tiny, ~2-5KB)
+  const thumbUrl = getThumbUrl(tile);
+  scheduleFetch(thumbUrl, cacheKey);
   return null;
 }
 
@@ -725,7 +735,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           }
 
           // Try to draw image first (no clip — draw at exact tile bounds)
-          const cachedImg = tile.imageUrl ? imageCache[`${tile.id}:64:${tile.imageUrl}`] : null;
+          const cachedImg = tile.imageUrl ? imageCache[`thumb:${tile.id}:${tile.imageUrl}`] : null;
           if (cachedImg && cachedImg !== 'loading' && cachedImg !== 'error') {
             ctx.drawImage(cachedImg, x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
           } else {
@@ -1547,7 +1557,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
                 <td style={{ padding: '6px 4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {tile.imageUrl ? (
-                      <img src={getSizedImageUrl(tile.imageUrl, 64)} alt="" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
+                      <img src={getThumbUrl(tile)} alt="" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
                     ) : (
                       <span style={{ fontSize: 18, lineHeight: 1 }}>{tile.avatar || '🤖'}</span>
                     )}
@@ -1645,7 +1655,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             zIndex: 10,
           }}>
             {tiles[hoveredTile].imageUrl ? (
-              <img src={getSizedImageUrl(tiles[hoveredTile].imageUrl, 64)} alt="" style={{ width: 20, height: 20, borderRadius: 3, objectFit: 'cover' }} />
+              <img src={getThumbUrl(tiles[hoveredTile])} alt="" style={{ width: 20, height: 20, borderRadius: 3, objectFit: 'cover' }} />
             ) : (
               <span>{tiles[hoveredTile].avatar}</span>
             )}
