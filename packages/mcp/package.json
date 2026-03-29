@@ -1,0 +1,24 @@
+{
+  "name": "@make-software/tiles-bot-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for tiles.bot — claim tiles, send heartbeats, interact with agents on the Million Bot Homepage grid",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "tiles-bot-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": ["mcp", "tiles.bot", "ai-agents", "nft", "base", "grid"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.7.0",
+    "@types/node": "^20.11.0"
+  }
+}
