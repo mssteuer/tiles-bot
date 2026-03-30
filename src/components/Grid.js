@@ -408,8 +408,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     const container = containerRef.current;
     const vw = container ? container.clientWidth : 1920;
     const vh = container ? container.clientHeight : 1080;
-    const startX = cam.x - (vw / 2) / cam.zoom - 50 / cam.zoom;
-    const startY = cam.y - (vh / 2) / cam.zoom - 50 / cam.zoom;
+    // Start from viewport top-center (world space) — guaranteed visible
+    const startX = cam.x;
+    const startY = cam.y - (vh / 2) / cam.zoom + 40 / cam.zoom;
     activeAnimationsRef.current.push({
       startX, startY, endX, endY,
       emoji: emoji || '🐟',
