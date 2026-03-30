@@ -19,7 +19,7 @@ function MobileHints() {
 
   return (
     <div
-      className="absolute bottom-[60px] left-1/2 z-30 flex max-w-[90vw] -translate-x-1/2 animate-[fadeIn_0.3s_ease] flex-col gap-1.5 rounded-[10px] border border-border-dim bg-surface-dark px-4 py-2.5 text-center text-[12px] text-text-gray backdrop-blur-[8px]"
+      className="absolute bottom-[60px] left-1/2 z-30 flex max-w-[90vw] -translate-x-1/2 animate-[fadeIn_0.3s_ease] flex-col gap-1.5 rounded-[10px] border border-border-dim bg-surface-dark/90 px-4 py-2.5 text-center text-[12px] text-text-gray backdrop-blur-[8px]"
       onClick={() => setVisible(false)}
     >
       <div>👆 <strong className="text-text">Tap</strong> a tile to view or claim</div>
