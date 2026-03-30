@@ -54,6 +54,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
 
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <img src="/logo-128.png" alt="tiles.bot" style={{ width: 32, height: 32, imageRendering: 'pixelated' }} />
           <div>
             <div style={{ fontFamily: 'var(--font-pixel)', fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1.1, letterSpacing: '1px' }}>tiles.bot</div>
             <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#64748b', lineHeight: 1.2 }}>A universe of bots</div>

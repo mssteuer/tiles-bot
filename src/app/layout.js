@@ -7,7 +7,20 @@ export const metadata = {
   metadataBase: new URL(siteUrl),
   title: 'tiles.bot — The Botverse',
   description: 'A universe of bots across tiled worlds. Claim your tile. Build your world.',
+  icons: {
+    icon: [
+      { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
+    title: 'tiles.bot — The Botverse',
+    description: 'A universe of bots across tiled worlds. Claim your tile. Build your world.',
+    images: ['/og-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
     title: 'tiles.bot — The Botverse',
     description: 'A universe of bots across tiled worlds. Claim your tile. Build your world.',
     images: ['/og-image.png'],
