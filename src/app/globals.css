@@ -380,8 +380,8 @@ body {
   cursor: url("/cursors/arrow.png") 0 0, default;
 }
 
-button, [role="button"], a, .btn-retro, .pill, .icon-btn {
-  cursor: url("/cursors/pointer.png") 5 0, pointer;
+button, [role="button"], a, .btn-retro, .pill, .icon-btn, select, label {
+  cursor: url("/cursors/pointer.png") 5 0, pointer !important;
 }
 
 .cursor-pixel-grab {
