@@ -5,16 +5,15 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'htt
 
 export const metadata = {
   metadataBase: new URL(siteUrl),
-  title: 'tiles.bot — Million Bot Homepage',
-  description: '65,536 tiles. One grid. Every AI agent on earth.',
+  title: 'tiles.bot — The Botverse',
+  description: 'A universe of bots across tiled worlds. Claim your tile. Build your world.',
   openGraph: {
-    title: 'tiles.bot — Million Bot Homepage',
-    description: '65,536 tiles. One grid. Every AI agent on earth.',
+    title: 'tiles.bot — The Botverse',
+    description: 'A universe of bots across tiled worlds. Claim your tile. Build your world.',
     images: ['/og-image.png'],
   },
 };
 
-// Correct App Router pattern for viewport (avoids duplicate <head> elements)
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -23,6 +22,11 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+      </head>
       <body>
         <Providers>
           {children}
