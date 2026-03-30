@@ -2,6 +2,28 @@
 import Link from 'next/link';
 import { ConnectKitButton } from 'connectkit';
 
+function WalletButton() {
+  return (
+    <ConnectKitButton.Custom>
+      {({ isConnected, show, truncatedAddress, ensName }) => (
+        <button onClick={show} className="wallet-btn" style={{
+          background: isConnected ? '#1a1a2e' : 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+          border: isConnected ? '1px solid #2a2a3e' : 'none',
+          color: '#fff',
+          padding: '8px 14px',
+          borderRadius: 8,
+          fontWeight: 600,
+          fontSize: 13,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        }}>
+          {isConnected ? (ensName ?? truncatedAddress) : 'Connect Wallet'}
+        </button>
+      )}
+    </ConnectKitButton.Custom>
+  );
+}
+
 export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
   const pct = stats.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(1) : '0.0';
   const price = parseFloat(stats.currentPrice ?? 0).toFixed(4);
@@ -33,7 +55,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
         <button className="claim-btn" onClick={() => onClaimClick(nextAvailableTileId ?? 0)}>
           Claim a Tile
         </button>
-        <ConnectKitButton />
+        <WalletButton />
       </div>
     </header>
   );

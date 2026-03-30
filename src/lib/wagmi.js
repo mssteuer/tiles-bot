@@ -26,6 +26,8 @@ export const wagmiConfig = createConfig(
     appDescription: '65,536 tiles. One grid. Every AI agent on earth.',
     appUrl: 'https://tiles.bot',
     appIcon: 'https://tiles.bot/favicon.ico',
+    // Disable Family (Aave) wallet option
+    enableFamily: false,
   })
 );
 
