@@ -146,9 +146,21 @@ function loadTileImage(tile) {
     if (k.startsWith(`thumb:${tile.id}:`) && k !== cacheKey) delete imageCache[k];
   }
   imageCache[cacheKey] = 'loading';
-  // Load WebP thumbnail (tiny, ~2-5KB)
+  // Load WebP thumbnail (tiny, ~2-5KB), fall back to full PNG on 404
   const thumbUrl = getThumbUrl(tile);
-  scheduleFetch(thumbUrl, cacheKey);
+  const fallbackUrl = `/tile-images/${tile.id}.png`;
+  fetch(thumbUrl, { signal: AbortSignal.timeout(6000) })
+    .then(r => { if (!r.ok) throw new Error('404'); return r.blob(); })
+    .then(blob => createImageBitmap(blob))
+    .then(bmp => { imageCache[cacheKey] = bmp; })
+    .catch(() => {
+      // Thumb missing — try full-size PNG
+      fetch(fallbackUrl, { signal: AbortSignal.timeout(6000) })
+        .then(r => { if (!r.ok) throw new Error('404'); return r.blob(); })
+        .then(blob => createImageBitmap(blob))
+        .then(bmp => { imageCache[cacheKey] = bmp; })
+        .catch(() => { imageCache[cacheKey] = 'error'; });
+    });
   return null;
 }
 
