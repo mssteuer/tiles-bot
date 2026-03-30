@@ -65,11 +65,7 @@ function VerifyGithubButton({ tile, address, onVerified }) {
     return (
       <button
         onClick={handleStart}
-        style={{
-          width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #22c55e44',
-          background: '#111122', color: '#22c55e', fontSize: 13, fontWeight: 500,
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        }}
+        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-accent-green/30 bg-surface-2 px-3 py-2 text-[13px] font-medium text-accent-green"
       >
         <span>🐙</span> Verify GitHub Identity
       </button>
@@ -77,19 +73,24 @@ function VerifyGithubButton({ tile, address, onVerified }) {
   }
 
   if (step === 'fetching-challenge') {
-    return <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>Fetching challenge…</div>;
+    return <div className="text-center text-[12px] text-text-dim">Fetching challenge…</div>;
   }
 
   if (step === 'show-challenge' || step === 'error' || step === 'submitting') {
     return (
-      <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 2 }}>GitHub Verification</div>
-        <div>1. Create a <a href="https://gist.github.com" target="_blank" rel="noopener" style={{ color: '#3b82f6' }}>public GitHub Gist</a> with this exact text:</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <code style={{
-            flex: 1, display: 'block', background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
-            padding: '6px 8px', fontSize: 11, wordBreak: 'break-all', color: '#a3e635',
-          }}>{challenge}</code>
+      <div className="flex flex-col gap-2 text-[12px] text-text-dim">
+        <div className="mb-0.5 text-[12px] font-semibold text-text">GitHub Verification</div>
+        <div>
+          1. Create a{' '}
+          <a href="https://gist.github.com" target="_blank" rel="noopener" className="text-accent-blue no-underline hover:underline">
+            public GitHub Gist
+          </a>{' '}
+          with this exact text:
+        </div>
+        <div className="flex items-center gap-1.5">
+          <code className="block flex-1 break-all rounded-md border border-slate-700 bg-surface px-2 py-1.5 text-[11px] text-lime-400">
+            {challenge}
+          </code>
           <CopyButton text={challenge} />
         </div>
         <div>2. Enter your GitHub username and the Gist ID (from the URL):</div>
@@ -97,40 +98,26 @@ function VerifyGithubButton({ tile, address, onVerified }) {
           placeholder="GitHub username"
           value={githubUsername}
           onChange={e => setGithubUsername(e.target.value)}
-          style={{
-            background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
-            padding: '6px 8px', color: '#e2e8f0', fontSize: 12, outline: 'none',
-          }}
+          className="rounded-md border border-slate-700 bg-surface px-2 py-1.5 text-[12px] text-text outline-none"
         />
         <input
           placeholder="Gist ID (e.g. abc123def456...)"
           value={gistId}
           onChange={e => setGistId(e.target.value)}
-          style={{
-            background: '#0d0d1a', border: '1px solid #334155', borderRadius: 6,
-            padding: '6px 8px', color: '#e2e8f0', fontSize: 12, outline: 'none',
-          }}
+          className="rounded-md border border-slate-700 bg-surface px-2 py-1.5 text-[12px] text-text outline-none"
         />
-        {errMsg && <div style={{ color: '#f87171', fontSize: 11 }}>{errMsg}</div>}
-        <div style={{ display: 'flex', gap: 6 }}>
+        {errMsg && <div className="text-[11px] text-accent-red-light">{errMsg}</div>}
+        <div className="flex gap-1.5">
           <button
             onClick={() => { setStep('idle'); setErrMsg(''); setGistId(''); setGithubUsername(''); }}
-            style={{
-              flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #334155',
-              background: '#111122', color: '#94a3b8',
-              fontSize: 12, cursor: 'pointer',
-            }}
+            className="flex-1 rounded-lg border border-slate-700 bg-surface-2 px-3 py-2 text-[12px] text-text-dim"
           >
             ← Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={step === 'submitting'}
-            style={{
-              flex: 2, padding: '8px 12px', borderRadius: 8, border: 'none',
-              background: step === 'submitting' ? '#334155' : '#22c55e', color: '#000',
-              fontSize: 13, fontWeight: 600, cursor: step === 'submitting' ? 'not-allowed' : 'pointer',
-            }}
+            className={`flex-[2] rounded-lg px-3 py-2 text-[13px] font-semibold ${step === 'submitting' ? 'cursor-not-allowed bg-slate-700 text-black' : 'bg-accent-green text-black'}`}
           >
             {step === 'submitting' ? 'Verifying…' : 'Submit Verification'}
           </button>
@@ -141,7 +128,7 @@ function VerifyGithubButton({ tile, address, onVerified }) {
 
   if (step === 'done') {
     return (
-      <div style={{ fontSize: 12, color: '#22c55e', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+      <div className="flex items-center justify-center gap-1 text-center text-[12px] text-accent-green">
         🐙 GitHub verified as @{githubUsername}
       </div>
     );
@@ -149,6 +136,5 @@ function VerifyGithubButton({ tile, address, onVerified }) {
 
   return null;
 }
-
 
 export default VerifyGithubButton;
