@@ -1634,7 +1634,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   // ─── Canvas grid view ────────────────────────────────────────────────────
   return (
     <>
-      <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: tool === 'select' ? 'crosshair' : (isDragging.current ? 'grabbing' : 'grab') }}>
+      <div ref={containerRef} className={tool === 'select' ? 'cursor-pixel-cross' : (isDragging.current ? 'cursor-pixel-grabbing' : 'cursor-pixel-grab')} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <canvas
           id="grid-canvas"
           ref={canvasRef}

@@ -385,3 +385,14 @@ body {
 button, [role="button"], a, .btn-retro, .pill, .icon-btn {
   cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAUUlEQVR4nM2SWwoAIAgEvf+lN4ICEVd89NGAHyKOKIr44EQLXLoSfCdAVQQtyMqgClTA1oKd0hZsbG6hK2SJDopJ8xOBRJLsL4wFrqT8iSRcFvVuYK4ajfdMAAAAAElFTkSuQmCC") 5 0, pointer;
 }
+
+/* Grid canvas cursors — pixel open hand, closed hand, crosshair */
+.cursor-pixel-grab {
+  cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAVElEQVR4nMXTUQoAIAgDUO9/6YWRYEYyK2gQ+NEeISQyB+PEmQoscWYh7AAH8UjymhrgkwHwy6sCCBfOAc0JIFmJKVv+A5qrsrwAFqRafgJ0hP2FDUJYd5cS6uetAAAAAElFTkSuQmCC") 7 5, grab;
+}
+.cursor-pixel-grabbing {
+  cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAASUlEQVR4nM2TMQoAMAgD8/9Pp1DqIiKp6dADQYScgwj8Bk/lXgsHuVdFrIi5JQlsCQQBHQE7pO0d9iUgQleALLkNPxFsyeQXRizYGQwDA58XrgAAAABJRU5ErkJggg==") 7 5, grabbing;
+}
+.cursor-pixel-cross {
+  cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAJElEQVR4nGNgwA/+M1AI/o8aQCfwHwumRN0gA/9HDWCgfVQBAA9hE+2kQLQwAAAAAElFTkSuQmCC") 7 7, crosshair;
+}
