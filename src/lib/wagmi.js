@@ -14,12 +14,10 @@ export const wagmiConfig = createConfig({
     [TARGET.id]: http(IS_TESTNET ? 'https://sepolia.base.org' : 'https://mainnet.base.org'),
   },
   connectors: [
-    injected({ target: 'metaMask' }),
     metaMask(),
     coinbaseWallet({ appName: 'tiles.bot' }),
     injected(),
   ],
-  ssr: true,
 });
 
 export const TARGET_CHAIN = TARGET;
