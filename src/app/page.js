@@ -237,15 +237,19 @@ function HomeInner() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [data, blockList0, spanList0] = await Promise.all([fetchGrid(), fetchBlocks(), fetchSpans()]);
+      const [data, blockList0, spanList0, statsData] = await Promise.all([
+        fetchGrid(), fetchBlocks(), fetchSpans(),
+        fetch('/api/stats').then(r => r.json()).catch(() => null),
+      ]);
       if (cancelled || !data) return;
 
       setTiles(data.tiles);
       if (data.pendingRequests) setPendingRequests(data.pendingRequests);
       setBlocks(data.blocks || blockList0);
       setSpans(data.spans || spanList0);
-      setStats(prev => ({ ...prev, ...data.stats }));
-      if (data.stats.nextAvailableTileId != null) setNextAvailableTileId(data.stats.nextAvailableTileId);
+      setStats(prev => ({ ...prev, ...data.stats, ...(statsData || {}) }));
+      const nextId = statsData?.nextAvailableTileId ?? data.stats?.nextAvailableTileId;
+      if (nextId != null) setNextAvailableTileId(nextId);
     })();
     return () => { cancelled = true; };
   }, []);
