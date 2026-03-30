@@ -104,7 +104,7 @@ function HomeInner() {
   const [viewMode, setViewMode] = useState('grid');
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [claimModalTile, setClaimModalTile] = useState(null);
-  const [nextAvailableTileId, setNextAvailableTileId] = useState(0);
+  const [nextAvailableTileId, setNextAvailableTileId] = useState(null);
 
   // Sync ?tile= query param → selectedTile + flyTo (handles activity/tile links)
   useEffect(() => {
