@@ -103,9 +103,11 @@ function heatmapColor(score, alpha = 0.72) {
 // on the main thread every frame (the 557ms "Image decode" in the profile).
 const imageCache = {};
 
-function getThumbUrl(tile) {
-  // Use pre-generated 64px WebP thumbnails (1-5KB each vs 200-500KB originals)
-  return `/tile-images/thumb/${tile.id}.webp`;
+function getThumbUrl(tile, hd = false) {
+  // 64px for zoomed-out grid, 256px for zoomed-in detail
+  return hd
+    ? `/tile-images/thumb-hd/${tile.id}.webp`
+    : `/tile-images/thumb/${tile.id}.webp`;
 }
 
 // Concurrent fetch limiter with priority lanes
@@ -137,24 +139,19 @@ function scheduleFetch(url, cacheKey, priority = false) {
   });
 }
 
-function loadTileImage(tile) {
+function loadTileImage(tile, hd = false) {
   if (!tile.imageUrl) return null;
-  const cacheKey = `thumb:${tile.id}:${tile.imageUrl}`;
+  const tier = hd ? 'hd' : 'sd';
+  const cacheKey = `thumb:${tier}:${tile.id}:${tile.imageUrl}`;
   if (imageCache[cacheKey]) return imageCache[cacheKey];
-  // Clear old entries for this tile
-  for (const k of Object.keys(imageCache)) {
-    if (k.startsWith(`thumb:${tile.id}:`) && k !== cacheKey) delete imageCache[k];
-  }
   imageCache[cacheKey] = 'loading';
-  // Load WebP thumbnail (tiny, ~2-5KB), fall back to full PNG on 404
-  const thumbUrl = getThumbUrl(tile);
-  const fallbackUrl = `/tile-images/${tile.id}.png`;
+  const thumbUrl = getThumbUrl(tile, hd);
+  const fallbackUrl = hd ? getThumbUrl(tile, false) : `/tile-images/${tile.id}.png`;
   fetch(thumbUrl, { signal: AbortSignal.timeout(6000) })
     .then(r => { if (!r.ok) throw new Error('404'); return r.blob(); })
     .then(blob => createImageBitmap(blob))
     .then(bmp => { imageCache[cacheKey] = bmp; })
     .catch(() => {
-      // Thumb missing — try full-size PNG
       fetch(fallbackUrl, { signal: AbortSignal.timeout(6000) })
         .then(r => { if (!r.ok) throw new Error('404'); return r.blob(); })
         .then(blob => createImageBitmap(blob))
@@ -612,7 +609,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       const sw = span.width * TILE_SIZE;
       const sh = span.height * TILE_SIZE;
 
-      const spanImgKey = `span:${span.id}`;
+      const spanUseHD = cam.zoom > 0.3;
+      const spanTier = spanUseHD ? 'hd' : 'sd';
+      const spanImgKey = `span:${spanTier}:${span.id}`;
       ctx.save();
 
       // ── Span-level heartbeat glow — if ANY tile in span is online ──
@@ -631,11 +630,20 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         let cachedSpanImg = imageCache[spanImgKey];
         if (!cachedSpanImg) {
           // Use pre-generated WebP thumbnail if available, fall back to full-size
-          const thumbUrl = `/tile-images/spans/${span.id}/thumb.webp`;
+          const thumbUrl = spanUseHD
+            ? `/tile-images/spans/${span.id}/thumb-hd.webp`
+            : `/tile-images/spans/${span.id}/thumb.webp`;
           imageCache[spanImgKey] = 'loading';
           scheduleFetch(thumbUrl, spanImgKey, true); // priority — spans are visual centerpieces
         } else if (cachedSpanImg !== 'loading' && cachedSpanImg !== 'error') {
           ctx.drawImage(cachedSpanImg, sx, sy, sw, sh);
+        }
+        // If HD requested but still loading, try SD as interim
+        if (spanUseHD && (!cachedSpanImg || cachedSpanImg === 'loading')) {
+          const sdSpan = imageCache[`span:sd:${span.id}`];
+          if (sdSpan && sdSpan !== 'loading' && sdSpan !== 'error') {
+            ctx.drawImage(sdSpan, sx, sy, sw, sh);
+          }
         }
       }
       // Fallback: if master image failed, render individual tile slices
@@ -748,7 +756,19 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           }
 
           // Try to draw image first (no clip — draw at exact tile bounds)
-          const cachedImg = tile.imageUrl ? imageCache[`thumb:${tile.id}:${tile.imageUrl}`] : null;
+          // Use HD (256px) thumbs when zoomed in enough that tiles are >100px on screen
+          const useHD = cam.zoom > 0.5;
+          const tier = useHD ? 'hd' : 'sd';
+          let cachedImg = tile.imageUrl ? imageCache[`thumb:${tier}:${tile.id}:${tile.imageUrl}`] : null;
+          // If HD requested but not loaded yet, fall back to SD for instant display
+          if (useHD && (!cachedImg || cachedImg === 'loading') && tile.imageUrl) {
+            const sdImg = imageCache[`thumb:sd:${tile.id}:${tile.imageUrl}`];
+            if (sdImg && sdImg !== 'loading' && sdImg !== 'error') cachedImg = sdImg;
+          }
+          // Trigger HD load on demand when zoomed in
+          if (useHD && tile.imageUrl && !imageCache[`thumb:hd:${tile.id}:${tile.imageUrl}`]) {
+            loadTileImage(tile, true);
+          }
           if (cachedImg && cachedImg !== 'loading' && cachedImg !== 'error') {
             ctx.drawImage(cachedImg, x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
           } else {

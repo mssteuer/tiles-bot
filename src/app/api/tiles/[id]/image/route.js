@@ -136,15 +136,20 @@ export async function POST(request, { params }) {
   const { filePath, imageUrl } = getImagePaths(id);
   await writeFile(filePath, processedBuffer);
 
-  // Generate 64px WebP thumbnail for the grid canvas
+  // Generate WebP thumbnails for the grid canvas (SD + HD tiers)
   try {
     const THUMB_DIR = path.join(IMAGES_DIR, 'thumb');
+    const THUMB_HD_DIR = path.join(IMAGES_DIR, 'thumb-hd');
     if (!existsSync(THUMB_DIR)) await mkdir(THUMB_DIR, { recursive: true });
-    const thumbBuffer = await sharp(processedBuffer)
-      .resize(64, 64, { fit: 'cover' })
-      .webp({ quality: 75 })
-      .toBuffer();
-    await writeFile(path.join(THUMB_DIR, `${id}.webp`), thumbBuffer);
+    if (!existsSync(THUMB_HD_DIR)) await mkdir(THUMB_HD_DIR, { recursive: true });
+    const [sdBuf, hdBuf] = await Promise.all([
+      sharp(processedBuffer).resize(64, 64, { fit: 'cover' }).webp({ quality: 75 }).toBuffer(),
+      sharp(processedBuffer).resize(256, 256, { fit: 'cover' }).webp({ quality: 80 }).toBuffer(),
+    ]);
+    await Promise.all([
+      writeFile(path.join(THUMB_DIR, `${id}.webp`), sdBuf),
+      writeFile(path.join(THUMB_HD_DIR, `${id}.webp`), hdBuf),
+    ]);
   } catch (err) {
     console.error(`[image] Thumb generation failed for tile ${id}:`, err.message);
   }
