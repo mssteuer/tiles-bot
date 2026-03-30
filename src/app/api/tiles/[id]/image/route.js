@@ -110,6 +110,19 @@ export async function POST(request, { params }) {
   const { filePath, imageUrl } = getImagePaths(id);
   await writeFile(filePath, processedBuffer);
 
+  // Generate 64px WebP thumbnail for the grid canvas
+  try {
+    const THUMB_DIR = path.join(IMAGES_DIR, 'thumb');
+    if (!existsSync(THUMB_DIR)) await mkdir(THUMB_DIR, { recursive: true });
+    const thumbBuffer = await sharp(processedBuffer)
+      .resize(64, 64, { fit: 'cover' })
+      .webp({ quality: 75 })
+      .toBuffer();
+    await writeFile(path.join(THUMB_DIR, `${id}.webp`), thumbBuffer);
+  } catch (err) {
+    console.error(`[image] Thumb generation failed for tile ${id}:`, err.message);
+  }
+
   // Upload to Filebase/IPFS if configured
   let ipfs = null;
   if (isFilebaseConfigured()) {
