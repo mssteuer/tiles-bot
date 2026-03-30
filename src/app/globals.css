@@ -47,64 +47,19 @@ body:not(:has(.app-shell)) {
 }
 
 /* ── Header ── */
-.header {
-  padding: 10px 16px;
-  background: linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%);
-  border-bottom: 1px solid #1a1a2e;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  z-index: 10;
-  flex-shrink: 0;
-}
-
-.header-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.header-brand h1 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  white-space: nowrap;
-}
-
-.header-brand p {
-  display: none; /* hidden on mobile */
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.header-stats {
-  display: none; /* hidden on mobile, shown on desktop */
-}
-
-.header-links {
+/* Row 1: nav links hidden on mobile */
+.header-nav-desktop {
   display: none;
 }
 
-.claim-btn {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  border: none;
-  color: #fff;
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  height: 32px;
-  box-sizing: border-box;
+@media (min-width: 768px) {
+  .header-nav-desktop {
+    display: flex !important;
+  }
+  .header-nav-desktop a:hover {
+    color: #e2e8f0 !important;
+    background: rgba(255,255,255,0.05);
+  }
 }
 
 /* ── Filter Bar ── */
@@ -230,17 +185,11 @@ body:not(:has(.app-shell)) {
     width: 100% !important;
   }
 
-  .header-brand h1 { font-size: 15px; }
   .search-input { width: 90px; }
 }
 
 /* ── Desktop enhancements ── */
 @media (min-width: 768px) {
-  .header { padding: 12px 24px; }
-  .header-brand p { display: block; margin: 0; font-size: 11px; color: #9ca3af; margin-top: 2px; }
-  .header-brand h1 { font-size: 18px; }
-  .header-stats { display: flex; gap: 20px; align-items: center; }
-  .header-links { display: flex; gap: 16px; align-items: center; }
   .filter-bar { padding: 8px 16px; gap: 10px; }
   .search-input { width: 160px; }
   .pill { font-size: 12px; padding: 5px 13px; }
