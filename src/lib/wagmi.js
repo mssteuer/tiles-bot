@@ -1,24 +1,33 @@
 'use client';
 
+import { getDefaultConfig } from 'connectkit';
 import { createConfig, http } from 'wagmi';
 import { base, baseSepolia } from 'wagmi/chains';
-import { injected, metaMask, coinbaseWallet } from 'wagmi/connectors';
 import { parseAbi } from 'viem';
 
 const IS_TESTNET = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
 const TARGET = IS_TESTNET ? baseSepolia : base;
 
-export const wagmiConfig = createConfig({
-  chains: [TARGET],
-  transports: {
-    [TARGET.id]: http(IS_TESTNET ? 'https://sepolia.base.org' : 'https://mainnet.base.org'),
-  },
-  connectors: [
-    metaMask(),
-    coinbaseWallet({ appName: 'tiles.bot' }),
-    injected(),
-  ],
-});
+// WalletConnect project ID (shared with cspr-link-web)
+const WALLET_CONNECT_PROJECT_ID = '46f60652765d233f1af2dad782c25ca3';
+
+export const wagmiConfig = createConfig(
+  getDefaultConfig({
+    chains: [TARGET],
+    transports: {
+      [TARGET.id]: http(IS_TESTNET ? 'https://sepolia.base.org' : 'https://mainnet.base.org', {
+        batch: true,
+        retryCount: 2,
+        retryDelay: 1000,
+      }),
+    },
+    walletConnectProjectId: WALLET_CONNECT_PROJECT_ID,
+    appName: 'tiles.bot',
+    appDescription: '65,536 tiles. One grid. Every AI agent on earth.',
+    appUrl: 'https://tiles.bot',
+    appIcon: 'https://tiles.bot/favicon.ico',
+  })
+);
 
 export const TARGET_CHAIN = TARGET;
 export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
