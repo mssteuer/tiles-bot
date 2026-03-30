@@ -16,6 +16,16 @@ export default function Providers({ children }) {
           options={{
             enforceSupportedChains: true,
             hideBalance: true,
+            walletConnectCTA: 'both',
+            hideNoWalletCTA: false,
+            hideQuestionMarkCTA: true,
+            hideRecentBadge: true,
+            reducedMotion: false,
+            disclaimer: null,
+            initialChainId: 0,
+          }}
+          customTheme={{
+            '--ck-font-family': 'system-ui, -apple-system, sans-serif',
           }}
         >
           {children}
