@@ -22,18 +22,8 @@ function WalletButton() {
   return (
     <ConnectKitButton.Custom>
       {({ isConnected, show, truncatedAddress, ensName }) => (
-        <button onClick={show} style={{
-          background: isConnected ? '#1a1a2e' : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-          border: isConnected ? '1px solid #2a2a3e' : 'none',
-          borderRadius: 8,
-          color: isConnected ? '#cbd5e1' : '#fff',
-          padding: '6px 14px',
-          fontSize: 12,
-          fontWeight: 600,
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-        }}>
-          {isConnected ? (ensName ?? truncatedAddress) : 'Connect Wallet'}
+        <button onClick={show} className={`btn-retro ${isConnected ? '' : 'btn-retro-primary'}`} style={{ fontSize: 12, padding: '6px 14px' }}>
+          {isConnected ? (ensName ?? truncatedAddress) : '⬡ Connect Wallet'}
         </button>
       )}
     </ConnectKitButton.Custom>
@@ -64,10 +54,9 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
 
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 22 }}>🤖</span>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.1 }}>tiles.bot</div>
-            <div style={{ fontSize: 10, color: '#b0bec5', lineHeight: 1.2 }}>The Million Bot Homepage</div>
+            <div style={{ fontFamily: 'var(--font-pixel)', fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1.1, letterSpacing: '1px' }}>tiles.bot</div>
+            <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#64748b', lineHeight: 1.2 }}>A universe of bots</div>
           </div>
         </div>
 
@@ -96,12 +85,8 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
 
         {/* Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <button onClick={() => onClaimClick(nextAvailableTileId ?? 0)} style={{
-            background: 'linear-gradient(135deg, #22c55e, #16a34a)', border: 'none', borderRadius: 8,
-            color: '#fff', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}>
-            Claim a Tile
+          <button onClick={() => onClaimClick(nextAvailableTileId ?? 0)} className="btn-retro btn-retro-green" style={{ fontSize: 12, padding: '6px 14px' }}>
+            ▶ Claim a Tile
           </button>
           <WalletButton />
         </div>
@@ -111,7 +96,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
         padding: '0 16px 6px', gap: 16, fontSize: 11, color: '#cbd5e1',
-        overflow: 'hidden',
+        overflow: 'hidden', fontFamily: 'var(--font-mono)',
       }}>
         {/* Claimed */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
