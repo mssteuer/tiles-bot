@@ -185,6 +185,4 @@ function getFirstMatchingTile(tiles, searchQuery, categoryFilter) {
     .sort((a, b) => a.id - b.id)[0] || null;
 }
 
-// ── Mobile gesture hints (auto-dismiss after 4s) ─────────────────────────
-
-export { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile };
+export { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, imageCache, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile };

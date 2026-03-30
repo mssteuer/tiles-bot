@@ -1,81 +1,76 @@
 'use client';
 
-import { getThumbUrl, tileMatchesFilter, hasActiveFilter } from './utils';
+import { CATEGORY_COLORS, getThumbUrl, tileMatchesFilter, hasActiveFilter } from './utils';
 
 export default function ListView({ tiles, searchQuery, categoryFilter, onTileClick, selectedTile }) {
+  const isFilterActive = hasActiveFilter(searchQuery, categoryFilter);
+  const tileList = Object.values(tiles)
+    .filter(tile => !isFilterActive || tileMatchesFilter(tile, searchQuery, categoryFilter))
+    .sort((a, b) => a.id - b.id);
 
-    const isFilterActive = hasActiveFilter(searchQuery, categoryFilter);
-    const tileList = Object.values(tiles)
-      .filter(tile => !isFilterActive || tileMatchesFilter(tile, searchQuery, categoryFilter))
-      .sort((a, b) => a.id - b.id);
-    return (
-      <div style={{ flex: 1, overflowY: 'auto', background: '#0a0a0f', padding: '8px 16px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ color: '#9ca3af', textTransform: 'uppercase', fontSize: 11, letterSpacing: 1 }}>
-              <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>#</th>
-              <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>Agent</th>
-              <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>Category</th>
-              <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>Status</th>
-              <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>Price paid</th>
-              <th style={{ padding: '8px 4px', textAlign: 'left', borderBottom: '1px solid #1a1a2e' }}>Position</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tileList.map(tile => (
+  return (
+    <div className="flex-1 overflow-y-auto bg-bg px-4 py-2">
+      <table className="w-full border-collapse text-[13px]">
+        <thead>
+          <tr className="text-left text-[11px] uppercase tracking-[1px] text-text-muted">
+            <th className="border-b border-border-dim px-1 py-2">#</th>
+            <th className="border-b border-border-dim px-1 py-2">Agent</th>
+            <th className="border-b border-border-dim px-1 py-2">Category</th>
+            <th className="border-b border-border-dim px-1 py-2">Status</th>
+            <th className="border-b border-border-dim px-1 py-2">Price paid</th>
+            <th className="border-b border-border-dim px-1 py-2">Position</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tileList.map(tile => {
+            const categoryColor = CATEGORY_COLORS[tile.category] || '#94a3b8';
+            const isSelected = selectedTile === tile.id;
+            const isOnline = tile.status === 'online';
+            return (
               <tr
                 key={tile.id}
                 onClick={() => onTileClick(tile.id)}
-                style={{
-                  cursor: 'pointer',
-                  borderBottom: '1px solid #111',
-                  background: selectedTile === tile.id ? 'rgba(59,130,246,0.1)' : 'transparent',
-                  transition: 'background 0.1s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                onMouseLeave={e => e.currentTarget.style.background = selectedTile === tile.id ? 'rgba(59,130,246,0.1)' : 'transparent'}
+                className={`cursor-pointer border-b border-black/70 transition-colors hover:bg-white/4 ${isSelected ? 'bg-accent-blue/10' : 'bg-transparent'}`}
               >
-                <td style={{ padding: '6px 4px', color: '#9ca3af' }}>{tile.id}</td>
-                <td style={{ padding: '6px 4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <td className="px-1 py-1.5 text-text-muted">{tile.id}</td>
+                <td className="px-1 py-1.5">
+                  <div className="flex items-center gap-2">
                     {tile.imageUrl ? (
-                      <img src={getThumbUrl(tile)} alt="" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} />
+                      <img src={getThumbUrl(tile)} alt="" className="h-6 w-6 rounded object-cover" />
                     ) : (
-                      <span style={{ fontSize: 18, lineHeight: 1 }}>{tile.avatar || '🤖'}</span>
+                      <span className="text-[18px] leading-none">{tile.avatar || '🤖'}</span>
                     )}
-                    <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{tile.name}</span>
+                    <span className="font-medium text-text">{tile.name}</span>
                   </div>
                 </td>
-                <td style={{ padding: '6px 4px' }}>
-                  <span style={{
-                    padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-                    background: `${CATEGORY_COLORS[tile.category] || '#333'}22`,
-                    color: CATEGORY_COLORS[tile.category] || '#94a3b8',
-                  }}>{tile.category || 'other'}</span>
+                <td className="px-1 py-1.5">
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                    style={{ backgroundColor: `${categoryColor}22`, color: categoryColor }}
+                  >
+                    {tile.category || 'other'}
+                  </span>
                 </td>
-                <td style={{ padding: '6px 4px' }}>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12,
-                    color: tile.status === 'online' ? '#22c55e' : '#ef4444',
-                  }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
+                <td className="px-1 py-1.5">
+                  <span className={`inline-flex items-center gap-1 text-[12px] ${isOnline ? 'text-accent-green' : 'text-accent-red'}`}>
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
                     {tile.status}
                   </span>
                 </td>
-                <td style={{ padding: '6px 4px', color: '#94a3b8' }}>
+                <td className="px-1 py-1.5 text-text-gray">
                   {tile.pricePaid ? `$${parseFloat(tile.pricePaid).toFixed(4)}` : '—'}
                 </td>
-                <td style={{ padding: '6px 4px', color: '#9ca3af', fontSize: 11 }}>
+                <td className="px-1 py-1.5 text-[11px] text-text-muted">
                   r{Math.floor(tile.id / 256)}, c{tile.id % 256}
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {tileList.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>No tiles match your filter.</div>
-        )}
-      </div>
-    );
-  
+            );
+          })}
+        </tbody>
+      </table>
+      {tileList.length === 0 && (
+        <div className="p-10 text-center text-text-muted">No tiles match your filter.</div>
+      )}
+    </div>
+  );
 }

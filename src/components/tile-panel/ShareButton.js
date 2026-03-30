@@ -4,29 +4,26 @@ import { useState } from 'react';
 
 function ShareButton({ tileId }) {
   const [copied, setCopied] = useState(false);
+
   async function handleShare() {
     const url = `https://tiles.bot/?tile=${tileId}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch { /* ignore */ }
+    } catch {
+      // ignore
+    }
   }
+
   return (
     <button
       onClick={handleShare}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        background: '#111122', border: '1px solid #33333366', borderRadius: 8,
-        padding: '10px 12px', fontSize: 13,
-        color: copied ? '#22c55e' : '#94a3b8',
-        fontWeight: 500, cursor: 'pointer', transition: 'color 0.2s',
-      }}
+      className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors ${copied ? 'border-accent-green/40 bg-accent-green/10 text-accent-green' : 'border-white/20 bg-surface-2 text-text-gray'}`}
     >
       {copied ? '✓ Link Copied!' : '🔗 Share Tile'}
     </button>
   );
 }
-
 
 export default ShareButton;
