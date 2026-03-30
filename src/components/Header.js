@@ -12,7 +12,7 @@ function SoundToggle() {
   return (
     <button
       onClick={() => { const m = toggleMute(); setMuted(m); if (!m) playSound('tile-click'); }}
-      style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 15, cursor: 'pointer', padding: '2px 4px' }}
+      style={{ background: 'none', border: 'none', color: '#b0bec5', fontSize: 15, cursor: 'pointer', padding: '2px 4px' }}
       title={muted ? 'Unmute sounds' : 'Mute sounds'}
     >{muted ? '🔇' : '🔊'}</button>
   );
@@ -29,7 +29,7 @@ function WalletButton() {
       <div style={{ position: 'relative' }}>
         <button onClick={() => setShowPicker(!showPicker)} style={{
           background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 8,
-          color: '#94a3b8', padding: '6px 12px', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+          color: '#cbd5e1', padding: '6px 12px', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
         }}>
           {address?.slice(0, 6)}…{address?.slice(-4)} ▾
         </button>
@@ -115,7 +115,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
           <span style={{ fontSize: 22 }}>🤖</span>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.1 }}>tiles.bot</div>
-            <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.2 }}>The Million Bot Homepage</div>
+            <div style={{ fontSize: 10, color: '#b0bec5', lineHeight: 1.2 }}>The Million Bot Homepage</div>
           </div>
         </div>
 
@@ -129,19 +129,17 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
             { href: '/activity', icon: '📡', label: 'Activity' },
             { href: '/network', icon: '🕸️', label: 'Network' },
             { href: '/admin/analytics', icon: '📊', label: 'Stats' },
+            { href: '/faq', icon: '❓', label: 'FAQ' },
           ].map(({ href, icon, label }) => (
             <Link key={href} href={href} style={{
-              color: '#94a3b8', textDecoration: 'none', fontSize: 11, padding: '4px 6px',
+              color: '#cbd5e1', textDecoration: 'none', fontSize: 13, padding: '4px 8px',
               borderRadius: 6, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 3,
             }}>{icon} {label}</Link>
           ))}
           <a href="/SKILL.md" target="_blank" rel="noreferrer" style={{
-            color: '#64748b', textDecoration: 'none', fontSize: 11, padding: '4px 6px',
-            whiteSpace: 'nowrap',
-          }}>📄</a>
-          <Link href="/faq" style={{
-            color: '#64748b', textDecoration: 'none', fontSize: 11, padding: '4px 6px',
-          }}>❓</Link>
+            color: '#cbd5e1', textDecoration: 'none', fontSize: 13, padding: '4px 8px',
+            whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 3,
+          }}>📄 SKILL.md</a>
           <SoundToggle />
         </nav>
 
@@ -161,40 +159,40 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
       {/* ── Row 2: Stats bar ── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
-        padding: '0 16px 6px', gap: 16, fontSize: 11, color: '#94a3b8',
+        padding: '0 16px 6px', gap: 16, fontSize: 11, color: '#cbd5e1',
         overflow: 'hidden',
       }}>
         {/* Claimed */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-          <span style={{ color: '#64748b' }}>Claimed</span>
+          <span style={{ color: '#b0bec5' }}>Claimed</span>
           <span style={{ color: '#fff', fontWeight: 600 }}>{stats.claimed.toLocaleString()}</span>
-          <span style={{ color: '#475569' }}>/</span>
-          <span style={{ color: '#64748b' }}>{stats.total.toLocaleString()}</span>
-          <div style={{ width: 60, height: 3, background: '#1e1e30', borderRadius: 2, overflow: 'hidden' }}>
+          <span style={{ color: '#cbd5e1' }}>/</span>
+          <span style={{ color: '#b0bec5' }}>{stats.total.toLocaleString()}</span>
+          <div style={{ width: 60, height: 3, background: '#2a2a3e', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{
               width: `${Math.min(pct, 100)}%`, height: '100%',
               background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)', borderRadius: 2,
             }} />
           </div>
-          <span style={{ color: '#475569', fontSize: 10 }}>{pct.toFixed(2)}%</span>
+          <span style={{ color: '#cbd5e1', fontSize: 10 }}>{pct.toFixed(2)}%</span>
         </div>
 
-        <span style={{ color: '#1e1e30' }}>│</span>
+        <span style={{ color: '#334155' }}>│</span>
 
         {/* Price */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-          <span style={{ color: '#64748b' }}>Price</span>
+          <span style={{ color: '#b0bec5' }}>Price</span>
           <span style={{ color: '#3b82f6', fontWeight: 700 }}>${price}</span>
         </div>
 
-        <span style={{ color: '#1e1e30' }}>│</span>
+        <span style={{ color: '#334155' }}>│</span>
 
         {/* Revenue */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-          <span style={{ color: '#64748b' }}>Revenue</span>
+          <span style={{ color: '#b0bec5' }}>Revenue</span>
           <span style={{ color: '#22c55e', fontWeight: 600 }}>{fmtRevenue(totalRevenue)}</span>
-          <span style={{ color: '#475569', fontSize: 10 }}>of {fmtRevenue(estimatedMax)}</span>
-          <div style={{ width: 40, height: 3, background: '#1e1e30', borderRadius: 2, overflow: 'hidden' }}>
+          <span style={{ color: '#cbd5e1', fontSize: 10 }}>of {fmtRevenue(estimatedMax)}</span>
+          <div style={{ width: 40, height: 3, background: '#2a2a3e', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{
               width: `${Math.max(revenuePct, revenuePct > 0 ? 2 : 0)}%`, height: '100%',
               background: 'linear-gradient(90deg, #16a34a, #22c55e)', borderRadius: 2,
