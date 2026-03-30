@@ -145,10 +145,12 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
 
         {/* Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <button className="claim-btn" onClick={() => onClaimClick(nextAvailableTileId ?? 0)} style={{
-            background: 'linear-gradient(135deg, #22c55e, #16a34a)', border: 'none', borderRadius: 8,
-            color: '#fff', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            whiteSpace: 'nowrap',
+          <button className="claim-btn" disabled={nextAvailableTileId == null} onClick={() => onClaimClick(nextAvailableTileId)} style={{
+            background: nextAvailableTileId != null ? 'linear-gradient(135deg, #22c55e, #16a34a)' : '#2a2a3e',
+            border: 'none', borderRadius: 8,
+            color: '#fff', padding: '6px 14px', fontSize: 12, fontWeight: 600,
+            cursor: nextAvailableTileId != null ? 'pointer' : 'wait',
+            whiteSpace: 'nowrap', opacity: nextAvailableTileId != null ? 1 : 0.6,
           }}>
             Claim a Tile
           </button>
