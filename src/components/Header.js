@@ -1,4 +1,5 @@
 'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { ConnectKitButton } from 'connectkit';
@@ -6,15 +7,23 @@ import { initSounds, isMuted, toggleMute, playSound } from '@/lib/sound';
 
 function SoundToggle() {
   const [muted, setMuted] = React.useState(true);
+
   React.useEffect(() => {
     initSounds().then(() => setMuted(isMuted()));
   }, []);
+
   return (
     <button
-      onClick={() => { const m = toggleMute(); setMuted(m); if (!m) playSound('tile-click'); }}
-      style={{ background: 'none', border: 'none', color: '#b0bec5', fontSize: 15, cursor: 'pointer', padding: '2px 4px' }}
+      onClick={() => {
+        const m = toggleMute();
+        setMuted(m);
+        if (!m) playSound('tile-click');
+      }}
+      className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[15px] text-slate-400"
       title={muted ? 'Unmute sounds' : 'Mute sounds'}
-    >{muted ? '🔇' : '🔊'}</button>
+    >
+      {muted ? '🔇' : '🔊'}
+    </button>
   );
 }
 
@@ -22,7 +31,7 @@ function WalletButton() {
   return (
     <ConnectKitButton.Custom>
       {({ isConnected, show, truncatedAddress, ensName }) => (
-        <button onClick={show} className={`btn-retro ${isConnected ? '' : 'btn-retro-primary'}`} style={{ fontSize: 12, padding: '6px 14px' }}>
+        <button onClick={show} className={`btn-retro px-[14px] py-1.5 text-[12px] ${isConnected ? '' : 'btn-retro-primary'}`}>
           {isConnected ? (ensName ?? truncatedAddress) : '⬡ Connect Wallet'}
         </button>
       )}
@@ -44,27 +53,17 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
   };
 
   return (
-    <header style={{ background: '#0d0d1a', borderBottom: '1px solid #1a1a2e', padding: 0, flexShrink: 0 }}>
-
-      {/* ── Row 1: Brand + Nav + Actions ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '8px 16px', gap: 12, minHeight: 44,
-      }}>
-
-        {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <img src="/logo-128.png" alt="tiles.bot" style={{ width: 32, height: 32, imageRendering: 'pixelated' }} />
+    <header className="shrink-0 border-b border-border-dim bg-[#0d0d1a]">
+      <div className="flex min-h-11 items-center justify-between gap-3 px-4 py-2">
+        <div className="flex shrink-0 items-center gap-2">
+          <img src="/logo-128.png" alt="tiles.bot" className="h-8 w-8 [image-rendering:pixelated]" />
           <div>
-            <div style={{ fontFamily: 'var(--font-pixel)', fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1.1, letterSpacing: '1px' }}>tiles.bot</div>
-            <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#64748b', lineHeight: 1.2 }}>A universe of bots</div>
+            <div className="font-pixel text-[16px] leading-[1.1] font-bold tracking-[1px] text-white">tiles.bot</div>
+            <div className="text-[10px] leading-[1.2] text-slate-500">A universe of bots</div>
           </div>
         </div>
 
-        {/* Nav links — desktop only */}
-        <nav className="header-nav-desktop" style={{
-          display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'nowrap',
-        }}>
+        <nav className="header-nav-desktop flex items-center gap-0.5 whitespace-nowrap">
           {[
             { href: '/leaderboard', icon: '🏆', label: 'Top' },
             { href: '/agents', icon: '🤖', label: 'Agents' },
@@ -73,68 +72,54 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
             { href: '/admin/analytics', icon: '📊', label: 'Stats' },
             { href: '/faq', icon: '❓', label: 'FAQ' },
           ].map(({ href, icon, label }) => (
-            <Link key={href} href={href} style={{
-              color: '#cbd5e1', textDecoration: 'none', fontSize: 13, padding: '4px 8px',
-              borderRadius: 6, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 3,
-            }}>{icon} {label}</Link>
+            <Link key={href} href={href} className="flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-slate-300 no-underline">
+              {icon} {label}
+            </Link>
           ))}
-          <a href="/SKILL.md" target="_blank" rel="noreferrer" style={{
-            color: '#cbd5e1', textDecoration: 'none', fontSize: 13, padding: '4px 8px',
-            whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 3,
-          }}>📄 SKILL.md</a>
+          <a href="/SKILL.md" target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1 text-[13px] text-slate-300 no-underline">
+            📄 SKILL.md
+          </a>
           <SoundToggle />
         </nav>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <button onClick={() => onClaimClick(nextAvailableTileId ?? 0)} className="btn-retro btn-retro-green" style={{ fontSize: 12, padding: '6px 14px' }}>
+        <div className="flex shrink-0 items-center gap-2">
+          <button onClick={() => onClaimClick(nextAvailableTileId ?? 0)} className="btn-retro btn-retro-green px-[14px] py-1.5 text-[12px]">
             ▶ Claim a Tile
           </button>
           <WalletButton />
         </div>
       </div>
 
-      {/* ── Row 2: Stats bar ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
-        padding: '0 16px 6px', gap: 16, fontSize: 11, color: '#cbd5e1',
-        overflow: 'hidden', fontFamily: 'var(--font-mono)',
-      }}>
-        {/* Claimed */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-          <span style={{ color: '#b0bec5' }}>Claimed</span>
-          <span style={{ color: '#fff', fontWeight: 600 }}>{stats.claimed.toLocaleString()}</span>
-          <span style={{ color: '#cbd5e1' }}>/</span>
-          <span style={{ color: '#b0bec5' }}>{stats.total.toLocaleString()}</span>
-          <div style={{ width: 60, height: 3, background: '#2a2a3e', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{
-              width: `${Math.min(pct, 100)}%`, height: '100%',
-              background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)', borderRadius: 2,
-            }} />
+      <div className="flex items-center justify-start gap-4 overflow-hidden px-4 pb-1.5 text-[11px] font-mono text-slate-300">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="text-slate-400">Claimed</span>
+          <span className="font-semibold text-white">{stats.claimed.toLocaleString()}</span>
+          <span className="text-slate-300">/</span>
+          <span className="text-slate-400">{stats.total.toLocaleString()}</span>
+          <div className="h-[3px] w-[60px] overflow-hidden rounded-sm bg-[#2a2a3e]">
+            <div className="h-full rounded-sm bg-linear-to-r from-accent-blue to-accent-purple" style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
-          <span style={{ color: '#cbd5e1', fontSize: 10 }}>{pct.toFixed(2)}%</span>
+          <span className="text-[10px] text-slate-300">{pct.toFixed(2)}%</span>
         </div>
 
-        <span style={{ color: '#334155' }}>│</span>
+        <span className="text-slate-700">│</span>
 
-        {/* Price */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-          <span style={{ color: '#b0bec5' }}>Price</span>
-          <span style={{ color: '#3b82f6', fontWeight: 700 }}>${price}</span>
+        <div className="flex items-center gap-1 whitespace-nowrap">
+          <span className="text-slate-400">Price</span>
+          <span className="font-bold text-accent-blue">${price}</span>
         </div>
 
-        <span style={{ color: '#334155' }}>│</span>
+        <span className="text-slate-700">│</span>
 
-        {/* Revenue */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-          <span style={{ color: '#b0bec5' }}>Revenue</span>
-          <span style={{ color: '#22c55e', fontWeight: 600 }}>{fmtRevenue(totalRevenue)}</span>
-          <span style={{ color: '#cbd5e1', fontSize: 10 }}>of {fmtRevenue(estimatedMax)}</span>
-          <div style={{ width: 40, height: 3, background: '#2a2a3e', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{
-              width: `${Math.max(revenuePct, revenuePct > 0 ? 2 : 0)}%`, height: '100%',
-              background: 'linear-gradient(90deg, #16a34a, #22c55e)', borderRadius: 2,
-            }} />
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="text-slate-400">Revenue</span>
+          <span className="font-semibold text-accent-green">{fmtRevenue(totalRevenue)}</span>
+          <span className="text-[10px] text-slate-300">of {fmtRevenue(estimatedMax)}</span>
+          <div className="h-[3px] w-10 overflow-hidden rounded-sm bg-[#2a2a3e]">
+            <div
+              className="h-full rounded-sm bg-linear-to-r from-green-600 to-accent-green"
+              style={{ width: `${Math.max(revenuePct, revenuePct > 0 ? 2 : 0)}%` }}
+            />
           </div>
         </div>
       </div>

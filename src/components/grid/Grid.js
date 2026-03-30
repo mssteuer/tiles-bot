@@ -9,7 +9,7 @@ import MobileHints from './MobileHints';
 import TileTooltip from './TileTooltip';
 import SelectionOverlay from './SelectionOverlay';
 import ToolToggle from './ToolToggle';
-import { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile } from './utils';
+import { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, imageCache, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile } from './utils';
 
 export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera }) {
   const canvasRef = useRef(null);
@@ -1356,7 +1356,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   // ─── Canvas grid view ────────────────────────────────────────────────────
   return (
     <>
-      <div ref={containerRef} className={tool === 'select' ? 'cursor-pixel-cross' : (isDragging.current ? 'cursor-pixel-grabbing' : 'cursor-pixel-grab')} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div ref={containerRef} className={tool === 'select' ? 'cursor-pixel-cross flex-1 overflow-hidden relative' : (isDragging.current ? 'cursor-pixel-grabbing flex-1 overflow-hidden relative' : 'cursor-pixel-grab flex-1 overflow-hidden relative')}>
         <canvas
           id="grid-canvas"
           ref={canvasRef}
@@ -1374,7 +1374,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             if (tileId === null) return;
             // Block claim feature removed — right-click does nothing
           }}
-          style={{ display: 'block', width: '100%', height: '100%' }}
+          className="block h-full w-full"
         />
 
         {/* Drag-select overlay — outline only, no fill */}
