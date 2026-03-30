@@ -954,8 +954,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
 
     try {
       // Compress client-side — handles 20MB phone photos gracefully
-      const compressed = file.size > 2 * 1024 * 1024
-        ? await compressImage(file, 1024, 0.85)
+      const compressed = file.size > 500 * 1024
+        ? await compressImage(file, 1024, 0.80)
         : file;
 
       const formPayload = new FormData();
