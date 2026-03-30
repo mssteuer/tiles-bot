@@ -9,17 +9,12 @@ function VerificationBadge({ verified, title }) {
   return (
     <span
       title={title}
-      style={{
-        color: verified ? VERIFIED_COLOR : UNVERIFIED_COLOR,
-        fontSize: 11,
-        fontWeight: 700,
-      }}
+      className={`text-[11px] font-bold ${verified ? 'text-accent-green' : 'text-gray-500'}`}
     >
       ✓
     </span>
   );
 }
-
 
 function CopyButton({ text, label = 'Copy' }) {
   const [copied, setCopied] = useState(false);
@@ -33,16 +28,11 @@ function CopyButton({ text, label = 'Copy' }) {
   return (
     <button
       onClick={handleCopy}
-      style={{
-        padding: '4px 8px', borderRadius: 5, border: '1px solid #334155',
-        background: copied ? '#22c55e22' : '#1a1a2e', color: copied ? '#22c55e' : '#94a3b8',
-        fontSize: 11, cursor: 'pointer', flexShrink: 0,
-      }}
+      className={`shrink-0 rounded-[5px] border border-slate-700 px-2 py-1 text-[11px] ${copied ? 'bg-accent-green/15 text-accent-green' : 'bg-surface-2 text-text-dim'}`}
     >
       {copied ? '✓ Copied' : label}
     </button>
   );
 }
-
 
 export { VerificationBadge, CopyButton };

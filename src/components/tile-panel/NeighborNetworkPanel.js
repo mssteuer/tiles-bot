@@ -111,7 +111,6 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Action failed (${res.status})`);
       }
-      // Refresh data
       await Promise.all([loadNeighbors(), loadPendingRequests()]);
       if (action === 'accept' && onConnectionsChange) {
         fetch('/api/connections').then(r => r.json()).then(d => onConnectionsChange(d.connections || [])).catch(() => {});
@@ -149,7 +148,6 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
 
   if (loading) return null;
 
-  // Filter owned tiles for the picker (exclude already-connected or pending)
   const connectedIds = new Set(neighbors.map(n => n.tileId));
   const filteredOwnedTiles = ownedTiles.filter(t => {
     if (connectedIds.has(t.id)) return false;
@@ -161,49 +159,39 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
   const canSendRequest = !!address && ownedTiles.length > 0 && !isOwner && !requestSent;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {/* Pending requests (owner only — verified via on-chain ownerOf) */}
+    <div className="flex flex-col gap-1.5">
       {isOwner && pendingRequests.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            fontSize: 12, color: '#f59e0b', fontWeight: 600,
-          }}>
+        <div className="mb-1 flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5 text-[12px] font-semibold text-accent-amber">
             📬 {pendingRequests.length} pending request{pendingRequests.length > 1 ? 's' : ''}
           </div>
           {pendingRequests.map(req => (
-            <div key={req.id} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: '#111122', borderRadius: 6, padding: '6px 8px',
-              border: '1px solid #f59e0b33', fontSize: 11,
-            }}>
+            <div
+              key={req.id}
+              className="flex items-center gap-1.5 rounded-md border border-accent-amber/20 bg-surface-2 px-2 py-1.5 text-[11px]"
+            >
               {req.fromTile.imageUrl ? (
                 <img
                   src={getSizedImageUrl(req.fromTile.imageUrl, 32)}
                   alt=""
-                  style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
+                  className="h-6 w-6 shrink-0 rounded object-cover"
                 />
               ) : (
-                <span style={{ fontSize: 14, flexShrink: 0 }}>{req.fromTile.avatar || '🤖'}</span>
+                <span className="shrink-0 text-[14px]">{req.fromTile.avatar || '🤖'}</span>
               )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#e2e8f0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium text-text">
                   #{req.fromTileId} {req.fromTile.name}
                 </div>
                 {req.fromTile.category && (
-                  <div style={{ color: '#cbd5e1', fontSize: 10 }}>{req.fromTile.category}</div>
+                  <div className="text-[10px] text-text-light">{req.fromTile.category}</div>
                 )}
               </div>
               <button
                 onClick={() => handleRequestAction(req.id, 'accept')}
                 disabled={processingReqId === req.id}
                 title="Accept"
-                style={{
-                  padding: '3px 8px', borderRadius: 4, border: 'none',
-                  background: '#22c55e', color: '#000', fontSize: 10, fontWeight: 600,
-                  cursor: processingReqId === req.id ? 'not-allowed' : 'pointer',
-                  opacity: processingReqId === req.id ? 0.5 : 1,
-                }}
+                className={`rounded px-2 py-[3px] text-[10px] font-semibold ${processingReqId === req.id ? 'cursor-not-allowed opacity-50' : ''} bg-accent-green text-black`}
               >
                 ✓
               </button>
@@ -211,12 +199,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
                 onClick={() => handleRequestAction(req.id, 'reject')}
                 disabled={processingReqId === req.id}
                 title="Reject"
-                style={{
-                  padding: '3px 8px', borderRadius: 4, border: '1px solid #475569',
-                  background: 'transparent', color: '#94a3b8', fontSize: 10, fontWeight: 600,
-                  cursor: processingReqId === req.id ? 'not-allowed' : 'pointer',
-                  opacity: processingReqId === req.id ? 0.5 : 1,
-                }}
+                className={`rounded border border-slate-600 px-2 py-[3px] text-[10px] font-semibold text-text-dim ${processingReqId === req.id ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 ✗
               </button>
@@ -225,53 +208,40 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
         </div>
       )}
 
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        fontSize: 12, color: '#94a3b8', fontWeight: 600,
-      }}>
+      <div className="flex items-center justify-between text-[12px] font-semibold text-text-dim">
         <span>🔗 Connections ({neighbors.length})</span>
       </div>
 
-      {/* Existing connections */}
       {neighbors.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="flex flex-col gap-1">
           {neighbors.map(n => {
             const statusColor = n.status === 'online' ? '#22c55e' : n.status === 'busy' ? '#f59e0b' : '#ef4444';
             return (
-              <div key={n.tileId} style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: '#111122', borderRadius: 6, padding: '5px 8px',
-                border: '1px solid #1a1a2e', fontSize: 11,
-              }}>
+              <div
+                key={n.tileId}
+                className="flex items-center gap-1.5 rounded-md border border-border-dim bg-surface-2 px-2 py-[5px] text-[11px]"
+              >
                 {n.imageUrl ? (
-                  <img
-                    src={n.imageUrl}
-                    alt=""
-                    style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
-                  />
+                  <img src={n.imageUrl} alt="" className="h-7 w-7 shrink-0 rounded object-cover" />
                 ) : (
-                  <span style={{ fontSize: 14, width: 28, textAlign: 'center', flexShrink: 0 }}>{n.avatar || '🤖'}</span>
+                  <span className="w-7 shrink-0 text-center text-[14px]">{n.avatar || '🤖'}</span>
                 )}
                 <div
-                  style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                  className="min-w-0 flex-1 cursor-pointer"
                   onClick={() => onNavigateToTile && onNavigateToTile(n.tileId)}
                   title="Fly to this tile"
                 >
-                  <div style={{ color: '#93c5fd', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div className="truncate font-medium text-blue-300">
                     #{n.tileId} {n.name || 'Unnamed'}
                   </div>
-                  {n.label && <div style={{ color: '#cbd5e1', fontSize: 10 }}>{n.label}</div>}
+                  {n.label && <div className="text-[10px] text-text-light">{n.label}</div>}
                 </div>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0 }} title={n.status} />
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: statusColor }} title={n.status} />
                 {isOwner && (
                   <button
                     onClick={() => handleDisconnect(n.tileId)}
                     title="Disconnect"
-                    style={{
-                      background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer',
-                      fontSize: 13, padding: '0 2px', lineHeight: 1,
-                    }}
+                    className="border-none bg-transparent px-0.5 py-0 text-[13px] leading-none text-text-dim"
                   >
                     ×
                   </button>
@@ -283,13 +253,11 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
       )}
 
       {neighbors.length === 0 && (
-        <div style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>No connections yet.</div>
+        <div className="text-center text-[11px] text-text-dim">No connections yet.</div>
       )}
 
-      {/* Error message */}
-      {errMsg && <div style={{ color: '#f87171', fontSize: 10, textAlign: 'center' }}>{errMsg}</div>}
+      {errMsg && <div className="text-center text-[10px] text-accent-red-light">{errMsg}</div>}
 
-      {/* Connect with this Bot button (for non-owners who have tiles) */}
       {canSendRequest && !showTilePicker && (
         <button
           onClick={() => {
@@ -301,36 +269,21 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
             }
           }}
           disabled={sendingRequest}
-          style={{
-            width: '100%', padding: '8px 12px', borderRadius: 8,
-            border: '1px solid #3b82f644',
-            background: '#111122', color: '#3b82f6', fontSize: 12, fontWeight: 500,
-            cursor: sendingRequest ? 'not-allowed' : 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
+          className={`flex w-full items-center justify-center gap-1.5 rounded-lg border border-accent-blue/30 bg-surface-2 px-3 py-2 text-[12px] font-medium text-accent-blue ${sendingRequest ? 'cursor-not-allowed' : ''}`}
         >
           {sendingRequest ? 'Sending…' : '🤝 Connect with this Bot'}
         </button>
       )}
 
-      {/* Request sent confirmation */}
       {requestSent && (
-        <div style={{
-          fontSize: 12, color: '#22c55e', textAlign: 'center',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          padding: '8px 12px', background: '#22c55e11', borderRadius: 8, border: '1px solid #22c55e33',
-        }}>
+        <div className="flex items-center justify-center gap-1 rounded-lg border border-accent-green/20 bg-accent-green/10 px-3 py-2 text-center text-[12px] text-accent-green">
           ✓ Connection request sent
         </div>
       )}
 
-      {/* Tile picker for users with multiple tiles */}
       {showTilePicker && (
-        <div style={{
-          display: 'flex', flexDirection: 'column', gap: 6, padding: '8px',
-          background: '#0d0d1a', borderRadius: 8, border: '1px solid #334155',
-        }}>
-          <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+        <div className="flex flex-col gap-1.5 rounded-lg border border-slate-700 bg-surface px-2 py-2">
+          <div className="text-[11px] font-semibold text-text-dim">
             Send request from which tile?
           </div>
           {ownedTiles.length > 5 && (
@@ -338,51 +291,40 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
               placeholder="Search your tiles…"
               value={tileSearch}
               onChange={e => setTileSearch(e.target.value)}
-              style={{
-                background: '#111122', border: '1px solid #334155', borderRadius: 5,
-                padding: '5px 8px', color: '#e2e8f0', fontSize: 11, outline: 'none',
-              }}
+              className="rounded-[5px] border border-slate-700 bg-surface-2 px-2 py-[5px] text-[11px] text-text outline-none"
             />
           )}
-          <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div className="flex max-h-40 flex-col gap-[3px] overflow-y-auto">
             {filteredOwnedTiles.map(t => (
               <button
                 key={t.id}
                 onClick={() => handleSendRequest(t)}
                 disabled={sendingRequest}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: '#111122', borderRadius: 5, padding: '5px 8px',
-                  border: '1px solid #1a1a2e', fontSize: 11, cursor: 'pointer',
-                  color: '#e2e8f0', textAlign: 'left', width: '100%',
-                }}
+                className="flex w-full items-center gap-1.5 rounded-[5px] border border-border-dim bg-surface-2 px-2 py-[5px] text-left text-[11px] text-text"
               >
                 {t.imageUrl ? (
                   <img
                     src={getSizedImageUrl(t.imageUrl, 32)}
                     alt=""
-                    style={{ width: 20, height: 20, borderRadius: 3, objectFit: 'cover', flexShrink: 0 }}
+                    className="h-5 w-5 shrink-0 rounded-[3px] object-cover"
                   />
                 ) : (
-                  <span style={{ fontSize: 14, flexShrink: 0 }}>{t.avatar || '🤖'}</span>
+                  <span className="shrink-0 text-[14px]">{t.avatar || '🤖'}</span>
                 )}
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span className="truncate">
                   #{t.id} {t.name || 'Unnamed'}
                 </span>
               </button>
             ))}
             {filteredOwnedTiles.length === 0 && (
-              <div style={{ fontSize: 10, color: '#94a3b8', textAlign: 'center', padding: 8 }}>
+              <div className="p-2 text-center text-[10px] text-text-dim">
                 No available tiles
               </div>
             )}
           </div>
           <button
             onClick={() => { setShowTilePicker(false); setTileSearch(''); setErrMsg(''); }}
-            style={{
-              padding: '5px 8px', borderRadius: 5, border: '1px solid #334155',
-              background: '#111122', color: '#94a3b8', fontSize: 11, cursor: 'pointer',
-            }}
+            className="rounded-[5px] border border-slate-700 bg-surface-2 px-2 py-[5px] text-[11px] text-text-dim"
           >
             Cancel
           </button>
@@ -391,6 +333,5 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
     </div>
   );
 }
-
 
 export default NeighborNetworkPanel;

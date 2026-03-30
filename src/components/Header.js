@@ -19,7 +19,7 @@ function SoundToggle() {
         setMuted(m);
         if (!m) playSound('tile-click');
       }}
-      className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[15px] text-slate-400"
+      className="cursor-pointer border-none bg-transparent px-1 py-0.5 text-[15px] text-text-dim"
       title={muted ? 'Unmute sounds' : 'Mute sounds'}
     >
       {muted ? '🔇' : '🔊'}
@@ -59,7 +59,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
           <img src="/logo-128.png" alt="tiles.bot" className="h-8 w-8 [image-rendering:pixelated]" />
           <div>
             <div className="font-pixel text-[16px] leading-[1.1] font-bold tracking-[1px] text-white">tiles.bot</div>
-            <div className="text-[10px] leading-[1.2] text-slate-500">A universe of bots</div>
+            <div className="text-[10px] leading-[1.2] text-text-muted">A universe of bots</div>
           </div>
         </div>
 
@@ -72,11 +72,11 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
             { href: '/admin/analytics', icon: '📊', label: 'Stats' },
             { href: '/faq', icon: '❓', label: 'FAQ' },
           ].map(({ href, icon, label }) => (
-            <Link key={href} href={href} className="flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-slate-300 no-underline">
+            <Link key={href} href={href} className="flex items-center gap-1 px-2 py-1 text-[13px] text-text-light no-underline">
               {icon} {label}
             </Link>
           ))}
-          <a href="/SKILL.md" target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1 text-[13px] text-slate-300 no-underline">
+          <a href="/SKILL.md" target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1 text-[13px] text-text-light no-underline">
             📄 SKILL.md
           </a>
           <SoundToggle />
@@ -90,31 +90,31 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-start gap-4 overflow-hidden px-4 pb-1.5 text-[11px] font-mono text-slate-300">
+      <div className="flex items-center justify-start gap-4 overflow-hidden px-4 pb-1.5 text-[11px] font-mono text-text-light">
         <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="text-slate-400">Claimed</span>
+          <span className="text-text-dim">Claimed</span>
           <span className="font-semibold text-white">{stats.claimed.toLocaleString()}</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-slate-400">{stats.total.toLocaleString()}</span>
+          <span className="text-text-light">/</span>
+          <span className="text-text-dim">{stats.total.toLocaleString()}</span>
           <div className="h-[3px] w-[60px] overflow-hidden rounded-sm bg-[#2a2a3e]">
             <div className="h-full rounded-sm bg-linear-to-r from-accent-blue to-accent-purple" style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
-          <span className="text-[10px] text-slate-300">{pct.toFixed(2)}%</span>
+          <span className="text-[10px] text-text-light">{pct.toFixed(2)}%</span>
         </div>
 
-        <span className="text-slate-700">│</span>
+        <span className="text-text-muted">│</span>
 
         <div className="flex items-center gap-1 whitespace-nowrap">
-          <span className="text-slate-400">Price</span>
+          <span className="text-text-dim">Price</span>
           <span className="font-bold text-accent-blue">${price}</span>
         </div>
 
-        <span className="text-slate-700">│</span>
+        <span className="text-text-muted">│</span>
 
         <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="text-slate-400">Revenue</span>
+          <span className="text-text-dim">Revenue</span>
           <span className="font-semibold text-accent-green">{fmtRevenue(totalRevenue)}</span>
-          <span className="text-[10px] text-slate-300">of {fmtRevenue(estimatedMax)}</span>
+          <span className="text-[10px] text-text-light">of {fmtRevenue(estimatedMax)}</span>
           <div className="h-[3px] w-10 overflow-hidden rounded-sm bg-[#2a2a3e]">
             <div
               className="h-full rounded-sm bg-linear-to-r from-green-600 to-accent-green"

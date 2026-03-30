@@ -40,6 +40,7 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 8px rgba(59,130,246,0.3); } 50% { box-shadow: 0 0 20px rgba(59,130,246,0.6); } }
 @keyframes pixel-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 .btn-loading {
   position: relative;
@@ -77,7 +78,7 @@ body:has(.app-shell) { overflow: hidden; }
 body:not(:has(.app-shell)) { overflow: auto; }
 
 .btn-retro {
-  @apply font-body font-semibold text-[13px] px-4 py-2 border-2 border-border-bright rounded-sm bg-surface-2 text-text whitespace-nowrap relative;
+  @apply relative cursor-pointer whitespace-nowrap rounded-sm border-2 border-border-bright bg-surface-2 px-4 py-2 font-body text-[13px] font-semibold text-text;
   image-rendering: pixelated;
   transition: all 0.1s;
 }
@@ -111,7 +112,7 @@ body:not(:has(.app-shell)) { overflow: auto; }
 }
 
 .retro-panel {
-  @apply bg-surface border-2 border-border-bright rounded-sm;
+  @apply rounded-sm border-2 border-border-bright bg-surface;
   box-shadow:
     inset 1px 1px 0 rgba(255,255,255,0.05),
     inset -1px -1px 0 rgba(0,0,0,0.3),
@@ -125,7 +126,7 @@ body:not(:has(.app-shell)) { overflow: auto; }
 }
 
 .retro-modal {
-  @apply bg-surface border-[3px] border-border-bright rounded-sm p-6 text-text overflow-y-auto;
+  @apply overflow-y-auto rounded-sm border-[3px] border-border-bright bg-surface p-6 text-text;
   max-width: 520px;
   width: 95%;
   max-height: 85vh;
@@ -137,11 +138,11 @@ body:not(:has(.app-shell)) { overflow: auto; }
 }
 
 .retro-modal h2 {
-  @apply font-pixel text-[16px] m-0 mb-4 text-white;
+  @apply m-0 mb-4 font-pixel text-[16px] text-white;
 }
 
 .retro-input {
-  @apply font-body text-[13px] px-3 py-2 bg-surface-dark border-2 border-border rounded-sm text-text outline-none;
+  @apply rounded-sm border-2 border-border bg-surface-dark px-3 py-2 font-body text-[13px] text-text outline-none;
   transition: border-color 0.15s;
 }
 .retro-input:focus {
@@ -150,20 +151,20 @@ body:not(:has(.app-shell)) { overflow: auto; }
 }
 
 .retro-tag {
-  @apply font-body text-[11px] font-semibold px-2 py-[3px] border border-border rounded-sm text-text-dim whitespace-nowrap;
+  @apply whitespace-nowrap rounded-sm border border-border px-2 py-[3px] font-body text-[11px] font-semibold text-text-dim;
   background: rgba(255, 255, 255, 0.03);
 }
 
 .app-shell {
-  @apply flex flex-col h-dvh overflow-hidden;
+  @apply flex h-dvh flex-col overflow-hidden;
 }
 
 .main-content {
-  @apply flex flex-1 overflow-hidden relative;
+  @apply relative flex flex-1 overflow-hidden;
 }
 
 .side-panel {
-  @apply w-0 overflow-hidden bg-bg border-l-2 border-border shrink-0 flex flex-col;
+  @apply flex w-0 shrink-0 flex-col overflow-hidden border-l-2 border-border bg-bg;
   transition: width 0.2s ease;
 }
 .side-panel.open {
@@ -172,27 +173,28 @@ body:not(:has(.app-shell)) { overflow: auto; }
 
 @media (max-width: 640px) {
   .side-panel {
-    @apply absolute bottom-0 left-0 right-0 w-full border-l-0 border-t-2 border-border z-20 overflow-y-auto;
+    @apply absolute bottom-0 left-0 right-0 z-20 overflow-y-auto border-l-0 border-t-2 border-border;
+    width: 100% !important;
     max-height: 0;
     transition: max-height 0.25s ease;
   }
   .side-panel.open {
-    @apply w-full;
+    width: 100% !important;
     max-height: 60dvh;
   }
   .search-input { width: 90px; }
 }
 
 .filter-bar {
-  @apply flex items-center gap-2 px-3 py-1.5 bg-surface border-b-2 border-border overflow-x-auto shrink-0;
+  @apply flex shrink-0 items-center gap-2 overflow-x-auto border-b-2 border-border bg-surface px-3 py-1.5;
   -webkit-overflow-scrolling: touch;
 }
 .filter-bar::-webkit-scrollbar { display: none; }
 
-.filter-pills { @apply flex gap-[5px] shrink-0; }
+.filter-pills { @apply flex shrink-0 gap-[5px]; }
 
 .pill {
-  @apply font-body py-[5px] px-3 rounded-sm border-2 border-border bg-transparent text-text-dim text-[11px] font-semibold whitespace-nowrap;
+  @apply whitespace-nowrap rounded-sm border-2 border-border bg-transparent px-3 py-[5px] font-body text-[11px] font-semibold text-text-dim;
   cursor: url("/cursors/pointer.png") 5 0, pointer;
   transition: all 0.1s;
 }
@@ -203,32 +205,32 @@ body:not(:has(.app-shell)) { overflow: auto; }
   box-shadow: 0 0 8px rgba(59, 130, 246, 0.15);
 }
 
-.filter-spacer { @apply flex-1 min-w-2; }
+.filter-spacer { @apply min-w-2 flex-1; }
 
 .search-input {
-  @apply font-body bg-surface-dark border-2 border-border rounded-sm py-[5px] px-2.5 text-text text-[12px] outline-none w-[120px] shrink-0;
+  @apply w-[120px] shrink-0 rounded-sm border-2 border-border bg-surface-dark px-2.5 py-[5px] font-body text-[12px] text-text outline-none;
   transition: border-color 0.15s;
 }
 .search-input:focus { @apply border-accent-blue; }
 
-.icon-btn-group { @apply flex gap-[3px] shrink-0; }
+.icon-btn-group { @apply flex shrink-0 gap-[3px]; }
 .icon-btn {
-  @apply bg-surface-2 border-2 border-border rounded-sm text-text-dim text-[13px] w-[30px] h-[30px] flex items-center justify-center p-0;
+  @apply flex h-[30px] w-[30px] items-center justify-center rounded-sm border-2 border-border bg-surface-2 p-0 text-[13px] text-text-dim;
   cursor: url("/cursors/pointer.png") 5 0, pointer;
 }
 .icon-btn:hover { @apply border-accent-blue text-white; }
-.icon-btn.active { @apply text-accent-blue border-accent-blue; }
+.icon-btn.active { @apply border-accent-blue text-accent-blue; }
 
 .header-nav-desktop { @apply hidden; }
 
 @media (min-width: 768px) {
-  .filter-bar { @apply px-4 py-2 gap-2.5; }
+  .filter-bar { @apply gap-2.5 px-4 py-2; }
   .search-input { @apply w-40; }
-  .pill { @apply text-[12px] py-[5px] px-[13px]; }
+  .pill { @apply px-[13px] py-[5px] text-[12px]; }
 
   .header-nav-desktop { display: flex !important; }
   .header-nav-desktop a {
-    @apply font-body text-[13px] text-text-dim no-underline py-1 px-2 rounded-sm whitespace-nowrap flex items-center gap-[3px];
+    @apply flex items-center gap-[3px] whitespace-nowrap rounded-sm px-2 py-1 font-body text-[13px] text-text-dim no-underline;
     transition: color 0.1s, background 0.1s;
   }
   .header-nav-desktop a:hover {
@@ -258,12 +260,6 @@ button, [role="button"], a, .btn-retro, .pill, .icon-btn, select, label {
   cursor: url("/cursors/pointer.png") 5 0, pointer !important;
 }
 
-.cursor-pixel-grab {
-  cursor: url("/cursors/grab.png") 7 5, grab;
-}
-.cursor-pixel-grabbing {
-  cursor: url("/cursors/grabbing.png") 7 5, grabbing;
-}
-.cursor-pixel-cross {
-  cursor: url("/cursors/crosshair.png") 7 7, crosshair;
+img {
+  -webkit-user-drag: none;
 }

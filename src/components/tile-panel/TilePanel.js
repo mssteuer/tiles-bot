@@ -22,7 +22,6 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
-  // Edit mode state
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -39,21 +38,17 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     color: tile.color || '#3b82f6',
   });
 
-  // Owned tile IDs (for interactions — which tiles can I act from?)
   const [ownedTileIds, setOwnedTileIds] = useState([]);
-
-  // Check if connected wallet owns this tile (supports smart wallets via on-chain check)
   const [isOwner, setIsOwner] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
     if (!address || tile.id == null) { setIsOwner(false); return; }
-    // Quick local check first
     if (tile.owner && address.toLowerCase() === tile.owner.toLowerCase()) {
       setIsOwner(true);
       return;
     }
-    // Reset immediately while checking on-chain (prevents stale flash from previous tile)
     setIsOwner(false);
-    // On-chain ownerOf check (handles smart wallets where DB owner ≠ useAccount address)
     let cancelled = false;
     fetch(`/api/tiles/${tile.id}/check-owner?wallet=${address}`)
       .then(r => r.json())
@@ -62,8 +57,6 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     return () => { cancelled = true; };
   }, [address, tile.id, tile.owner]);
 
-  // Once isOwner is confirmed, find all tiles owned by the same DB owner address
-  // This handles smart wallets: isOwner is true (on-chain), tile.owner is the proxy address
   useEffect(() => {
     if (!isOwner || tile.owner == null) { return; }
     const ownerAddr = tile.owner.toLowerCase();
@@ -75,9 +68,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     }).catch(() => {});
   }, [isOwner, tile.owner]);
 
-  // Also try direct EOA match (non-smart-wallet case)
   useEffect(() => {
-    if (!address || isOwner) return; // skip if isOwner already handled it
+    if (!address || isOwner) return;
     const addrLower = address.toLowerCase();
     fetch('/api/grid').then(r => r.json()).then(d => {
       const ids = Object.values(d.tiles || {})
@@ -86,6 +78,14 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
       if (ids.length > 0) setOwnedTileIds(ids);
     }).catch(() => {});
   }, [address, isOwner]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    setIsMobile(mq.matches);
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   function handleEditStart() {
     setFormData({
@@ -102,7 +102,6 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     setEditing(true);
   }
 
-  // Compress image client-side before uploading (handles huge phone camera photos)
   function compressImage(file, maxDim = 1024, quality = 0.85) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -141,7 +140,6 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     setSaveMsg('');
 
     try {
-      // Compress client-side — handles 20MB phone photos gracefully
       const compressed = file.size > 500 * 1024
         ? await compressImage(file, 1024, 0.80)
         : file;
@@ -227,14 +225,9 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     setSaving(true);
     setSaveMsg('');
     try {
-      // Build timestamped message (rounded to 5-min window)
       const ts = Math.floor(Date.now() / 1000 / 300) * 300;
       const message = `tiles.bot:metadata:${tile.id}:${ts}`;
-
-      // Sign with wallet
       const sig = await signMessageAsync({ message });
-
-      // Clean xHandle (strip leading @)
       const cleanHandle = formData.xHandle.startsWith('@')
         ? formData.xHandle.slice(1)
         : formData.xHandle;
@@ -266,7 +259,6 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
       const { tile: updatedTile } = await res.json();
       setSaveMsg('✓ Saved');
       setEditing(false);
-      // Notify parent to refresh tile data
       if (onTileUpdated) onTileUpdated(tile.id, updatedTile);
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (e) {
@@ -276,299 +268,192 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     }
   }
 
-  const inputStyle = {
-    width: '100%',
-    background: '#0a0a0f',
-    border: '1px solid #2a2a3e',
-    borderRadius: 6,
-    padding: '8px 10px',
-    color: '#fff',
-    fontSize: 13,
-    boxSizing: 'border-box',
-    outline: 'none',
-    fontFamily: 'inherit',
-  };
+  const panelClassName = isMobile
+    ? 'fixed bottom-0 left-0 right-0 z-[100] flex max-h-[80vh] flex-col gap-4 overflow-y-auto rounded-t-[12px] border-t border-border-dim bg-surface-alt p-5'
+    : 'flex w-80 flex-col gap-5 overflow-y-auto border-l border-border-dim bg-surface-alt p-6';
 
-  const labelStyle = {
-    fontSize: 11,
-    color: '#9ca3af',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-    display: 'block',
-  };
-
-  // Reactive mobile detection — updates on resize, SSR-safe
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639px)');
-    setIsMobile(mq.matches);
-    const handler = (e) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  const panelStyle = isMobile
-    ? {
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        maxHeight: '80vh',
-        overflowY: 'auto',
-        background: '#0f0f1a',
-        borderTop: '1px solid #1a1a2e',
-        borderLeft: 'none',
-        padding: 20,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-        zIndex: 100,
-        borderRadius: '12px 12px 0 0',
-      }
-    : {
-        width: 320,
-        background: '#0f0f1a',
-        borderLeft: '1px solid #1a1a2e',
-        padding: 24,
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 20,
-      };
+  const saveIsError = saveMsg.startsWith('Error');
+  const tileStatusClass = tile.status === 'online' ? 'bg-accent-green' : tile.status === 'busy' ? 'bg-accent-amber' : 'bg-accent-red';
+  const categoryColor = CATEGORY_COLORS[tile.category] || '#333';
 
   return (
-    <div style={panelStyle}>
-      {/* Header row — sticky so close button is always reachable */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        position: 'sticky', top: 0, zIndex: 10,
-        background: '#0f0f1a', paddingBottom: 8, marginBottom: -8,
-      }}>
-        <span style={{ fontSize: 12, color: '#9ca3af' }}>
+    <div className={panelClassName}>
+      <div className="sticky top-0 z-10 -mb-2 flex items-center justify-between bg-surface-alt pb-2">
+        <span className="text-[12px] text-text-gray">
           Tile #{tile.id} · ({col}, {row})
         </span>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="flex items-center gap-2">
           {isClaimed && isOwner && !editing && (
-            <button
-              onClick={handleEditStart}
-              className="btn-retro"
-              style={{ fontSize: 12, padding: '4px 10px' }}
-            >✏️ Edit</button>
+            <button onClick={handleEditStart} className="btn-retro px-[10px] py-1 text-[12px]">✏️ Edit</button>
           )}
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: '#b0b8c4', fontSize: 24, cursor: 'pointer',
-            lineHeight: 1, padding: '4px 8px',
-          }}>×</button>
+          <button onClick={onClose} className="border-none bg-transparent px-2 py-1 text-[24px] leading-none text-slate-400">×</button>
         </div>
       </div>
 
-      {/* Save success message */}
       {saveMsg && !editing && (
-        <div style={{
-          background: saveMsg.startsWith('Error') ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
-          border: `1px solid ${saveMsg.startsWith('Error') ? '#ef444440' : '#22c55e40'}`,
-          borderRadius: 6, padding: '8px 12px', fontSize: 13,
-          color: saveMsg.startsWith('Error') ? '#ef4444' : '#22c55e',
-        }}>{saveMsg}</div>
+        <div className={`rounded-md border px-3 py-2 text-[13px] ${saveIsError ? 'border-accent-red/25 bg-accent-red/10 text-accent-red' : 'border-accent-green/25 bg-accent-green/10 text-accent-green'}`}>
+          {saveMsg}
+        </div>
       )}
 
       {isClaimed ? (
         editing ? (
-          /* ── EDIT FORM ── */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8' }}>Edit Tile Metadata</div>
+          <div className="flex flex-col gap-3.5">
+            <div className="text-[14px] font-semibold text-text-dim">Edit Tile Metadata</div>
 
-            {/* Avatar + Color row */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Avatar Emoji</label>
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">Avatar Emoji</label>
                 <input
                   type="text"
                   value={formData.avatar}
                   maxLength={2}
                   onChange={e => setFormData(f => ({ ...f, avatar: e.target.value }))}
-                  style={{ ...inputStyle, fontSize: 24, textAlign: 'center', padding: '6px 10px' }}
+                  className="w-full rounded-md border border-border-bright bg-surface-dark px-2.5 py-1.5 text-center text-[24px] text-white outline-none"
                   placeholder="🤖"
                 />
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Color</label>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">Color</label>
+                <div className="flex items-center gap-1.5">
                   <input
                     type="color"
                     value={formData.color}
                     onChange={e => setFormData(f => ({ ...f, color: e.target.value }))}
-                    style={{ width: 40, height: 36, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    className="h-9 w-10 cursor-pointer border-none bg-transparent p-0"
                   />
                   <input
                     type="text"
                     value={formData.color}
                     maxLength={7}
                     onChange={e => setFormData(f => ({ ...f, color: e.target.value }))}
-                    style={{ ...inputStyle, flex: 1, fontFamily: 'monospace' }}
+                    className="w-full flex-1 rounded-md border border-border-bright bg-surface-dark px-2.5 py-2 font-mono text-[13px] text-white outline-none"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Tile Image Upload */}
             <div>
-              <label style={labelStyle}>Tile Image</label>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{
-                  width: 80, height: 80, borderRadius: 8,
-                  border: '2px dashed #2a2a3e',
-                  overflow: 'hidden',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: '#0a0a0f',
-                  flexShrink: 0,
-                }}>
+              <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">Tile Image</label>
+              <div className="flex items-center gap-3">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-border-bright bg-surface-dark">
                   {imagePreview ? (
-                    <img src={imagePreview} alt="Tile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={imagePreview} alt="Tile" className="h-full w-full object-cover" />
                   ) : (
-                    <span style={{ fontSize: 32 }}>{formData.avatar || '🤖'}</span>
+                    <span className="text-[32px]">{formData.avatar || '🤖'}</span>
                   )}
                 </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label className={uploadingImage ? 'btn-loading' : ''} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    background: uploadingImage ? '#333' : '#1a1a2e',
-                    border: '1px solid #2a2a3e',
-                    borderRadius: 6,
-                    padding: '8px 14px',
-                    fontSize: 12,
-                    color: '#94a3b8',
-                    cursor: uploadingImage ? 'not-allowed' : 'pointer',
-                    textAlign: 'center',
-                  }}>
-                    {uploadingImage && <span className="spinner" style={{ width: 12, height: 12, borderWidth: '1.5px' }} />}
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border-bright bg-surface-2 px-3.5 py-2 text-center text-[12px] text-text-dim ${uploadingImage ? 'btn-loading cursor-not-allowed bg-[#333]' : ''}`}>
+                    {uploadingImage && <span className="spinner h-3 w-3 border-[1.5px]" />}
                     {uploadingImage ? 'Uploading…' : imagePreview ? '📷 Change Image' : '📷 Upload Image'}
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
                       onChange={handleImageUpload}
                       disabled={uploadingImage}
-                      style={{ display: 'none' }}
+                      className="hidden"
                     />
                   </label>
-                  <span style={{ fontSize: 10, color: '#9ca3af' }}>PNG, JPG, or WebP • Max 5MB • Auto-crops to square</span>
+                  <span className="text-[10px] text-text-gray">PNG, JPG, or WebP • Max 5MB • Auto-crops to square</span>
                 </div>
               </div>
             </div>
 
             {tile.spanId && (
               <div>
-                <label style={labelStyle}>Multi-Tile Span Image</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{
-                    display: 'inline-block',
-                    background: uploadingSpanImage ? '#333' : '#0c4a6e',
-                    border: '1px solid #0369a1',
-                    borderRadius: 6,
-                    padding: '8px 14px',
-                    fontSize: 12,
-                    color: '#e0f2fe',
-                    cursor: uploadingSpanImage ? 'not-allowed' : 'pointer',
-                    textAlign: 'center',
-                  }}>
-                    {uploadingSpanImage && <span className="spinner" style={{ width: 12, height: 12, borderWidth: '1.5px' }} />}
+                <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">Multi-Tile Span Image</label>
+                <div className="flex flex-col gap-1.5">
+                  <label className={`inline-block cursor-pointer rounded-md border border-sky-700 bg-sky-900 px-3.5 py-2 text-center text-[12px] text-sky-100 ${uploadingSpanImage ? 'cursor-not-allowed bg-[#333]' : ''}`}>
+                    {uploadingSpanImage && <span className="spinner mr-1.5 inline-block h-3 w-3 border-[1.5px]" />}
                     {uploadingSpanImage ? 'Uploading span…' : '🧩 Upload spanning image'}
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
                       onChange={handleSpanImageUpload}
                       disabled={uploadingSpanImage}
-                      style={{ display: 'none' }}
+                      className="hidden"
                     />
                   </label>
-                  <span style={{ fontSize: 10, color: '#9ca3af' }}>Max 10MB • Fits to rectangle ratio • Slices into individual NFT images automatically</span>
+                  <span className="text-[10px] text-text-gray">Max 10MB • Fits to rectangle ratio • Slices into individual NFT images automatically</span>
                 </div>
               </div>
             )}
 
-            {/* Name */}
             <div>
-              <label style={labelStyle}>Name</label>
+              <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">Name</label>
               <input
                 type="text"
                 value={formData.name}
                 maxLength={50}
                 onChange={e => setFormData(f => ({ ...f, name: e.target.value }))}
-                style={inputStyle}
+                className="w-full rounded-md border border-border-bright bg-surface-dark px-2.5 py-2 text-[13px] text-white outline-none"
                 placeholder="My Agent"
               />
             </div>
 
-            {/* Description */}
             <div>
-              <label style={labelStyle}>Description <span style={{ color: '#94a3b8', textTransform: 'none' }}>({formData.description.length}/200)</span></label>
+              <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">
+                Description <span className="normal-case text-text-dim">({formData.description.length}/200)</span>
+              </label>
               <textarea
                 value={formData.description}
                 maxLength={200}
                 rows={3}
                 onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
-                style={{ ...inputStyle, resize: 'vertical', minHeight: 64 }}
+                className="min-h-16 w-full resize-y rounded-md border border-border-bright bg-surface-dark px-2.5 py-2 text-[13px] text-white outline-none"
                 placeholder="What does your agent do?"
               />
             </div>
 
-            {/* Category */}
             <div>
-              <label style={labelStyle}>Category</label>
+              <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">Category</label>
               <select
                 value={formData.category}
                 onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}
-                style={{ ...inputStyle, cursor: 'pointer' }}
+                className="w-full cursor-pointer rounded-md border border-border-bright bg-surface-dark px-2.5 py-2 text-[13px] text-white outline-none"
               >
                 {CATEGORIES.map(c => (
-                  <option key={c} value={c} style={{ background: '#0a0a0f', color: '#fff' }}>
+                  <option key={c} value={c} className="bg-surface-dark text-white">
                     {c.charAt(0).toUpperCase() + c.slice(1)}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Website */}
             <div>
-              <label style={labelStyle}>Website URL</label>
+              <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">Website URL</label>
               <input
                 type="url"
                 value={formData.url}
                 onChange={e => setFormData(f => ({ ...f, url: e.target.value }))}
-                style={inputStyle}
+                className="w-full rounded-md border border-border-bright bg-surface-dark px-2.5 py-2 text-[13px] text-white outline-none"
                 placeholder="https://myagent.ai"
               />
             </div>
 
-            {/* X Handle */}
             <div>
-              <label style={labelStyle}>X Handle</label>
+              <label className="mb-1 block text-[11px] uppercase tracking-[0.8px] text-text-gray">X Handle</label>
               <input
                 type="text"
                 value={formData.xHandle}
                 onChange={e => setFormData(f => ({ ...f, xHandle: e.target.value }))}
-                style={inputStyle}
+                className="w-full rounded-md border border-border-bright bg-surface-dark px-2.5 py-2 text-[13px] text-white outline-none"
                 placeholder="@myagent"
               />
             </div>
 
-            {/* Error message */}
             {saveMsg && (
-              <div style={{
-                background: 'rgba(239,68,68,0.1)',
-                border: '1px solid #ef444440',
-                borderRadius: 6, padding: '8px 12px', fontSize: 12, color: '#ef4444',
-              }}>{saveMsg}</div>
+              <div className="rounded-md border border-accent-red/25 bg-accent-red/10 px-3 py-2 text-[12px] text-accent-red">
+                {saveMsg}
+              </div>
             )}
 
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="flex gap-2">
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className={`btn-retro btn-retro-primary ${saving ? 'btn-loading' : ''}`}
-                style={{ flex: 1, fontSize: 13, padding: '10px 0' }}
+                className={`btn-retro btn-retro-primary flex-1 px-0 py-2.5 text-[13px] ${saving ? 'btn-loading' : ''}`}
               >
                 {saving && <span className="spinner" />}
                 {saving ? 'Signing in wallet…' : 'Save Changes'}
@@ -576,105 +461,81 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               <button
                 onClick={handleCancel}
                 disabled={saving}
-                className="btn-retro"
-                style={{ flex: 1, fontSize: 13, padding: '10px 0' }}
-              >Cancel</button>
+                className="btn-retro flex-1 px-0 py-2.5 text-[13px]"
+              >
+                Cancel
+              </button>
             </div>
 
-            <p style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', margin: 0 }}>
+            <p className="m-0 text-center text-[11px] text-text-dim">
               Saving requires a wallet signature. No gas needed.
             </p>
           </div>
         ) : (
-          /* ── DISPLAY MODE ── */
           <>
-            {/* Agent card */}
-            <div style={{
-              background: '#1a1a2e',
-              borderRadius: 12,
-              padding: 20,
-              textAlign: 'center',
-              border: `1px solid ${tile.color || '#333'}33`,
-            }}>
+            <div
+              className="rounded-[12px] border px-5 py-5 text-center"
+              style={{ background: '#1a1a2e', borderColor: `${tile.color || '#333'}33` }}
+            >
               {tile.imageUrl ? (
                 <img
                   src={getSizedImageUrl(tile.imageUrl, 256)}
                   alt={tile.name || 'Tile image'}
-                  style={{
-                    width: '100%', maxWidth: 256, aspectRatio: '1 / 1', borderRadius: 16,
-                    objectFit: 'cover', display: 'block',
-                    margin: '0 auto 12px', border: '1px solid #2a2a3e',
-                  }}
+                  className="mx-auto mb-3 block aspect-square w-full max-w-64 rounded-[16px] border border-border-bright object-cover"
                 />
               ) : (
-                <div style={{ fontSize: 48, marginBottom: 8 }}>{tile.avatar || '🤖'}</div>
+                <div className="mb-2 text-[48px]">{tile.avatar || '🤖'}</div>
               )}
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{tile.name}</h2>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                marginTop: 8, fontSize: 12, color: '#b0b8c4',
-              }}>
-                <span style={{
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: tile.status === 'online' ? '#22c55e' : tile.status === 'busy' ? '#f59e0b' : '#ef4444',
-                }} />
+              <h2 className="m-0 text-[18px] font-bold">{tile.name}</h2>
+              <div className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-slate-400">
+                <span className={`h-2 w-2 rounded-full ${tileStatusClass}`} />
                 {tile.status || 'unknown'}
               </div>
             </div>
 
-            {/* Category */}
             {tile.category && (
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: `${CATEGORY_COLORS[tile.category] || '#333'}22`,
-                border: `1px solid ${CATEGORY_COLORS[tile.category] || '#333'}44`,
-                padding: '4px 12px',
-                borderRadius: 20,
-                fontSize: 12,
-                color: CATEGORY_COLORS[tile.category] || '#888',
-                alignSelf: 'flex-start',
-              }}>
+              <div
+                className="inline-flex w-fit items-center gap-1.5 rounded-[20px] border px-3 py-1 text-[12px]"
+                style={{ background: `${categoryColor}22`, borderColor: `${categoryColor}44`, color: categoryColor }}
+              >
                 {tile.category}
               </div>
             )}
 
-            {/* Description */}
             {tile.description && (
-              <p style={{ margin: 0, fontSize: 14, color: '#d1d5db', lineHeight: 1.6 }}>
-                {tile.description}
-              </p>
+              <p className="m-0 text-[14px] leading-[1.6] text-slate-300">{tile.description}</p>
             )}
 
-            {/* Links */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {tile.url && (
-                <a href={tile.url} target="_blank" rel="noopener" style={{
-                  color: '#3b82f6', fontSize: 13, textDecoration: 'none',
-                }}>
+                <a href={tile.url} target="_blank" rel="noopener" className="text-[13px] text-accent-blue no-underline">
                   🔗 {tile.url}
                 </a>
               )}
               {(tile.xHandle || (tile.xVerified && tile.xHandleVerified)) && (
-                <a href={`https://x.com/${tile.xHandleVerified || tile.xHandle}`} target="_blank" rel="noopener" style={{
-                  color: '#94a3b8', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
-                }}>
+                <a
+                  href={`https://x.com/${tile.xHandleVerified || tile.xHandle}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="flex items-center gap-1 text-[13px] text-text-dim no-underline"
+                >
                   <span style={X_ICON_STYLE}>𝕏</span> @{tile.xHandleVerified || tile.xHandle}
                   <VerificationBadge verified={tile.xVerified} title={tile.xVerified ? 'X/Twitter identity verified' : 'X/Twitter identity not verified'} />
                 </a>
               )}
-              {/* Owner-only unverified GitHub nudge; keep this out of public social rows unless intentionally redesigning the panel. */}
               {(tile.githubUsername || isOwner) && (
                 tile.githubUsername ? (
-                  <a href={`https://github.com/${tile.githubUsername}`} target="_blank" rel="noopener" style={{
-                    color: '#94a3b8', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
-                  }}>
+                  <a
+                    href={`https://github.com/${tile.githubUsername}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="flex items-center gap-1 text-[13px] text-text-dim no-underline"
+                  >
                     <span>🐙 @{tile.githubUsername}</span>
                     <VerificationBadge verified={tile.githubVerified} title={tile.githubVerified ? 'GitHub identity verified' : 'GitHub identity not verified'} />
                   </a>
                 ) : (
-                  <div style={{
-                    color: '#94a3b8', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4,
-                  }}>
+                  <div className="flex items-center gap-1 text-[13px] text-text-dim">
                     <span>🐙 GitHub</span>
                     <VerificationBadge verified={false} title="GitHub identity not verified" />
                   </div>
@@ -682,103 +543,69 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               )}
             </div>
 
-            {/* Owner + tx hash details */}
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {/* Owner address — links to basescan + OpenSea profile */}
+            <div className="mt-auto flex flex-col gap-1 text-[11px] text-text-gray">
               {tile.owner ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#94a3b8' }}>Owner:</span>
-                  <a
-                    href={`https://basescan.org/address/${tile.owner}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: '#3b82f6', textDecoration: 'none', fontFamily: 'monospace' }}
-                  >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-text-dim">Owner:</span>
+                  <a href={`https://basescan.org/address/${tile.owner}`} target="_blank" rel="noopener noreferrer" className="font-mono text-accent-blue no-underline">
                     {truncateAddress(tile.owner)}
                   </a>
-                  <a
-                    href={`https://opensea.io/${tile.owner}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="View on OpenSea"
-                    style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 10 }}
-                  >
+                  <a href={`https://opensea.io/${tile.owner}`} target="_blank" rel="noopener noreferrer" title="View on OpenSea" className="text-[10px] text-text-dim no-underline">
                     OS
                   </a>
                 </div>
               ) : (
-                <span style={{ color: '#94a3b8' }}>Owner: demo</span>
+                <span className="text-text-dim">Owner: demo</span>
               )}
 
-              {/* Claim tx hash */}
               {tile.txHash ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#94a3b8' }}>Tx:</span>
-                  <a
-                    href={`https://basescan.org/tx/${tile.txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: '#3b82f6', textDecoration: 'none', fontFamily: 'monospace' }}
-                  >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-text-dim">Tx:</span>
+                  <a href={`https://basescan.org/tx/${tile.txHash}`} target="_blank" rel="noopener noreferrer" className="font-mono text-accent-blue no-underline">
                     {truncateTx(tile.txHash)}
                   </a>
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#94a3b8' }}>Tx:</span>
-                  <span style={{ color: '#94a3b8' }}>—</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-text-dim">Tx:</span>
+                  <span className="text-text-dim">—</span>
                 </div>
               )}
             </div>
 
-            {/* Edit prompt for owner */}
             {isOwner && (
-              <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
+              <div className="text-center text-[11px] text-text-gray">
                 🔑 You own this tile — click ✏️ Edit to update its info
               </div>
             )}
 
-            {/* Full-res image download link */}
             {tile.imageUrl && (
               <a
                 href={getSizedImageUrl(tile.imageUrl, 512)}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  background: '#111122', border: '1px solid #2a2a3e', borderRadius: 8,
-                  padding: '10px 12px', fontSize: 13, color: '#e2e8f0',
-                  textDecoration: 'none', fontWeight: 500,
-                }}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-bright bg-surface-2 px-3 py-2 text-[13px] font-medium text-text no-underline"
               >
                 🖼️ Open full-resolution image
               </a>
             )}
 
-            {/* OpenSea — single button: "List for Sale" if owner, "View on OpenSea" otherwise */}
             {CONTRACT_ADDRESS && CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000' && (
               <div>
                 <a
                   href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tile.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-retro"
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    textDecoration: 'none', width: '100%', fontSize: 13,
-                    color: isOwner ? '#a855f7' : '#3b82f6',
-                    borderColor: isOwner ? '#a855f744' : '#3b82f644',
-                  }}
+                  className="btn-retro flex w-full items-center justify-center gap-2 text-[13px] no-underline"
+                  style={{ color: isOwner ? '#a855f7' : '#3b82f6', borderColor: isOwner ? '#a855f744' : '#3b82f644' }}
                 >
                   {isOwner ? '💰 List for Sale' : '◇ View on OpenSea'}
                 </a>
               </div>
             )}
 
-            {/* GitHub Verification button — owner only */}
             {isOwner && !tile.githubVerified && (
               <VerifyGithubButton tile={tile} address={address} onVerified={() => {
-                // Refresh tile data
                 if (onTileUpdated) {
                   fetch(`/api/tiles/${tile.id}`)
                     .then(r => r.json())
@@ -788,15 +615,13 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               }} />
             )}
             {isOwner && tile.githubVerified && (
-              <div style={{ fontSize: 12, color: VERIFIED_COLOR, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <div className="flex items-center justify-center gap-1 text-center text-[12px] text-accent-green">
                 🐙 GitHub verified as @{tile.githubUsername}
               </div>
             )}
 
-            {/* X/Twitter Verification button — owner only */}
             {isOwner && !tile.xVerified && (
               <VerifyXButton tile={tile} address={address} onVerified={() => {
-                // Refresh tile data
                 if (onTileUpdated) {
                   fetch(`/api/tiles/${tile.id}`)
                     .then(r => r.json())
@@ -806,12 +631,11 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               }} />
             )}
             {isOwner && tile.xVerified && tile.xHandleVerified && (
-              <div style={{ fontSize: 12, color: VERIFIED_COLOR, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <div className="flex items-center justify-center gap-1 text-center text-[12px] text-accent-green">
                 <span style={X_ICON_STYLE}>𝕏</span> Verified as @{tile.xHandleVerified}
               </div>
             )}
 
-            {/* Neighbor Network */}
             {tile.id != null && (
               <NeighborNetworkPanel
                 tile={tile}
@@ -822,7 +646,6 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               />
             )}
 
-            {/* Interactions */}
             {tile.id != null && (
               <InteractionsPanel
                 tile={tile}
@@ -834,42 +657,24 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               />
             )}
 
-            {/* Share button */}
             <ShareButton tileId={tile.id} />
           </>
         )
       ) : (
-        /* ── UNCLAIMED ── */
         <>
-          <div style={{
-            background: '#1a1a2e',
-            borderRadius: 12,
-            padding: 32,
-            textAlign: 'center',
-            border: '1px dashed #333',
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }}>📍</div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#9ca3af' }}>Unclaimed</h2>
-            <p style={{ margin: '8px 0 0', fontSize: 13, color: '#94a3b8' }}>
+          <div className="rounded-[12px] border border-dashed border-[#333] bg-[#1a1a2e] px-8 py-8 text-center">
+            <div className="mb-3 text-[48px] opacity-30">📍</div>
+            <h2 className="m-0 text-[18px] font-bold text-text-gray">Unclaimed</h2>
+            <p className="mt-2 mb-0 text-[13px] text-text-dim">
               Position ({col}, {row})
             </p>
           </div>
 
-          <button style={{
-            width: '100%',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-            border: 'none',
-            color: '#fff',
-            padding: '14px 0',
-            borderRadius: 10,
-            fontWeight: 600,
-            fontSize: 15,
-            cursor: 'pointer',
-          }}>
+          <button className="w-full rounded-[10px] bg-linear-to-br from-accent-blue to-accent-purple px-0 py-3.5 text-[15px] font-semibold text-white">
             Claim This Tile — $1.00
           </button>
 
-          <p style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', lineHeight: 1.6 }}>
+          <p className="text-center text-[12px] leading-[1.6] text-text-dim">
             Pay with USDC on Base via x402.<br />
             No signup required. Just a wallet.
           </p>
