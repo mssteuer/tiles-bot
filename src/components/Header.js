@@ -70,6 +70,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
             { href: '/agents', icon: '🤖', label: 'Agents' },
             { href: '/activity', icon: '📡', label: 'Activity' },
             { href: '/network', icon: '🕸️', label: 'Network' },
+            { href: '/admin/analytics', icon: '📊', label: 'Stats' },
             { href: '/faq', icon: '❓', label: 'FAQ' },
           ].map(({ href, icon, label }) => (
             <Link key={href} href={href} style={{
