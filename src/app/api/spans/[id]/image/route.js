@@ -103,6 +103,19 @@ export async function POST(request, { params }) {
   const masterLocalUrl = `/tile-images/spans/${span.id}/master.png`;
   await writeFile(masterLocalPath, masterBuffer);
 
+  // Generate WebP thumbnail for grid canvas (proportional to span dimensions)
+  try {
+    const thumbW = span.width * 64;
+    const thumbH = span.height * 64;
+    const thumbBuffer = await sharp(masterBuffer)
+      .resize(thumbW, thumbH, { fit: 'cover' })
+      .webp({ quality: 75 })
+      .toBuffer();
+    await writeFile(path.join(spanDir, 'thumb.webp'), thumbBuffer);
+  } catch (err) {
+    console.error(`[span-image] Thumb generation failed for span ${span.id}:`, err.message);
+  }
+
   let masterImageUrl = masterLocalUrl;
   if (isFilebaseConfigured()) {
     try {
