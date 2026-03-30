@@ -108,12 +108,14 @@ function getThumbUrl(tile) {
   return `/tile-images/thumb/${tile.id}.webp`;
 }
 
-// Concurrent fetch limiter — max 6 simultaneous image loads
+// Concurrent fetch limiter with priority lanes
+// Priority queue (spans) processes first, then regular queue (tiles)
+const priorityQueue = [];
 const fetchQueue = [];
 let activeFetches = 0;
-const MAX_CONCURRENT = 6;
+const MAX_CONCURRENT = 8;
 
-function scheduleFetch(url, cacheKey) {
+function scheduleFetch(url, cacheKey, priority = false) {
   return new Promise((resolve) => {
     function run() {
       activeFetches++;
@@ -124,10 +126,13 @@ function scheduleFetch(url, cacheKey) {
         .catch(() => { imageCache[cacheKey] = 'error'; resolve(null); })
         .finally(() => {
           activeFetches--;
-          if (fetchQueue.length > 0) fetchQueue.shift()();
+          // Priority queue drains first
+          if (priorityQueue.length > 0) priorityQueue.shift()();
+          else if (fetchQueue.length > 0) fetchQueue.shift()();
         });
     }
     if (activeFetches < MAX_CONCURRENT) run();
+    else if (priority) priorityQueue.push(run);
     else fetchQueue.push(run);
   });
 }
@@ -616,7 +621,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           // Use pre-generated WebP thumbnail if available, fall back to full-size
           const thumbUrl = `/tile-images/spans/${span.id}/thumb.webp`;
           imageCache[spanImgKey] = 'loading';
-          scheduleFetch(thumbUrl, spanImgKey);
+          scheduleFetch(thumbUrl, spanImgKey, true); // priority — spans are visual centerpieces
         } else if (cachedSpanImg !== 'loading' && cachedSpanImg !== 'error') {
           ctx.drawImage(cachedSpanImg, sx, sy, sw, sh);
         }
