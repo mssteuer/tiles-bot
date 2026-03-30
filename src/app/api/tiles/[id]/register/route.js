@@ -30,7 +30,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'wallet address required' }, { status: 400 });
   }
 
-  const wallet = body.wallet.toLowerCase();
+  let wallet = body.wallet.toLowerCase();
   const txHash = body.txHash || null;
 
   if (!CONTRACT_ADDRESS) {
@@ -66,11 +66,15 @@ export async function POST(request, { params }) {
       );
     }
 
-    if (onChainOwner.toLowerCase() !== wallet) {
-      return NextResponse.json(
-        { error: 'On-chain owner does not match your wallet', onChainOwner },
-        { status: 403 }
-      );
+    // Accept if wallet matches on-chain owner directly, OR if the on-chain
+    // owner is a smart wallet proxy (Coinbase Smart Wallet / EIP-7702).
+    // The key proof is that the tile IS minted — the claimer paid USDC on-chain.
+    // We record the on-chain owner as the tile owner regardless.
+    const ownerMatch = onChainOwner.toLowerCase() === wallet;
+    if (!ownerMatch) {
+      // Smart wallet: on-chain owner differs from EOA — still register,
+      // but use the on-chain owner as the canonical owner
+      wallet = onChainOwner.toLowerCase();
     }
   } catch (err) {
     console.error('[register] On-chain verification failed:', err);
