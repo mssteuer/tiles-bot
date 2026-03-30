@@ -283,12 +283,17 @@ function HomeInner() {
         <ClaimModal
           tileId={claimModalTile}
           onClose={() => setClaimModalTile(null)}
-          onClaimed={async () => {
+          onClaimed={async (claimedTileId) => {
             setClaimModalTile(null);
             const data = await fetchGrid();
             if (data) {
               setTiles(data.tiles);
               setStats(prev => ({ ...prev, ...data.stats }));
+            }
+            // Fly to the claimed tile
+            if (claimedTileId != null) {
+              setSelectedTile(claimedTileId);
+              setFlyToTileId({ id: claimedTileId, ts: Date.now() });
             }
           }}
         />

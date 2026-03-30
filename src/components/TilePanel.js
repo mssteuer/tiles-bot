@@ -1164,15 +1164,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
           {isClaimed && isOwner && !editing && (
             <button
               onClick={handleEditStart}
-              style={{
-                background: '#1a1a2e',
-                border: '1px solid #2a2a3e',
-                borderRadius: 6,
-                color: '#94a3b8',
-                fontSize: 12,
-                padding: '4px 10px',
-                cursor: 'pointer',
-              }}
+              className="btn-retro"
+              style={{ fontSize: 12, padding: '4px 10px' }}
             >✏️ Edit</button>
           )}
           <button onClick={onClose} style={{
@@ -1386,14 +1379,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className={saving ? 'btn-loading' : ''}
-                style={{
-                  flex: 1,
-                  background: saving ? '#333' : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                  border: 'none', borderRadius: 8,
-                  color: '#fff', fontWeight: 600, fontSize: 13,
-                  padding: '10px 0', cursor: saving ? 'not-allowed' : 'pointer',
-                }}
+                className={`btn-retro btn-retro-primary ${saving ? 'btn-loading' : ''}`}
+                style={{ flex: 1, fontSize: 13, padding: '10px 0' }}
               >
                 {saving && <span className="spinner" />}
                 {saving ? 'Signing in wallet…' : 'Save Changes'}
@@ -1401,14 +1388,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               <button
                 onClick={handleCancel}
                 disabled={saving}
-                style={{
-                  flex: 1,
-                  background: '#1a1a2e',
-                  border: '1px solid #2a2a3e',
-                  borderRadius: 8, color: '#94a3b8',
-                  fontWeight: 600, fontSize: 13,
-                  padding: '10px 0', cursor: 'pointer',
-                }}
+                className="btn-retro"
+                style={{ flex: 1, fontSize: 13, padding: '10px 0' }}
               >Cancel</button>
             </div>
 
@@ -1586,41 +1567,23 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               </a>
             )}
 
-            {/* OpenSea + List for Sale buttons */}
+            {/* OpenSea — single button: "List for Sale" if owner, "View on OpenSea" otherwise */}
             {CONTRACT_ADDRESS && CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div>
                 <a
                   href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tile.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="btn-retro"
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    background: '#111122', border: '1px solid #2563eb44', borderRadius: 8,
-                    padding: '10px 12px', fontSize: 13, color: '#3b82f6',
-                    textDecoration: 'none', fontWeight: 500,
+                    textDecoration: 'none', width: '100%', fontSize: 13,
+                    color: isOwner ? '#a855f7' : '#3b82f6',
+                    borderColor: isOwner ? '#a855f744' : '#3b82f644',
                   }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 90 90" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M45 0C20.151 0 0 20.151 0 45C0 69.849 20.151 90 45 90C69.849 90 90 69.849 90 45C90 20.151 69.849 0 45 0ZM22.203 46.512L22.392 46.206L34.101 27.891C34.272 27.63 34.677 27.657 34.803 27.945C36.756 32.328 38.448 37.782 37.656 41.175C37.323 42.57 36.396 44.46 35.352 46.206C35.217 46.458 35.073 46.71 34.911 46.953C34.839 47.061 34.722 47.124 34.596 47.124H22.536C22.221 47.124 22.032 46.773 22.203 46.512ZM74.376 52.812C74.376 52.983 74.277 53.127 74.133 53.19C73.224 53.577 70.119 55.008 68.832 56.799C65.538 61.38 63.027 67.932 57.402 67.932H33.948C25.632 67.932 18.9 61.173 18.9 52.83V52.56C18.9 52.317 19.098 52.11 19.350 52.11H32.373C32.661 52.11 32.868 52.386 32.841 52.677C32.751 53.460 32.895 54.261 33.273 54.981C33.993 56.430 35.469 57.285 37.044 57.285H43.866V52.695H37.116C36.798 52.695 36.600 52.326 36.780 52.065C36.843 51.966 36.906 51.867 36.978 51.759C37.467 51.021 38.175 49.869 38.880 48.546C39.357 47.655 39.825 46.698 40.185 45.738C40.257 45.549 40.320 45.351 40.383 45.162C40.491 44.82 40.590 44.496 40.662 44.172C40.734 43.884 40.806 43.578 40.851 43.290C40.986 42.480 41.040 41.625 41.040 40.734C41.040 40.392 41.022 40.032 40.986 39.699C40.968 39.330 40.914 38.961 40.860 38.592C40.824 38.277 40.770 37.971 40.707 37.648C40.626 37.170 40.518 36.693 40.401 36.225L40.356 36.045C40.266 35.712 40.185 35.397 40.086 35.064C39.801 34.092 39.462 33.138 39.105 32.238C38.970 31.878 38.820 31.536 38.670 31.194C38.448 30.672 38.217 30.204 38.007 29.763C37.899 29.556 37.801 29.367 37.710 29.169C37.611 28.953 37.503 28.737 37.395 28.530C37.323 28.386 37.251 28.260 37.188 28.125L35.631 25.164C35.451 24.813 35.784 24.408 36.162 24.534L45.864 27.573H45.891C45.900 27.573 45.900 27.573 45.909 27.573L47.115 27.954L48.438 28.386L48.933 28.548V23.112C48.933 22.419 49.491 21.861 50.184 21.861C50.526 21.861 50.832 21.996 51.057 22.221C51.282 22.446 51.426 22.752 51.426 23.112V29.394L52.443 29.700C52.524 29.736 52.605 29.781 52.677 29.835C52.920 30.006 53.262 30.276 53.685 30.591C54.018 30.843 54.378 31.149 54.774 31.455C55.575 32.094 56.520 32.922 57.384 33.840C57.618 34.083 57.843 34.326 58.077 34.587C58.302 34.848 58.554 35.118 58.761 35.379C59.022 35.712 59.310 36.054 59.553 36.405C59.670 36.576 59.805 36.756 59.913 36.927C60.264 37.449 60.570 37.980 60.867 38.520C60.984 38.754 61.110 39.006 61.218 39.249C61.542 39.978 61.803 40.725 61.965 41.472C62.010 41.634 62.046 41.805 62.055 41.967V42.003C62.082 42.219 62.091 42.435 62.091 42.660C62.091 43.389 61.947 44.118 61.668 44.766C61.389 45.423 60.975 46.035 60.453 46.530C59.904 47.061 59.238 47.475 58.473 47.754C58.203 47.862 57.924 47.952 57.636 48.015C57.348 48.087 57.042 48.132 56.736 48.141H54.936C54.855 48.141 54.783 48.150 54.711 48.168C54.639 48.186 54.567 48.222 54.513 48.258C54.459 48.294 54.405 48.348 54.369 48.411C54.324 48.474 54.297 48.546 54.279 48.618V52.713H60.786C61.335 52.713 61.858 52.893 62.272 53.235C62.416 53.352 63.081 53.937 63.864 54.801C63.999 54.951 64.143 55.101 64.278 55.260C65.034 56.142 65.862 57.222 66.321 58.248C66.555 58.812 66.636 59.298 66.636 59.805C66.636 60.042 66.609 60.279 66.564 60.507C66.501 60.753 66.456 60.975 66.366 61.245C66.177 61.731 65.934 62.226 65.637 62.676C65.538 62.847 65.421 63.018 65.295 63.180C65.178 63.351 65.052 63.513 64.953 63.666C64.827 63.864 64.701 64.053 64.611 64.278C64.512 64.494 64.449 64.728 64.449 64.953H74.376V52.812ZM51.426 35.271V48.141H55.011C55.479 48.141 55.947 48.006 56.352 47.736C56.745 47.466 57.069 47.088 57.294 46.638C57.519 46.188 57.636 45.693 57.636 45.171V44.928C57.636 44.514 57.555 44.082 57.384 43.686C57.213 43.290 56.952 42.921 56.646 42.606C56.340 42.300 55.980 42.039 55.593 41.841C55.206 41.652 54.792 41.544 54.369 41.535H51.426V35.271Z" />
-                  </svg>
-                  View on OpenSea
+                  {isOwner ? '💰 List for Sale' : '◇ View on OpenSea'}
                 </a>
-                {/* List for Sale — links to OpenSea sell flow */}
-                {isOwner && (
-                  <a
-                    href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tile.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      background: '#111122', border: '1px solid #a855f744', borderRadius: 8,
-                      padding: '10px 12px', fontSize: 13, color: '#a855f7',
-                      textDecoration: 'none', fontWeight: 500,
-                    }}
-                  >
-                    💰 List for Sale
-                  </a>
-                )}
               </div>
             )}
 

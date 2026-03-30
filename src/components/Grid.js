@@ -1726,31 +1726,34 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           bottom: 16,
           right: 16,
           display: 'flex',
-          gap: 4,
-          background: 'rgba(10,10,15,0.85)',
-          borderRadius: 8,
-          padding: 4,
-          border: '1px solid #1a1a2e',
+          gap: 2,
+          background: 'var(--color-surface, rgba(10,10,15,0.9))',
+          borderRadius: 2,
+          padding: 3,
+          border: '2px solid var(--color-border-bright, #2a2a4e)',
           zIndex: 20,
-          backdropFilter: 'blur(6px)',
         }}>
           <button
             onClick={() => { playSound('tool-toggle'); setTool('pan'); }}
             title="Pan (drag to move)"
+            className="btn-retro"
             style={{
-              width: 36, height: 36, borderRadius: 6, border: 'none',
-              cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: tool === 'pan' ? 'rgba(59,130,246,0.3)' : 'transparent',
+              width: 36, height: 36, padding: 0,
+              fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: tool === 'pan' ? 'rgba(59,130,246,0.2)' : 'transparent',
               color: tool === 'pan' ? '#60a5fa' : '#94a3b8',
+              borderColor: tool === 'pan' ? '#3b82f6' : 'transparent',
             }}>✋</button>
           <button
             onClick={() => { playSound('tool-toggle'); setTool('select'); }}
             title="Select (drag to multi-select, or hold Shift)"
+            className="btn-retro"
             style={{
-              width: 36, height: 36, borderRadius: 6, border: 'none',
-              cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: tool === 'select' ? 'rgba(59,130,246,0.3)' : 'transparent',
+              width: 36, height: 36, padding: 0,
+              fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: tool === 'select' ? 'rgba(59,130,246,0.2)' : 'transparent',
               color: tool === 'select' ? '#60a5fa' : '#94a3b8',
+              borderColor: tool === 'select' ? '#3b82f6' : 'transparent',
             }}>⬚</button>
         </div>
 
