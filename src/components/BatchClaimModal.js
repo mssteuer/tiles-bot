@@ -131,7 +131,6 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
       });
 
       // Wait for tx confirmation, then batch-register all tiles in one call
-      // (avoids per-tile ownerOf RPC lag that causes 404s)
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash: claimTx });
       }
@@ -162,24 +161,16 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
   const gridCols = Math.min(unclaimed.length, 8);
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
-    }} onClick={e => e.stopPropagation()} /* no backdrop dismiss — use × or Cancel */>
-      <div style={{
-        background: '#1a1a2e', border: '1px solid #2a2a4a', borderRadius: 16,
-        padding: 24, maxWidth: 520, width: '95%', maxHeight: '80vh', overflowY: 'auto',
-        color: '#e2e8f0',
-      }} onClick={e => e.stopPropagation()}>
+    <div className="retro-modal-overlay" onClick={e => e.stopPropagation()} /* no backdrop dismiss — use × or Cancel */>
+      <div className="retro-modal" style={{ maxWidth: 520, width: '95%' }} onClick={e => e.stopPropagation()}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 20 }}>Batch Claim — {unclaimed.length} Tile{unclaimed.length !== 1 ? 's' : ''}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 24, cursor: 'pointer' }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 24, cursor: 'pointer', padding: '0 4px' }}>×</button>
         </div>
 
         {alreadyClaimed.length > 0 && (
-          <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 13 }}>
+          <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 2, padding: 10, marginBottom: 12, fontSize: 13 }}>
             ⚠️ {alreadyClaimed.length} tile{alreadyClaimed.length !== 1 ? 's' : ''} already claimed — skipping
           </div>
         )}
@@ -190,7 +181,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         }}>
           {unclaimed.slice(0, 64).map(id => (
             <div key={id} style={{
-              background: '#2a2a4a', borderRadius: 4, padding: 4,
+              background: 'var(--color-surface-2)', borderRadius: 2, padding: 4,
               fontSize: 10, textAlign: 'center', color: '#94a3b8',
               border: '1px solid rgba(59,130,246,0.3)',
             }}>
@@ -203,19 +194,19 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         </div>
 
         {wasCapped && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 13, color: '#f87171' }}>
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 2, padding: 10, marginBottom: 12, fontSize: 13, color: '#f87171' }}>
             ⚠️ Selection capped to {MAX_BATCH_TILES} tiles (max {Math.sqrt(MAX_BATCH_TILES)}×{Math.sqrt(MAX_BATCH_TILES)} span). Select fewer tiles.
           </div>
         )}
 
-        <div style={{ background: '#0f0f23', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+        <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 2, padding: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>
             <span>Starting price:</span>
-            <span>${perTilePrice} USDC</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>${perTilePrice} USDC</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 600, color: '#e2e8f0' }}>
             <span>Total ({unclaimed.length} tiles):</span>
-            <span>${estimatedTotal} USDC</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>${estimatedTotal} USDC</span>
           </div>
           <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 4 }}>
             Price increases per tile along the bonding curve
@@ -223,14 +214,14 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         </div>
 
         {step === 'success' && claimedRectangle && onSpanClaimRequest && (
-          <div style={{ background: 'rgba(14,165,233,0.12)', border: '1px solid rgba(14,165,233,0.35)', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+          <div style={{ background: 'rgba(14,165,233,0.12)', border: '1px solid rgba(14,165,233,0.35)', borderRadius: 2, padding: 12, marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>These claimed tiles form a rectangle.</div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>
               {claimedRectangle.width}×{claimedRectangle.height} starting at tile #{claimedRectangle.topLeftId}
             </div>
-            <button onClick={() => { onSpanClaimRequest(claimedRectangle.topLeftId, claimedRectangle.tileIds); onClose(); }} style={{
-              padding: '10px 14px', borderRadius: 8, background: '#0ea5e9', color: '#fff', border: 'none', cursor: 'pointer',
-            }}>
+            <button onClick={() => { onSpanClaimRequest(claimedRectangle.topLeftId, claimedRectangle.tileIds); onClose(); }}
+              className="btn-retro btn-retro-primary"
+              style={{ padding: '10px 14px' }}>
               🧩 Upload Spanning Image
             </button>
           </div>
@@ -242,25 +233,23 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
               Connect your wallet first (🦊 button in header)
             </div>
           ) : (
-            <button onClick={handleBatchClaim} style={{
-              width: '100%', padding: '14px 0', borderRadius: 10,
-              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-              color: '#fff', border: 'none', fontSize: 16, fontWeight: 600, cursor: 'pointer',
-            }}>
+            <button onClick={handleBatchClaim}
+              className="btn-retro btn-retro-primary"
+              style={{ width: '100%', padding: '14px 0', fontSize: 16 }}>
               Claim {unclaimed.length} Tile{unclaimed.length !== 1 ? 's' : ''} (${estimatedTotal} USDC)
             </button>
           )
         )}
 
         {step === 'approve' && (
-          <div className="btn-loading" style={{ textAlign: 'center', color: '#f59e0b', fontSize: 14, padding: '14px 0', borderRadius: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
+          <div className="btn-loading" style={{ textAlign: 'center', color: '#f59e0b', fontSize: 14, padding: '14px 0', borderRadius: 2, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
             <span className="spinner" style={{ borderTopColor: '#f59e0b', borderColor: 'rgba(245,158,11,0.3)' }} />
             Approving USDC — confirm in wallet…
           </div>
         )}
 
         {step === 'claim' && (
-          <div className="btn-loading" style={{ textAlign: 'center', color: '#3b82f6', fontSize: 14, padding: '14px 0', borderRadius: 10, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)' }}>
+          <div className="btn-loading" style={{ textAlign: 'center', color: '#3b82f6', fontSize: 14, padding: '14px 0', borderRadius: 2, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)' }}>
             <span className="spinner" style={{ borderTopColor: '#3b82f6', borderColor: 'rgba(59,130,246,0.3)' }} />
             Claiming {unclaimed.length} tiles — confirm in wallet…
           </div>
@@ -272,10 +261,9 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
             <div style={{ color: '#22c55e', fontSize: 16, fontWeight: 600 }}>
               {claimedCount} tiles claimed!
             </div>
-            <button onClick={onClose} style={{
-              marginTop: 12, padding: '10px 24px', borderRadius: 8,
-              background: '#22c55e', color: '#fff', border: 'none', cursor: 'pointer',
-            }}>
+            <button onClick={onClose}
+              className="btn-retro btn-retro-green"
+              style={{ marginTop: 12, padding: '10px 24px' }}>
               Done
             </button>
           </div>
@@ -284,10 +272,9 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         {step === 'error' && (
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: '#ef4444', fontSize: 14, marginBottom: 8 }}>{error}</div>
-            <button onClick={() => setStep('preview')} style={{
-              padding: '10px 24px', borderRadius: 8,
-              background: '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer',
-            }}>
+            <button onClick={() => setStep('preview')}
+              className="btn-retro btn-retro-primary"
+              style={{ padding: '10px 24px' }}>
               Try Again
             </button>
           </div>

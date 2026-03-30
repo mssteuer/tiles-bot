@@ -62,7 +62,6 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
   const [liveTiles, setLiveTiles] = useState(null);
   useEffect(() => {
     if (!tileIds || tileIds.length === 0) return;
-    // Fetch fresh tile data for the selected IDs
     Promise.all(tileIds.map(id =>
       fetch(`/api/tiles/${id}`).then(r => r.ok ? r.json() : null).catch(() => null)
     )).then(results => {
@@ -83,8 +82,6 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
       const tile = tileSource[id] || tileSource[String(id)];
       if (!tile || !tile.owner) missing.push(id);
       else if (!address || tile.owner?.toLowerCase() !== address.toLowerCase()) {
-        // Smart wallet: check on-chain if owner mismatch (Coinbase proxy vs EOA)
-        // For now, treat as ok if tile IS claimed (owner exists) — server validates on create
         ok.push(id);
       }
       else ok.push(id);
@@ -166,26 +163,28 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}
+      className="retro-modal-overlay"
       onClick={e => e.stopPropagation()} /* no backdrop dismiss — use × or Cancel */
     >
-      <div style={{ width: 540, maxWidth: '95vw', background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 16, padding: 24, color: '#fff' }}>
+      <div className="retro-modal" style={{ width: 540, maxWidth: '95vw' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 20 }}>Create Multi-Tile Span</h2>
             <p style={{ margin: '4px 0 0', color: '#b0b8c4', fontSize: 13 }}>Create the rectangle, upload one image, then wait for the span to become ready.</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#b0b8c4', fontSize: 24, cursor: 'pointer' }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#b0b8c4', fontSize: 24, cursor: 'pointer', padding: '0 4px' }}>×</button>
         </div>
 
+        {/* Step indicators */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, fontSize: 12 }}>
           {['configure', 'upload', 'processing', 'ready'].map((label) => {
             const active = label === step;
             const done = ['configure', 'upload', 'processing', 'ready'].indexOf(label) < ['configure', 'upload', 'processing', 'ready'].indexOf(step);
             return (
               <div key={label} style={{
-                padding: '6px 10px', borderRadius: 999,
-                background: active ? '#7c3aed' : done ? 'rgba(34,197,94,0.2)' : '#1f2937',
+                padding: '6px 10px', borderRadius: 2,
+                background: active ? '#7c3aed' : done ? 'rgba(34,197,94,0.2)' : 'var(--color-surface-2)',
+                border: `1px solid ${active ? '#7c3aed' : done ? 'rgba(34,197,94,0.4)' : 'var(--color-border)'}`,
                 color: active || done ? '#fff' : '#94a3b8',
                 textTransform: 'capitalize',
               }}>{label}</div>
@@ -193,14 +192,25 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
           })}
         </div>
 
+        {/* Width / Height inputs */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 12, color: '#b0b8c4' }}>Width</span>
-            <input type="number" min="1" max="16" value={width} disabled={!!createdSpan} onChange={e => setWidth(Math.max(1, Math.min(16, parseInt(e.target.value || '1', 10))))} style={{ background: '#111827', color: '#fff', border: '1px solid #374151', borderRadius: 8, padding: '10px 12px' }} />
+            <input
+              type="number" min="1" max="16" value={width} disabled={!!createdSpan}
+              onChange={e => setWidth(Math.max(1, Math.min(16, parseInt(e.target.value || '1', 10))))}
+              className="retro-input"
+              style={{ width: '100%' }}
+            />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 12, color: '#b0b8c4' }}>Height</span>
-            <input type="number" min="1" max="16" value={height} disabled={!!createdSpan} onChange={e => setHeight(Math.max(1, Math.min(16, parseInt(e.target.value || '1', 10))))} style={{ background: '#111827', color: '#fff', border: '1px solid #374151', borderRadius: 8, padding: '10px 12px' }} />
+            <input
+              type="number" min="1" max="16" value={height} disabled={!!createdSpan}
+              onChange={e => setHeight(Math.max(1, Math.min(16, parseInt(e.target.value || '1', 10))))}
+              className="retro-input"
+              style={{ width: '100%' }}
+            />
           </label>
         </div>
 
@@ -208,10 +218,11 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
           Top-left tile: #{topLeftId} · Rectangle: {width}×{height} · {tileIds?.length || 0} tiles
         </div>
 
-        <div style={{ display: 'inline-grid', gridTemplateColumns: `repeat(${Math.max(width, 1)}, 28px)`, gap: 2, padding: 8, background: '#111827', borderRadius: 8, marginBottom: 16 }}>
+        {/* Tile grid preview */}
+        <div style={{ display: 'inline-grid', gridTemplateColumns: `repeat(${Math.max(width, 1)}, 28px)`, gap: 2, padding: 8, background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 2, marginBottom: 16 }}>
           {(tileIds || []).map(id => {
             const bad = availability.missing.includes(id) || availability.foreign.includes(id);
-            return <div key={id} title={`Tile #${id}`} style={{ width: 28, height: 28, borderRadius: 4, background: bad ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.35)', border: `1px solid ${bad ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.6)'}` }} />;
+            return <div key={id} title={`Tile #${id}`} style={{ width: 28, height: 28, borderRadius: 2, background: bad ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.35)', border: `1px solid ${bad ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.6)'}` }} />;
           })}
         </div>
 
@@ -220,7 +231,7 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
         {tileIds && tileIds.length < 2 && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 8 }}>Minimum size is 2×1 or 1×2.</div>}
 
         {createdSpan && (
-          <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, background: '#111827', border: '1px solid #374151', fontSize: 13 }}>
+          <div style={{ marginBottom: 16, padding: 12, borderRadius: 2, background: 'var(--color-surface)', border: '1px solid var(--color-border)', fontSize: 13 }}>
             <div>Span #{createdSpan.id} created.</div>
             <div>Status: <strong>{createdSpan.status}</strong></div>
           </div>
@@ -229,22 +240,20 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
         {(step === 'upload' || step === 'processing' || step === 'ready') && (
           <div style={{ marginBottom: 16 }}>
             {uploadFile && (
-              <div style={{ marginBottom: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid #2a2a3e' }}>
+              <div style={{ marginBottom: 8, borderRadius: 2, overflow: 'hidden', border: '1px solid var(--color-border)' }}>
                 <img src={URL.createObjectURL(uploadFile)} alt="Preview" style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }} />
               </div>
             )}
-            <label style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              background: (uploading || step === 'processing' || step === 'ready') ? '#333' : '#1a1a2e',
-              border: '1px solid #2a2a3e',
-              borderRadius: 6,
-              padding: '8px 14px',
-              fontSize: 12,
-              color: '#94a3b8',
-              cursor: (uploading || step === 'processing' || step === 'ready') ? 'not-allowed' : 'pointer',
-            }}>
+            <label
+              className="btn-retro"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                opacity: (uploading || step === 'processing' || step === 'ready') ? 0.5 : 1,
+                cursor: (uploading || step === 'processing' || step === 'ready') ? 'not-allowed' : 'pointer',
+              }}
+            >
               {uploadFile ? '📷 Change Image' : '📷 Choose Image'}
               <input
                 type="file"
@@ -259,7 +268,7 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
         )}
 
         {step === 'processing' && (
-          <div className="btn-loading" style={{ color: '#60a5fa', fontSize: 13, marginBottom: 12, padding: '10px 14px', borderRadius: 8, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', textAlign: 'center' }}>
+          <div className="btn-loading" style={{ color: '#60a5fa', fontSize: 13, marginBottom: 12, padding: '10px 14px', borderRadius: 2, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', textAlign: 'center' }}>
             <span className="spinner" style={{ borderTopColor: '#60a5fa', borderColor: 'rgba(96,165,250,0.3)' }} />
             Processing and slicing tiles{polling ? '…' : '.'}
           </div>
@@ -267,21 +276,33 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
         {step === 'ready' && (
           <div style={{ color: '#22c55e', fontSize: 13, marginBottom: 12 }}>
-            Spanning image is ready.
+            ✅ Spanning image is ready.
           </div>
         )}
 
         {error && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ background: 'transparent', border: '1px solid #374151', color: '#ddd', padding: '10px 16px', borderRadius: 8, cursor: 'pointer' }}>{step === 'ready' ? 'Done' : 'Cancel'}</button>
+          <button onClick={onClose} className="btn-retro" style={{ padding: '10px 16px' }}>
+            {step === 'ready' ? 'Done' : 'Cancel'}
+          </button>
           {!createdSpan && (
-            <button onClick={handleCreate} disabled={!canCreate || working} className={working ? 'btn-loading' : ''} style={{ background: !canCreate ? '#1f2937' : '#7c3aed', border: 'none', color: '#fff', padding: '10px 16px', borderRadius: 8, cursor: !canCreate ? 'not-allowed' : 'pointer' }}>
+            <button
+              onClick={handleCreate}
+              disabled={!canCreate || working}
+              className={`btn-retro btn-retro-primary${working ? ' btn-loading' : ''}`}
+              style={{ padding: '10px 16px', opacity: !canCreate ? 0.5 : 1, cursor: !canCreate ? 'not-allowed' : 'pointer' }}
+            >
               {working && <span className="spinner" />}{working ? 'Creating span…' : 'Create Span'}
             </button>
           )}
           {createdSpan && step !== 'ready' && (
-            <button onClick={handleUpload} disabled={!canUpload} className={uploading ? 'btn-loading' : ''} style={{ background: !canUpload ? '#1f2937' : '#0ea5e9', border: 'none', color: '#fff', padding: '10px 16px', borderRadius: 8, cursor: !canUpload ? 'not-allowed' : 'pointer' }}>
+            <button
+              onClick={handleUpload}
+              disabled={!canUpload}
+              className={`btn-retro btn-retro-primary${uploading ? ' btn-loading' : ''}`}
+              style={{ padding: '10px 16px', opacity: !canUpload ? 0.5 : 1, cursor: !canUpload ? 'not-allowed' : 'pointer' }}
+            >
               {uploading && <span className="spinner" />}{uploading ? 'Uploading image…' : 'Upload Image'}
             </button>
           )}

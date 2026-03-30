@@ -158,27 +158,16 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
     }
   }
 
-  const overlayStyle = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 1000, backdropFilter: 'blur(4px)',
-  };
-  const modalStyle = {
-    background: '#0f0f1a', border: '1px solid #2a2a3e', borderRadius: 16,
-    padding: 32, minWidth: 360, maxWidth: 440, width: '90vw',
-    boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
-  };
-
   return (
-    <div style={overlayStyle} onClick={e => e.stopPropagation()} /* no backdrop dismiss — use ✕ or Cancel */>
-      <div style={modalStyle}>
+    <div className="retro-modal-overlay" onClick={e => e.stopPropagation()} /* no backdrop dismiss — use ✕ or Cancel */>
+      <div className="retro-modal" style={{ minWidth: 360, maxWidth: 440, width: '90vw' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Claim Tile #{tileId}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 20, cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 20, cursor: 'pointer', padding: '0 4px' }}>✕</button>
         </div>
 
         {/* Tile position info */}
-        <div style={{ background: '#1a1a2e', borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#94a3b8' }}>
+        <div style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 2, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#94a3b8' }}>
           <div>Position: Row {Math.floor(tileId / 256)}, Col {tileId % 256}</div>
           <div style={{ marginTop: 4, fontSize: 20, fontWeight: 700, color: '#3b82f6' }}>
             ${parseFloat(priceDisplay).toFixed(4)} USDC
@@ -191,12 +180,8 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
             <p style={{ color: '#94a3b8', marginBottom: 16, fontSize: 14 }}>Connect your wallet to claim this tile.</p>
             <button
               onClick={() => openConnectModal(true)}
-              style={{
-                width: '100%', padding: '14px', borderRadius: 10,
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                color: '#fff', fontWeight: 700, fontSize: 15, border: 'none',
-                cursor: 'pointer',
-              }}
+              className="btn-retro btn-retro-primary"
+              style={{ width: '100%', padding: '14px', fontSize: 15 }}
             >
               Connect Wallet
             </button>
@@ -208,7 +193,8 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
             </p>
             <button
               onClick={() => switchChain({ chainId: TARGET_CHAIN.id })}
-              style={{ background: '#f59e0b', color: '#000', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}
+              className="btn-retro"
+              style={{ borderColor: '#f59e0b', color: '#f59e0b', padding: '10px 24px' }}
             >
               Switch Network
             </button>
@@ -225,14 +211,16 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
             )}
             <button
               onClick={onClose}
-              style={{ marginTop: 20, background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer', width: '100%' }}
+              className="btn-retro btn-retro-primary"
+              style={{ marginTop: 20, width: '100%', padding: '10px 24px' }}
             >Done</button>
           </div>
         ) : step === 'error' ? (
           <div>
             <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{errorMsg}</p>
             <button onClick={() => setStep('info')}
-              style={{ background: '#1a1a2e', color: '#fff', border: '1px solid #2a2a3e', borderRadius: 8, padding: '10px 24px', cursor: 'pointer', width: '100%' }}>
+              className="btn-retro"
+              style={{ width: '100%', padding: '10px 24px' }}>
               Try Again
             </button>
           </div>
@@ -240,7 +228,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
           <div>
             {/* Balance check */}
             {!hasBalance && (
-              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef444440', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#ef4444' }}>
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef444440', borderRadius: 2, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#ef4444' }}>
                 Insufficient USDC balance. You need ${parseFloat(priceDisplay).toFixed(4)} USDC on {TARGET_CHAIN.name}.
               </div>
             )}
@@ -250,11 +238,11 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
               <button
                 onClick={handleApprove}
                 disabled={!hasBalance || step === 'approve'}
-                className={step === 'approve' ? 'btn-loading' : ''}
+                className={`btn-retro btn-retro-primary${step === 'approve' ? ' btn-loading' : ''}`}
                 style={{
-                  width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-                  background: hasBalance ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : '#333',
-                  color: '#fff', fontWeight: 700, fontSize: 15, cursor: hasBalance ? 'pointer' : 'not-allowed',
+                  width: '100%', padding: '12px', fontSize: 15,
+                  opacity: !hasBalance ? 0.5 : 1,
+                  cursor: hasBalance ? 'pointer' : 'not-allowed',
                 }}
               >
                 {step === 'approve' && <span className="spinner" />}
@@ -265,11 +253,11 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
               <button
                 onClick={handleClaim}
                 disabled={!hasBalance || step === 'claim'}
-                className={step === 'claim' ? 'btn-loading' : ''}
+                className={`btn-retro btn-retro-primary${step === 'claim' ? ' btn-loading' : ''}`}
                 style={{
-                  width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-                  background: hasBalance ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : '#333',
-                  color: '#fff', fontWeight: 700, fontSize: 15, cursor: hasBalance ? 'pointer' : 'not-allowed',
+                  width: '100%', padding: '12px', fontSize: 15,
+                  opacity: !hasBalance ? 0.5 : 1,
+                  cursor: hasBalance ? 'pointer' : 'not-allowed',
                 }}
               >
                 {step === 'claim' && <span className="spinner" />}

@@ -374,3 +374,14 @@ body:not(:has(.app-shell)) { overflow: auto; }
   background: rgba(59, 130, 246, 0.3);
   color: #fff;
 }
+
+/* ── 8-bit pixel cursors ── */
+/* Pixel arrow cursor for default */
+body {
+  cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAOCAYAAAAWo42rAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAUAAAAFABWwHQFQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABRSURBVCiRY2BgYPgPRAykYAYGBgZGJGFGBoT6/5gwZhgYGBgZGHAZgGSDgYGBmYEBWwADZgMjFjGMehiZGBhwOZiRiQmXgxkZGXE5mAAA8YAJAFGxNToAAAAASUVORK5CYII=") 0 0, default;
+}
+
+/* Pixel pointer cursor for interactive elements */
+button, [role="button"], a, label[style*="cursor: pointer"], .btn-retro, .pill, .icon-btn {
+  cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAQCAYAAAAvf+5AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAUAAAAFABWwHQFQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABeSURBVCiRY2BgYPiPQv8nggEDA8P/IaFhYGBgoFAhAwMDA+P/yFQjA2YDIxYxjHoYmRgYcDmYkYkJl4MZGRlxOZiAWQAAAABJRU5ErkJggg==") 5 0, pointer;
+}
