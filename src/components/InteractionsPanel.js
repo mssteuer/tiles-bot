@@ -20,7 +20,7 @@ function timeAgo(dateStr) {
 }
 
 function SmallAvatar({ src, emoji, size = 20 }) {
-  if (src) return <img src={src} alt="" style={{ width: size, height: size, borderRadius: 4, objectFit: 'cover' }} />;
+  if (src) return <img src={src} alt="" style={{ width: size, height: size, borderRadius: 2, objectFit: 'cover' }} />;
   return <span style={{ fontSize: size * 0.7 }}>{emoji || '🤖'}</span>;
 }
 
@@ -60,15 +60,15 @@ function NotesTab({ tile, address, ownedTiles }) {
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             placeholder="Leave a note…"
             maxLength={500}
-            style={{
-              flex: 1, padding: '8px 10px', borderRadius: 8, fontSize: 13,
-              background: '#111', border: '1px solid #2a2a3e', color: '#e2e8f0', outline: 'none',
-            }}
+            className="retro-input"
+            style={{ flex: 1, fontSize: 13 }}
           />
-          <button onClick={handleSend} disabled={sending || !text.trim()} style={{
-            padding: '8px 14px', borderRadius: 8, border: 'none', fontSize: 13,
-            background: text.trim() ? '#3b82f6' : '#1f2937', color: '#fff', cursor: text.trim() ? 'pointer' : 'default',
-          }}>
+          <button
+            onClick={handleSend}
+            disabled={sending || !text.trim()}
+            className={`btn-retro${text.trim() ? ' btn-retro-primary' : ''}`}
+            style={{ padding: '8px 14px', fontSize: 13, opacity: !text.trim() ? 0.5 : 1 }}
+          >
             {sending ? '…' : '📝'}
           </button>
         </div>
@@ -97,10 +97,9 @@ function FromTileSelector({ ownedTiles, allTiles, selected, onChange }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <label style={{ fontSize: 11, color: '#cbd5e1', display: 'block', marginBottom: 3 }}>Acting as:</label>
-      <select value={selected ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))} style={{
-        width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #2a2a3e',
-        background: '#111', color: '#e2e8f0', fontSize: 12, outline: 'none',
-      }}>
+      <select value={selected ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))}
+        className="retro-input"
+        style={{ width: '100%', fontSize: 12 }}>
         {ownedTiles.map(id => {
           const t = allTiles?.[String(id)];
           const label = t?.name ? `${t.name} (#${id})` : `Tile #${id}`;
@@ -136,7 +135,6 @@ function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
     const data = await res.json().catch(() => ({}));
     setSending(null);
     fetchActions();
-    // Trigger canvas animation
     if (data.ok && onAction) {
       playSound('slap');
       onAction({ fromTile, toTile: tile.id, actionType, emoji: ACTION_EMOJIS[actionType], ts: Date.now() });
@@ -151,10 +149,11 @@ function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
           {VALID_ACTIONS.map(a => (
             <button key={a} onClick={() => doAction(a)} disabled={sending === a}
+              className="btn-retro"
               style={{
-                padding: '5px 10px', borderRadius: 8, border: '1px solid #2a2a3e',
-                background: sending === a ? '#1f2937' : '#0f0f1a', color: '#94a3b8',
-                fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+                padding: '5px 10px', fontSize: 12,
+                opacity: sending === a ? 0.5 : 1,
+                whiteSpace: 'nowrap',
               }}
               title={`/${a} ${tile.name || 'this tile'}`}
             >
@@ -192,7 +191,7 @@ function EmotesTab({ tile, address, ownedTiles, onAction }) {
 
   async function doEmote(emoji) {
     if (!address) return;
-    const fromTile = ownedTiles?.[0] ?? tile.id; // fallback to current tile
+    const fromTile = ownedTiles?.[0] ?? tile.id;
     setSending(emoji);
     const res = await fetch(`/api/tiles/${tile.id}/emotes`, {
       method: 'POST',
@@ -215,10 +214,11 @@ function EmotesTab({ tile, address, ownedTiles, onAction }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
           {ALLOWED_EMOTES.map(e => (
             <button key={e} onClick={() => doEmote(e)} disabled={sending === e}
+              className="btn-retro"
               style={{
-                padding: '4px 6px', borderRadius: 6, border: '1px solid #1a1a2e',
-                background: sending === e ? '#1f2937' : 'transparent',
-                cursor: 'pointer', fontSize: 18, lineHeight: 1,
+                padding: '4px 6px', fontSize: 18, lineHeight: 1,
+                background: sending === e ? 'rgba(59,130,246,0.15)' : 'transparent',
+                opacity: sending === e ? 0.6 : 1,
               }}
             >
               {e}
@@ -245,7 +245,7 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const [replyTo, setReplyTo] = useState(null); // { fromTile, fromName } for reply context
+  const [replyTo, setReplyTo] = useState(null);
 
   const fetchMessages = useCallback(() => {
     if (!isOwner || !address) return;
@@ -271,14 +271,14 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
     if (isOwner) fetchMessages();
   }
 
-  // Compose bar (shared between owner and non-owner views)
   function ComposeBar({ placeholder, targetTileId }) {
     return (
       <div>
         {replyTo && (
           <div style={{ fontSize: 11, color: '#cbd5e1', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
             ↩ Replying to <strong style={{ color: '#94a3b8' }}>{replyTo.fromName}</strong>
-            <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>✕</button>
+            <button onClick={() => setReplyTo(null)}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 11, padding: '0 2px' }}>✕</button>
           </div>
         )}
         <div style={{ display: 'flex', gap: 6 }}>
@@ -287,15 +287,15 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
             onKeyDown={e => e.key === 'Enter' && handleSend(targetTileId)}
             placeholder={placeholder || 'Type a message…'}
             maxLength={1000}
-            style={{
-              flex: 1, padding: '8px 10px', borderRadius: 8, fontSize: 13,
-              background: '#111', border: '1px solid #2a2a3e', color: '#e2e8f0', outline: 'none',
-            }}
+            className="retro-input"
+            style={{ flex: 1, fontSize: 13 }}
           />
-          <button onClick={() => handleSend(targetTileId)} disabled={sending || !text.trim()} style={{
-            padding: '8px 14px', borderRadius: 8, border: 'none', fontSize: 13,
-            background: text.trim() ? '#8b5cf6' : '#1f2937', color: '#fff', cursor: text.trim() ? 'pointer' : 'default',
-          }}>
+          <button
+            onClick={() => handleSend(targetTileId)}
+            disabled={sending || !text.trim()}
+            className={`btn-retro${text.trim() ? ' btn-retro-primary' : ''}`}
+            style={{ padding: '8px 14px', fontSize: 13, opacity: !text.trim() ? 0.5 : 1 }}
+          >
             {sending ? '…' : '💌'}
           </button>
         </div>
@@ -315,7 +315,6 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
     );
   }
 
-  // Owner view — messages + reply
   return (
     <div>
       {messages.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No messages yet</div>}
@@ -325,7 +324,7 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
         const isIncoming = m.toTile === tile.id;
         return (
           <div key={m.id} style={{
-            padding: '8px 10px', marginBottom: 6, borderRadius: 10,
+            padding: '8px 10px', marginBottom: 6, borderRadius: 2,
             background: isIncoming ? '#1a1a2e' : 'rgba(139,92,246,0.1)',
             borderLeft: isIncoming ? '3px solid #3b82f6' : '3px solid #8b5cf6',
           }}>
@@ -334,7 +333,7 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
                 {isIncoming ? `← From ${m.fromName}` : `→ To ${m.toName}`}
               </span>
               <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 'auto' }}>{timeAgo(m.createdAt)}</span>
-              {!m.readAt && isIncoming && <span style={{ background: '#3b82f6', borderRadius: 4, padding: '1px 5px', fontSize: 10, color: '#fff' }}>new</span>}
+              {!m.readAt && isIncoming && <span style={{ background: '#3b82f6', borderRadius: 2, padding: '1px 5px', fontSize: 10, color: '#fff' }}>new</span>}
               {isIncoming && (
                 <button onClick={() => setReplyTo({ fromTile: m.fromTile, fromName: m.fromName })}
                   style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, padding: '2px 6px' }}
@@ -346,7 +345,6 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
           </div>
         );
       })}
-      {/* Compose — sends to replyTo tile if set, otherwise generic */}
       {address && (
         <div style={{ marginTop: 8, borderTop: '1px solid #1a1a2e', paddingTop: 8 }}>
           <ComposeBar
@@ -378,15 +376,19 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
         Interactions
       </div>
       {/* Tab bar */}
-      <div style={{ display: 'flex', marginBottom: 12 }}>
+      <div style={{ display: 'flex', marginBottom: 12, gap: 4 }}>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            flex: 1, padding: '6px 4px', borderRadius: 8, border: 'none', fontSize: 12,
-            background: tab === t.id ? '#1e293b' : 'transparent',
-            color: tab === t.id ? '#e2e8f0' : '#94a3b8',
-            cursor: 'pointer', fontWeight: tab === t.id ? 600 : 400,
-            textAlign: 'center', minWidth: 0,
-          }}>
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className="btn-retro"
+            style={{
+              flex: 1, padding: '6px 4px', fontSize: 12,
+              background: tab === t.id ? 'rgba(59,130,246,0.15)' : 'transparent',
+              borderColor: tab === t.id ? 'var(--color-accent-blue)' : 'var(--color-border)',
+              color: tab === t.id ? '#e2e8f0' : '#94a3b8',
+              fontWeight: tab === t.id ? 600 : 400,
+              textAlign: 'center', minWidth: 0,
+            }}
+          >
             {t.label}
           </button>
         ))}

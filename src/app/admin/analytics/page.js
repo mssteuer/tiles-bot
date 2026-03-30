@@ -83,10 +83,10 @@ function HorizontalBar({ items, maxVal, labelWidth = 120 }) {
             {item.icon && <span style={{ marginRight: 4 }}>{item.icon}</span>}
             {item.label}
           </div>
-          <div style={{ flex: 1, height: 8, background: '#1a1a2e', borderRadius: 4, overflow: 'hidden' }}>
-            <div style={{ width: `${(item.value / mx) * 100}%`, height: '100%', background: item.color || '#3b82f6', borderRadius: 4 }} />
+          <div style={{ flex: 1, height: 8, background: 'var(--color-surface-2)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ width: `${(item.value / mx) * 100}%`, height: '100%', background: item.color || '#3b82f6', borderRadius: 2 }} />
           </div>
-          <div style={{ width: 50, textAlign: 'right', fontSize: 13, fontWeight: 600, color: item.color || '#e2e8f0', flexShrink: 0 }}>
+          <div style={{ width: 50, textAlign: 'right', fontSize: 13, fontWeight: 600, color: item.color || '#e2e8f0', flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
             {fmt(item.value)}
           </div>
         </div>
@@ -97,20 +97,22 @@ function HorizontalBar({ items, maxVal, labelWidth = 120 }) {
 
 function KpiCard({ label, value, sub, color, icon }) {
   return (
-    <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 12, padding: '14px 16px' }}>
-      <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{icon && <span style={{ marginRight: 4 }}>{icon}</span>}{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 3 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: '#94a3b8' }}>{sub}</div>}
+    <div style={{ background: 'var(--color-surface)', border: '2px solid var(--color-border)', borderRadius: 2, padding: '14px 16px' }}>
+      <div style={{ fontSize: 10, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, fontFamily: 'var(--font-pixel)' }}>
+        {icon && <span style={{ marginRight: 4 }}>{icon}</span>}{label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 3, fontFamily: 'var(--font-mono)' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--color-text-dim)' }}>{sub}</div>}
     </div>
   );
 }
 
 function Card({ title, subtitle, children }) {
   return (
-    <div style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: 14, padding: '20px 22px 18px' }}>
+    <div style={{ background: 'var(--color-surface)', border: '2px solid var(--color-border)', borderRadius: 2, padding: '20px 22px 18px' }}>
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
-        {subtitle && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{subtitle}</div>}
+        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-pixel)' }}>{title}</div>
+        {subtitle && <div style={{ fontSize: 12, color: 'var(--color-text-dim)', marginTop: 2 }}>{subtitle}</div>}
       </div>
       {children}
     </div>
@@ -132,44 +134,39 @@ export default function AnalyticsPage() {
       .catch(() => setLoading(false));
   }, [days]);
 
-  const bg = '#0a0a0f';
-  const muted = '#94a3b8';
+  const muted = 'var(--color-text-dim)';
 
   return (
-    <div style={{ minHeight: '100vh', background: bg, color: '#fff', fontFamily: 'system-ui, sans-serif', overflow: 'auto' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'auto' }}>
       {/* Header */}
       <header style={{
-        padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
+        padding: '14px 24px', borderBottom: '2px solid var(--color-border)',
         display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
-        background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
+        background: 'var(--color-surface)',
         position: 'sticky', top: 0, zIndex: 10,
       }}>
-        <Link href="/" style={{ color: muted, textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
-        <span style={{ color: '#94a3b8' }}>|</span>
-        <span style={{ fontSize: 18, fontWeight: 700 }}>📊 Analytics</span>
+        <Link href="/" style={{ color: muted, textDecoration: 'none', fontSize: 13, fontFamily: 'var(--font-body)' }}>← Grid</Link>
+        <span style={{ color: 'var(--color-border-bright)' }}>|</span>
+        <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-pixel)' }}>📊 Analytics</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           {[7, 14, 30, 60, 90].map(d => (
             <button key={d} onClick={() => setDays(d)}
-              style={{
-                background: days === d ? '#3b82f6' : '#1a1a2e',
-                border: `1px solid ${days === d ? '#3b82f6' : '#1a1a2e'}`,
-                color: days === d ? '#fff' : muted,
-                borderRadius: 6, padding: '4px 10px', fontSize: 12,
-                cursor: 'pointer', fontWeight: days === d ? 700 : 400,
-              }}>{d}d</button>
+              className={`btn-retro${days === d ? ' btn-retro-primary' : ''}`}
+              style={{ padding: '4px 10px', fontSize: 12 }}
+            >{d}d</button>
           ))}
         </div>
       </header>
 
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px 80px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.02em' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, fontFamily: 'var(--font-pixel)', letterSpacing: '0.5px' }}>
           tiles.bot Dashboard
         </h1>
-        <p style={{ color: muted, marginBottom: 32, fontSize: 14 }}>
+        <p style={{ color: muted, marginBottom: 32, fontSize: 14, fontFamily: 'var(--font-body)' }}>
           Engagement, social activity, and grid health. Last {days} days.
         </p>
 
-        {loading && <div style={{ textAlign: 'center', color: muted, padding: 64, fontSize: 20 }}>Loading…</div>}
+        {loading && <div style={{ textAlign: 'center', color: muted, padding: 64, fontSize: 20, fontFamily: 'var(--font-pixel)' }}>Loading…</div>}
 
         {data && !loading && (() => {
           const e = data.engagement || {};
@@ -207,7 +204,7 @@ export default function AnalyticsPage() {
                       { label: 'Emotes', color: '#a855f7' },
                       { label: 'Messages', color: '#ec4899' },
                     ].map(l => (
-                      <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#94a3b8' }}>
+                      <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--color-text-dim)' }}>
                         <div style={{ width: 8, height: 8, borderRadius: 2, background: l.color }} />
                         {l.label}
                       </div>
@@ -275,18 +272,18 @@ export default function AnalyticsPage() {
                       {data.mostActive.map((a, i) => {
                         const total = (a.actionsSent || 0) + (a.actionsReceived || 0) + (a.notesLeft || 0) + (a.emotesSent || 0) + (a.messagesSent || 0);
                         return (
-                          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: i < data.mostActive.length - 1 ? '1px solid #111' : 'none' }}>
-                            <span style={{ width: 22, textAlign: 'right', fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>{i + 1}.</span>
+                          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: i < data.mostActive.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                            <span style={{ width: 22, textAlign: 'right', fontSize: 13, color: 'var(--color-text-dim)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{i + 1}.</span>
                             <span style={{ fontSize: 16 }}>{a.avatar || '🤖'}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {a.name || `Tile #${a.id}`}
                               </div>
-                              <div style={{ fontSize: 10, color: '#94a3b8' }}>
+                              <div style={{ fontSize: 10, color: 'var(--color-text-dim)' }}>
                                 ⚔️{a.actionsSent || 0} sent · 🎯{a.actionsReceived || 0} recv · 💬{a.notesLeft || 0} · 🎭{a.emotesSent || 0} · 💌{a.messagesSent || 0} · 🤝{a.connections || 0}
                               </div>
                             </div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: '#f59e0b', flexShrink: 0 }}>{fmt(total)}</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: '#f59e0b', flexShrink: 0, fontFamily: 'var(--font-mono)' }}>{fmt(total)}</div>
                           </div>
                         );
                       })}
@@ -297,40 +294,33 @@ export default function AnalyticsPage() {
                 {/* Connections */}
                 <Card title="🤝 Connection Network" subtitle="Agent-to-agent relationships">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                    <div style={{ textAlign: 'center', padding: 12 }}>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#22c55e' }}>{fmt(conn.accepted)}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>Accepted</div>
-                    </div>
-                    <div style={{ textAlign: 'center', padding: 12 }}>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#f59e0b' }}>{fmt(conn.pending)}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>Pending</div>
-                    </div>
-                    <div style={{ textAlign: 'center', padding: 12 }}>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#ef4444' }}>{fmt(conn.rejected)}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>Rejected</div>
-                    </div>
+                    {[
+                      { label: 'Accepted', value: conn.accepted, color: '#22c55e' },
+                      { label: 'Pending', value: conn.pending, color: '#f59e0b' },
+                      { label: 'Rejected', value: conn.rejected, color: '#ef4444' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} style={{ textAlign: 'center', padding: 12 }}>
+                        <div style={{ fontSize: 28, fontWeight: 800, color, fontFamily: 'var(--font-mono)' }}>{fmt(value)}</div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-dim)' }}>{label}</div>
+                      </div>
+                    ))}
                   </div>
                 </Card>
 
                 {/* Heartbeat Health */}
                 <Card title="💓 Heartbeat Health" subtitle="Agent uptime and liveness">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
-                    <div style={{ textAlign: 'center', padding: 12 }}>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#22c55e' }}>{fmt(hb.online)}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>Online now</div>
-                    </div>
-                    <div style={{ textAlign: 'center', padding: 12 }}>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#3b82f6' }}>{fmt(hb.total)}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>Total tiles</div>
-                    </div>
-                    <div style={{ textAlign: 'center', padding: 12 }}>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#6366f1' }}>{fmt(hb.everPinged)}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>Ever heartbeated</div>
-                    </div>
-                    <div style={{ textAlign: 'center', padding: 12 }}>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#a855f7' }}>{fmt(hb.lastHour)}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>Last hour</div>
-                    </div>
+                    {[
+                      { label: 'Online now', value: hb.online, color: '#22c55e' },
+                      { label: 'Total tiles', value: hb.total, color: '#3b82f6' },
+                      { label: 'Ever heartbeated', value: hb.everPinged, color: '#6366f1' },
+                      { label: 'Last hour', value: hb.lastHour, color: '#a855f7' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} style={{ textAlign: 'center', padding: 12 }}>
+                        <div style={{ fontSize: 28, fontWeight: 800, color, fontFamily: 'var(--font-mono)' }}>{fmt(value)}</div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-dim)' }}>{label}</div>
+                      </div>
+                    ))}
                   </div>
                 </Card>
 
