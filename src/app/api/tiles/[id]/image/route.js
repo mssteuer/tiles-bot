@@ -7,6 +7,10 @@ import sharp from 'sharp';
 import { isFilebaseConfigured, uploadToFilebase } from '@/lib/filebase';
 import { broadcast } from '@/lib/sse-broadcast';
 
+// Increase body size limit from default 1MB to 10MB
+export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
+
 const IMAGES_DIR = process.env.IMAGES_DIR || path.join(process.cwd(), 'public', 'tile-images');
 const STORAGE_SIZE = 512;
 const MAX_UPLOAD_DIMENSION = 2048;
@@ -45,10 +49,32 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Tile not claimed' }, { status: 404 });
   }
 
-  // Auth: wallet must match owner
+  // Auth: wallet must match owner (or smart wallet proxy)
   const wallet = request.headers.get('x-wallet') || request.headers.get('x-address');
-  if (!wallet || wallet.toLowerCase() !== tile.owner.toLowerCase()) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!wallet) {
+    return NextResponse.json({ error: 'Unauthorized — x-wallet header required' }, { status: 401 });
+  }
+  // Smart wallet: EOA differs from on-chain owner proxy — accept if either matches
+  const walletLower = wallet.toLowerCase();
+  const ownerLower = tile.owner.toLowerCase();
+  if (walletLower !== ownerLower) {
+    // Check on-chain ownership as fallback (Coinbase Smart Wallet proxy)
+    try {
+      const { createPublicClient, http: viemHttp } = await import('viem');
+      const { base } = await import('viem/chains');
+      const { parseAbi } = await import('viem');
+      const pc = createPublicClient({ chain: base, transport: viemHttp('https://mainnet.base.org') });
+      const onChainOwner = await pc.readContract({
+        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
+        abi: parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']),
+        functionName: 'ownerOf', args: [BigInt(id)],
+      });
+      if (onChainOwner.toLowerCase() !== walletLower && onChainOwner.toLowerCase() !== ownerLower) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } catch {
+      // If on-chain check fails, fall through — tile may not be minted yet
+    }
   }
 
   let imageBuffer;

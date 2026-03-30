@@ -3,6 +3,10 @@ const path = require('path');
 
 const nextConfig = {
   outputFileTracingRoot: path.join(__dirname),
+  serverExternalPackages: ['sharp'],
+  experimental: {
+    serverActionsBodySizeLimit: '10mb',
+  },
   // Prevent browsers from aggressively caching HTML pages (chunks change on each build)
   async headers() {
     return [
