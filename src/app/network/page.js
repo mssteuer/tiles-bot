@@ -41,7 +41,6 @@ export default function NetworkPage() {
     }).catch(() => setLoading(false));
   }, []);
 
-  // Build the network: only include nodes that have connections
   const connectedNodeIds = new Set();
   connections.forEach(c => {
     connectedNodeIds.add(c.fromId);
@@ -63,7 +62,6 @@ export default function NetworkPage() {
     };
   });
 
-  // Layout: circular
   const SVG_SIZE = 700;
   const CENTER = SVG_SIZE / 2;
   const n = nodes.length;
@@ -85,57 +83,29 @@ export default function NetworkPage() {
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh', background: '#0a0a0f', color: '#e2e8f0',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-      }}>
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f] font-sans text-text">
         Loading network…
       </div>
     );
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0a0a0f',
-      color: '#e2e8f0',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
-        display: 'flex', alignItems: 'center', gap: 16,
-        background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
-        position: 'sticky', top: 0, zIndex: 10,
-      }}>
-        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
-        <span style={{ color: '#94a3b8' }}>|</span>
-        <span style={{ fontSize: 18, fontWeight: 700 }}>🕸️ Network</span>
+    <div className="min-h-screen bg-[#0a0a0f] font-sans text-text">
+      <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-border-dim bg-linear-to-b from-surface-alt to-[#0a0a0f] px-6 py-3.5">
+        <Link href="/" className="text-[14px] text-text-dim no-underline">← Grid</Link>
+        <span className="text-text-dim">|</span>
+        <span className="text-[18px] font-bold">🕸️ Network</span>
       </div>
 
-      {/* Graph or Empty State */}
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '20px' }}>
+      <div className="mx-auto max-w-[900px] px-5 py-5">
         {connections.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: 60, color: '#cbd5e1',
-            background: '#0d0d1a', borderRadius: 12, border: '1px solid #1a1a2e',
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🕸️</div>
-            <p style={{ fontSize: 16, margin: 0 }}>
-              No connections yet. Connect your agent tiles to build the network!
-            </p>
+          <div className="rounded-xl border border-border-dim bg-[#0d0d1a] px-6 py-15 text-center text-text-light">
+            <div className="mb-4 text-[48px]">🕸️</div>
+            <p className="m-0 text-[16px]">No connections yet. Connect your agent tiles to build the network!</p>
           </div>
         ) : (
-          <div style={{
-            background: '#0d0d1a', borderRadius: 12, border: '1px solid #1a1a2e',
-            overflow: 'hidden', position: 'relative',
-          }}>
-            <svg
-              viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
-              style={{ width: '100%', height: 'auto', display: 'block' }}
-            >
-              {/* Edges */}
+          <div className="relative overflow-hidden rounded-xl border border-border-dim bg-[#0d0d1a]">
+            <svg viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} className="block h-auto w-full">
               {connections.map((c, i) => {
                 const from = nodePositions[c.fromId];
                 const to = nodePositions[c.toId];
@@ -153,7 +123,6 @@ export default function NetworkPage() {
                 );
               })}
 
-              {/* Nodes */}
               {nodes.map(node => {
                 const pos = nodePositions[node.id];
                 if (!pos) return null;
@@ -163,12 +132,11 @@ export default function NetworkPage() {
                 return (
                   <g
                     key={`node-${node.id}`}
-                    style={{ cursor: 'pointer' }}
+                    className="cursor-pointer"
                     onClick={() => handleNodeClick(node.id)}
                     onMouseEnter={() => setHoveredNode(node.id)}
                     onMouseLeave={() => setHoveredNode(null)}
                   >
-                    {/* Glow */}
                     <circle
                       cx={pos.x} cy={pos.y} r={NODE_RADIUS + 4}
                       fill="none"
@@ -176,14 +144,12 @@ export default function NetworkPage() {
                       strokeWidth={isHovered ? 2.5 : 1.5}
                       strokeOpacity={node.status === 'offline' ? 0.2 : 0.5}
                     />
-                    {/* Background */}
                     <circle
                       cx={pos.x} cy={pos.y} r={NODE_RADIUS}
                       fill="#1a1a2e"
                       stroke={isHovered ? '#3b82f6' : statusColor}
                       strokeWidth={isHovered ? 2 : 1}
                     />
-                    {/* Agent thumbnail / Avatar / Initials */}
                     {node.imageUrl ? (
                       <>
                         <defs>
@@ -210,7 +176,6 @@ export default function NetworkPage() {
                         {node.avatar || getInitials(node.name)}
                       </text>
                     )}
-                    {/* Name below */}
                     <text
                       x={pos.x} y={pos.y + NODE_RADIUS + 14}
                       textAnchor="middle"
@@ -224,20 +189,11 @@ export default function NetworkPage() {
               })}
             </svg>
 
-            {/* Legend */}
-            <div style={{
-              display: 'flex', gap: 16, padding: '12px 16px',
-              borderTop: '1px solid #1a1a2e',
-              justifyContent: 'center',
-            }}>
+            <div className="flex justify-center gap-4 border-t border-border-dim px-4 py-3">
               {Object.entries(STATUS_COLORS).map(([status, color]) => (
-                <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{
-                    width: 10, height: 10, borderRadius: '50%',
-                    background: color,
-                    boxShadow: STATUS_GLOW[status],
-                  }} />
-                  <span style={{ fontSize: 11, color: '#cbd5e1', textTransform: 'capitalize' }}>{status}</span>
+                <div key={status} className="flex items-center gap-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: STATUS_GLOW[status] }} />
+                  <span className="text-[11px] capitalize text-text-light">{status}</span>
                 </div>
               ))}
             </div>
