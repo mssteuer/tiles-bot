@@ -351,9 +351,10 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`btn-retro min-w-0 flex-1 px-1 py-1.5 text-center text-[12px] ${active ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border text-text-dim font-normal'}`}
+              className={`btn-retro min-w-0 flex-1 px-0.5 py-1.5 text-center text-[11px] whitespace-nowrap overflow-visible ${active ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border text-text-dim font-normal'}`}
             >
-              {t.label}
+              <span className="hidden sm:inline">{t.label}</span>
+              <span className="sm:hidden">{t.shortLabel}</span>
             </button>
           );
         })}
