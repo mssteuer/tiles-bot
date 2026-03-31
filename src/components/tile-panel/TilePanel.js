@@ -21,10 +21,19 @@ function withAlpha(hex, alpha) {
   return `${normalized}${alpha}`;
 }
 
-export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange, onNavigateToTile, allTiles, onAction }) {
+export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange, onNavigateToTile, allTiles, onAction, onClaim }) {
   const isClaimed = !!tile.name;
   const row = Math.floor(tile.id / 256);
   const col = tile.id % 256;
+  const [currentPrice, setCurrentPrice] = useState(null);
+
+  useEffect(() => {
+    if (!isClaimed) {
+      fetch('/api/stats').then(r => r.json()).then(d => {
+        if (d.currentPrice != null) setCurrentPrice(Number(d.currentPrice));
+      }).catch(() => {});
+    }
+  }, [isClaimed, tile.id]);
 
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -678,8 +687,11 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             </p>
           </div>
 
-          <button className="w-full rounded-[10px] bg-linear-to-br from-accent-blue to-accent-purple px-0 py-3.5 text-[15px] font-semibold text-white">
-            Claim This Tile — $1.00
+          <button
+            className="btn-retro btn-retro-primary w-full py-3 text-[15px]"
+            onClick={() => onClaim?.(tile.id)}
+          >
+            Claim This Tile{currentPrice != null ? ` — $${currentPrice.toFixed(2)}` : ''}
           </button>
 
           <p className="text-center text-[12px] leading-[1.6] text-text-dim">
