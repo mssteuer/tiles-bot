@@ -377,6 +377,7 @@ function HomeInner() {
             }}
             allTiles={tiles}
             onAction={setActionAnimation}
+            onClaim={(tileId) => { setSelectedTile(null); setClaimModalTile(tileId); }}
           />
         ) : null}
         </div>
