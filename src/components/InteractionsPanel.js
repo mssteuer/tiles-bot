@@ -19,12 +19,56 @@ function timeAgo(dateStr) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-function SmallAvatar({ src, emoji, size = 20 }) {
-  if (src) return <img src={src} alt="" style={{ width: size, height: size, borderRadius: 2, objectFit: 'cover' }} />;
-  return <span style={{ fontSize: size * 0.7 }}>{emoji || '🤖'}</span>;
+function EmptyState({ children }) {
+  return <div className="px-4 py-4 text-center text-[13px] text-text-dim">{children}</div>;
 }
 
-// — Notes Tab —
+function SmallAvatar({ src, emoji, size = 20 }) {
+  if (src) {
+    return <img src={src} alt="" className={size <= 16 ? 'h-4 w-4 rounded-[2px] object-cover' : 'h-5 w-5 rounded-[2px] object-cover'} />;
+  }
+  return <span className={size <= 16 ? 'text-[11px] leading-none' : 'text-[14px] leading-none'}>{emoji || '🤖'}</span>;
+}
+
+function FromTileSelector({ ownedTiles, allTiles, selected, onChange }) {
+  if (!ownedTiles || ownedTiles.length <= 1) return null;
+  return (
+    <div className="mb-2">
+      <label className="mb-0.5 block text-[11px] text-text-light">Acting as:</label>
+      <select value={selected ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))} className="retro-input w-full text-[12px]">
+        {ownedTiles.map(id => {
+          const t = allTiles?.[String(id)];
+          const label = t?.name ? `${t.name} (#${id})` : `Tile #${id}`;
+          return <option key={id} value={id}>{label}</option>;
+        })}
+      </select>
+    </div>
+  );
+}
+
+function ComposeRow({ text, setText, sending, onSend, placeholder, icon }) {
+  const enabled = !!text.trim();
+  return (
+    <div className="flex gap-1.5">
+      <input
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && onSend()}
+        placeholder={placeholder}
+        maxLength={1000}
+        className="retro-input flex-1 text-[13px]"
+      />
+      <button
+        onClick={onSend}
+        disabled={sending || !enabled}
+        className={`btn-retro px-3.5 py-2 text-[13px] ${enabled ? 'btn-retro-primary' : ''} ${enabled ? 'opacity-100' : 'opacity-50'}`}
+      >
+        {sending ? '…' : icon}
+      </button>
+    </div>
+  );
+}
+
 function NotesTab({ tile, address, ownedTiles }) {
   const [notes, setNotes] = useState([]);
   const [text, setText] = useState('');
@@ -52,65 +96,26 @@ function NotesTab({ tile, address, ownedTiles }) {
 
   return (
     <div>
-      {/* Compose */}
       {address && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-          <input
-            value={text} onChange={e => setText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-            placeholder="Leave a note…"
-            maxLength={500}
-            className="retro-input"
-            style={{ flex: 1, fontSize: 13 }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={sending || !text.trim()}
-            className={`btn-retro${text.trim() ? ' btn-retro-primary' : ''}`}
-            style={{ padding: '8px 14px', fontSize: 13, opacity: !text.trim() ? 0.5 : 1 }}
-          >
-            {sending ? '…' : '📝'}
-          </button>
+        <div className="mb-3">
+          <ComposeRow text={text} setText={setText} sending={sending} onSend={handleSend} placeholder="Leave a note…" icon="📝" />
         </div>
       )}
-      {/* Notes list */}
-      {notes.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No notes yet. Be the first!</div>}
+      {notes.length === 0 && <EmptyState>No notes yet. Be the first!</EmptyState>}
       {notes.map(n => (
-        <div key={n.id} style={{ padding: '8px 0', borderBottom: '1px solid #1a1a2e' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <div key={n.id} className="border-b border-border-dim py-2">
+          <div className="mb-1 flex items-center gap-1.5">
             <SmallAvatar src={n.authorImage} emoji={null} size={16} />
-            <span style={{ color: '#94a3b8', fontSize: 12, fontWeight: 600 }}>
-              {n.authorName || `${n.author.slice(0, 6)}…${n.author.slice(-4)}`}
-            </span>
-            <span style={{ color: '#9ca3af', fontSize: 11 }}>{timeAgo(n.createdAt)}</span>
+            <span className="text-[12px] font-semibold text-text-dim">{n.authorName || `${n.author.slice(0, 6)}…${n.author.slice(-4)}`}</span>
+            <span className="text-[11px] text-text-gray">{timeAgo(n.createdAt)}</span>
           </div>
-          <div style={{ color: '#e2e8f0', fontSize: 13, lineHeight: 1.4 }}>{n.body}</div>
+          <div className="text-[13px] leading-[1.4] text-text">{n.body}</div>
         </div>
       ))}
     </div>
   );
 }
 
-// — From-Tile Selector —
-function FromTileSelector({ ownedTiles, allTiles, selected, onChange }) {
-  if (!ownedTiles || ownedTiles.length <= 1) return null;
-  return (
-    <div style={{ marginBottom: 8 }}>
-      <label style={{ fontSize: 11, color: '#cbd5e1', display: 'block', marginBottom: 3 }}>Acting as:</label>
-      <select value={selected ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))}
-        className="retro-input"
-        style={{ width: '100%', fontSize: 12 }}>
-        {ownedTiles.map(id => {
-          const t = allTiles?.[String(id)];
-          const label = t?.name ? `${t.name} (#${id})` : `Tile #${id}`;
-          return <option key={id} value={id}>{label}</option>;
-        })}
-      </select>
-    </div>
-  );
-}
-
-// — Actions Tab —
 function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
   const [actions, setActions] = useState([]);
   const [sending, setSending] = useState(null);
@@ -144,17 +149,14 @@ function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
   return (
     <div>
       <FromTileSelector ownedTiles={ownedTiles} allTiles={allTiles} selected={fromTile} onChange={setFromTile} />
-      {/* Action buttons */}
       {address && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+        <div className="mb-3 flex flex-wrap gap-1.5">
           {VALID_ACTIONS.map(a => (
-            <button key={a} onClick={() => doAction(a)} disabled={sending === a}
-              className="btn-retro"
-              style={{
-                padding: '5px 10px', fontSize: 12,
-                opacity: sending === a ? 0.5 : 1,
-                whiteSpace: 'nowrap',
-              }}
+            <button
+              key={a}
+              onClick={() => doAction(a)}
+              disabled={sending === a}
+              className={`btn-retro whitespace-nowrap px-2.5 py-1.5 text-[12px] ${sending === a ? 'opacity-50' : 'opacity-100'}`}
               title={`/${a} ${tile.name || 'this tile'}`}
             >
               {ACTION_EMOJIS[a]} /{a}
@@ -162,23 +164,21 @@ function ActionsTab({ tile, address, ownedTiles, allTiles, onAction }) {
           ))}
         </div>
       )}
-      {/* Actions log */}
-      {actions.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No actions yet</div>}
+      {actions.length === 0 && <EmptyState>No actions yet</EmptyState>}
       {actions.map(a => (
-        <div key={a.id} style={{ padding: '6px 0', borderBottom: '1px solid #1a1a2e', fontSize: 13 }}>
-          <span style={{ marginRight: 4 }}>{a.emoji}</span>
-          <strong style={{ color: '#e2e8f0' }}>{a.fromName}</strong>
-          <span style={{ color: '#cbd5e1' }}> {a.verb} </span>
-          <strong style={{ color: '#e2e8f0' }}>{a.toName}</strong>
-          {a.message && <span style={{ color: '#94a3b8' }}> — {a.message}</span>}
-          <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 6 }}>{timeAgo(a.createdAt)}</span>
+        <div key={a.id} className="border-b border-border-dim py-1.5 text-[13px]">
+          <span className="mr-1">{a.emoji}</span>
+          <strong className="text-text">{a.fromName}</strong>
+          <span className="text-text-light"> {a.verb} </span>
+          <strong className="text-text">{a.toName}</strong>
+          {a.message && <span className="text-text-dim"> — {a.message}</span>}
+          <span className="ml-1.5 text-[11px] text-text-gray">{timeAgo(a.createdAt)}</span>
         </div>
       ))}
     </div>
   );
 }
 
-// — Emotes Tab —
 function EmotesTab({ tile, address, ownedTiles, onAction }) {
   const [emotes, setEmotes] = useState([]);
   const [sending, setSending] = useState(null);
@@ -209,38 +209,33 @@ function EmotesTab({ tile, address, ownedTiles, onAction }) {
 
   return (
     <div>
-      {/* Emoji picker */}
       {address && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+        <div className="mb-3 flex flex-wrap gap-1">
           {ALLOWED_EMOTES.map(e => (
-            <button key={e} onClick={() => doEmote(e)} disabled={sending === e}
-              className="btn-retro"
-              style={{
-                padding: '4px 6px', fontSize: 18, lineHeight: 1,
-                background: sending === e ? 'rgba(59,130,246,0.15)' : 'transparent',
-                opacity: sending === e ? 0.6 : 1,
-              }}
+            <button
+              key={e}
+              onClick={() => doEmote(e)}
+              disabled={sending === e}
+              className={`btn-retro px-1.5 py-1 text-[18px] leading-none ${sending === e ? 'bg-accent-blue/15 opacity-60' : 'bg-transparent opacity-100'}`}
             >
               {e}
             </button>
           ))}
         </div>
       )}
-      {/* Emotes log */}
-      {emotes.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No reactions yet</div>}
+      {emotes.length === 0 && <EmptyState>No reactions yet</EmptyState>}
       {emotes.map(e => (
-        <div key={e.id} style={{ padding: '5px 0', borderBottom: '1px solid #1a1a2e', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 18 }}>{e.emoji}</span>
+        <div key={e.id} className="flex items-center gap-1.5 border-b border-border-dim py-1.5 text-[13px]">
+          <span className="text-[18px]">{e.emoji}</span>
           <SmallAvatar src={e.fromImage} size={16} />
-          <strong style={{ color: '#e2e8f0' }}>{e.fromName}</strong>
-          <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 'auto' }}>{timeAgo(e.createdAt)}</span>
+          <strong className="text-text">{e.fromName}</strong>
+          <span className="ml-auto text-[11px] text-text-gray">{timeAgo(e.createdAt)}</span>
         </div>
       ))}
     </div>
   );
 }
 
-// — Messages Tab —
 function MessagesTab({ tile, address, ownedTiles, isOwner }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -275,41 +270,21 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
     return (
       <div>
         {replyTo && (
-          <div style={{ fontSize: 11, color: '#cbd5e1', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-            ↩ Replying to <strong style={{ color: '#94a3b8' }}>{replyTo.fromName}</strong>
-            <button onClick={() => setReplyTo(null)}
-              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 11, padding: '0 2px' }}>✕</button>
+          <div className="mb-1 flex items-center gap-1 text-[11px] text-text-light">
+            ↩ Replying to <strong className="text-text-dim">{replyTo.fromName}</strong>
+            <button onClick={() => setReplyTo(null)} className="cursor-pointer border-none bg-transparent px-0.5 text-[11px] text-text-dim">✕</button>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input
-            value={text} onChange={e => setText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend(targetTileId)}
-            placeholder={placeholder || 'Type a message…'}
-            maxLength={1000}
-            className="retro-input"
-            style={{ flex: 1, fontSize: 13 }}
-          />
-          <button
-            onClick={() => handleSend(targetTileId)}
-            disabled={sending || !text.trim()}
-            className={`btn-retro${text.trim() ? ' btn-retro-primary' : ''}`}
-            style={{ padding: '8px 14px', fontSize: 13, opacity: !text.trim() ? 0.5 : 1 }}
-          >
-            {sending ? '…' : '💌'}
-          </button>
-        </div>
+        <ComposeRow text={text} setText={setText} sending={sending} onSend={() => handleSend(targetTileId)} placeholder={placeholder || 'Type a message…'} icon="💌" />
       </div>
     );
   }
 
   if (!isOwner) {
-    if (!address) {
-      return <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>Connect wallet to send a message</div>;
-    }
+    if (!address) return <EmptyState>Connect wallet to send a message</EmptyState>;
     return (
       <div>
-        <p style={{ color: '#cbd5e1', fontSize: 12, marginBottom: 8 }}>Send a private message to this tile&apos;s owner:</p>
+        <p className="mb-2 text-[12px] text-text-light">Send a private message to this tile&apos;s owner:</p>
         <ComposeBar placeholder="Type a message…" />
       </div>
     );
@@ -317,47 +292,43 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
 
   return (
     <div>
-      {messages.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>No messages yet</div>}
+      {messages.length === 0 && <EmptyState>No messages yet</EmptyState>}
       {messages.map(m => {
         let body;
         try { body = decodeURIComponent(escape(atob(m.encryptedBody))); } catch { body = m.encryptedBody; }
         const isIncoming = m.toTile === tile.id;
         return (
-          <div key={m.id} style={{
-            padding: '8px 10px', marginBottom: 6, borderRadius: 2,
-            background: isIncoming ? '#1a1a2e' : 'rgba(139,92,246,0.1)',
-            borderLeft: isIncoming ? '3px solid #3b82f6' : '3px solid #8b5cf6',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600 }}>
-                {isIncoming ? `← From ${m.fromName}` : `→ To ${m.toName}`}
-              </span>
-              <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 'auto' }}>{timeAgo(m.createdAt)}</span>
-              {!m.readAt && isIncoming && <span style={{ background: '#3b82f6', borderRadius: 2, padding: '1px 5px', fontSize: 10, color: '#fff' }}>new</span>}
+          <div
+            key={m.id}
+            className={`mb-1.5 rounded-[2px] px-2.5 py-2 ${isIncoming ? 'border-l-[3px] border-accent-blue bg-surface-2' : 'border-l-[3px] border-accent-purple bg-accent-purple/10'}`}
+          >
+            <div className="mb-1 flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-text-dim">{isIncoming ? `← From ${m.fromName}` : `→ To ${m.toName}`}</span>
+              <span className="ml-auto text-[11px] text-text-gray">{timeAgo(m.createdAt)}</span>
+              {!m.readAt && isIncoming && <span className="rounded-[2px] bg-accent-blue px-1.5 py-px text-[10px] text-white">new</span>}
               {isIncoming && (
-                <button onClick={() => setReplyTo({ fromTile: m.fromTile, fromName: m.fromName })}
-                  style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, padding: '2px 6px' }}
+                <button
+                  onClick={() => setReplyTo({ fromTile: m.fromTile, fromName: m.fromName })}
+                  className="cursor-pointer border-none bg-transparent px-1.5 py-0.5 text-[12px] text-text-light"
                   title={`Reply to ${m.fromName}`}
-                >↩</button>
+                >
+                  ↩
+                </button>
               )}
             </div>
-            <div style={{ color: '#e2e8f0', fontSize: 13, lineHeight: 1.4 }}>{body}</div>
+            <div className="text-[13px] leading-[1.4] text-text">{body}</div>
           </div>
         );
       })}
       {address && (
-        <div style={{ marginTop: 8, borderTop: '1px solid #1a1a2e', paddingTop: 8 }}>
-          <ComposeBar
-            placeholder={replyTo ? `Reply to ${replyTo.fromName}…` : 'Send a message…'}
-            targetTileId={replyTo?.fromTile}
-          />
+        <div className="mt-2 border-t border-border-dim pt-2">
+          <ComposeBar placeholder={replyTo ? `Reply to ${replyTo.fromName}…` : 'Send a message…'} targetTileId={replyTo?.fromTile} />
         </div>
       )}
     </div>
   );
 }
 
-// — Main Panel —
 const TABS = [
   { id: 'notes', label: '💬 Notes', shortLabel: '💬' },
   { id: 'actions', label: '⚔️ Actions', shortLabel: '⚔️' },
@@ -371,29 +342,22 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
   if (!tile) return null;
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 8 }}>
-        Interactions
+    <div className="mt-4">
+      <div className="mb-2 text-[14px] font-semibold text-text-dim">Interactions</div>
+      <div className="mb-3 flex gap-1">
+        {TABS.map(t => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`btn-retro min-w-0 flex-1 px-1 py-1.5 text-center text-[12px] ${active ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border text-text-dim font-normal'}`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
-      {/* Tab bar */}
-      <div style={{ display: 'flex', marginBottom: 12, gap: 4 }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className="btn-retro"
-            style={{
-              flex: 1, padding: '6px 4px', fontSize: 12,
-              background: tab === t.id ? 'rgba(59,130,246,0.15)' : 'transparent',
-              borderColor: tab === t.id ? 'var(--color-accent-blue)' : 'var(--color-border)',
-              color: tab === t.id ? '#e2e8f0' : '#94a3b8',
-              fontWeight: tab === t.id ? 600 : 400,
-              textAlign: 'center', minWidth: 0,
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {/* Tab content */}
       {tab === 'notes' && <NotesTab tile={tile} address={address} ownedTiles={ownedTiles} />}
       {tab === 'actions' && <ActionsTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} onAction={onAction} />}
       {tab === 'emotes' && <EmotesTab tile={tile} address={address} ownedTiles={ownedTiles} onAction={onAction} />}
