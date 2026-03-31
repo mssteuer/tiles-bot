@@ -282,6 +282,8 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const saveIsError = saveMsg.startsWith('Error');
   const tileStatusClass = tile.status === 'online' ? 'bg-accent-green' : tile.status === 'busy' ? 'bg-accent-amber' : 'bg-accent-red';
   const categoryColor = CATEGORY_COLORS[tile.category] || '#333';
+  const tileCardStyle = { background: '#1a1a2e', borderColor: withAlpha(tile.color || '#333333', '33') || '#33333333' };
+  const categoryStyle = { background: withAlpha(categoryColor, '22') || 'transparent', borderColor: withAlpha(categoryColor, '44') || 'transparent', color: categoryColor };
 
   return (
     <div className={panelClassName}>
