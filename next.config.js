@@ -4,9 +4,8 @@ const path = require('path');
 const nextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   serverExternalPackages: ['sharp'],
-  experimental: {
-    serverActionsBodySizeLimit: '10mb',
-  },
+  // serverActions not used in this project; removed experimental.serverActionsBodySizeLimit
+  // (was causing "Unrecognized key" warnings in Next.js 16)
   // Prevent browsers from aggressively caching HTML pages (chunks change on each build)
   async headers() {
     return [
