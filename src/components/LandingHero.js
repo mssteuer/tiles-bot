@@ -13,7 +13,6 @@ export default function LandingHero({ stats, onClaimClick }) {
   const [heroVisible, setHeroVisible] = useState(undefined);
 
   useEffect(() => {
-    // Only render hero if user hasn't dismissed it
     const seen = localStorage.getItem('tiles_seen_hero');
     setHeroVisible(!seen);
   }, []);
@@ -21,181 +20,76 @@ export default function LandingHero({ stats, onClaimClick }) {
   function handleBrowseGrid() {
     localStorage.setItem('tiles_seen_hero', '1');
     setHeroVisible(false);
-    // Smooth-scroll to the grid section
     const gridEl = document.getElementById('grid-section') || document.querySelector('canvas');
     if (gridEl) {
       gridEl.scrollIntoView({ behavior: 'smooth' });
     } else {
-      // Fallback: scroll down past the hero
       window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
     }
   }
 
-  if (heroVisible === undefined) {
-    return null;
-  }
+  if (heroVisible === undefined) return null;
+
+  const price = parseFloat(stats?.currentPrice ?? 0).toFixed(4);
 
   if (!heroVisible) {
-    // Returning visitor: show minimal stats chip
     return (
-      <div style={{
-        padding: '8px 16px',
-        background: '#0f0f1a',
-        borderBottom: '1px solid #1e1e30',
-        fontSize: 12,
-        color: '#94a3b8',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        flexWrap: 'wrap',
-      }}>
+      <div className="flex flex-wrap items-center gap-3 border-b border-border bg-surface-alt px-4 py-2 text-[12px] text-text-dim">
         <span>
-          <span style={{ color: '#3b82f6', fontWeight: 700 }}>{stats?.claimed?.toLocaleString() ?? '…'}</span>
+          <span className="font-bold text-accent-blue">{stats?.claimed?.toLocaleString() ?? '…'}</span>
           {' / '}
           {(stats?.total ?? 65536).toLocaleString()} tiles claimed
         </span>
         <span>·</span>
         <span>
-          <span style={{ color: '#8b5cf6', fontWeight: 700 }}>${parseFloat(stats?.currentPrice ?? 0).toFixed(4)}</span>
+          <span className="font-bold text-accent-purple">${price}</span>
           {' per tile'}
         </span>
         <button
           onClick={onClaimClick}
-          style={{
-            marginLeft: 'auto',
-            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            padding: '4px 12px',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
+          className="ml-auto rounded-lg bg-linear-to-r from-accent-blue to-accent-purple px-3 py-1 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
         >
-          Claim a Tile — ${parseFloat(stats?.currentPrice ?? 0).toFixed(4)}
+          Claim a Tile — ${price}
         </button>
       </div>
     );
   }
 
-  // First-time visitor hero
-  const price = parseFloat(stats?.currentPrice ?? 0).toFixed(4);
-
   return (
-    <div style={{
-      background: 'linear-gradient(180deg, #07071a 0%, #0a0a1f 100%)',
-      borderBottom: '1px solid #1e1e30',
-      padding: '40px 32px',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      textAlign: 'center',
-    }}>
-      {/* Logo / brand */}
-      <div style={{ fontSize: 32, marginBottom: 8 }}>🤖</div>
-      <div style={{ fontSize: 14, color: '#6366f1', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 12 }}>
-        tiles.bot
-      </div>
+    <div className="flex flex-col items-center border-b border-border bg-linear-to-b from-bg to-[#0a0a1f] px-8 py-10 text-center">
+      <div className="mb-2 text-[32px]">🤖</div>
+      <div className="mb-3 text-[14px] font-bold tracking-[0.1em] text-indigo-500">tiles.bot</div>
 
-      {/* Headline */}
-      <h1 style={{
-        fontSize: 42,
-        fontWeight: 900,
-        margin: 0,
-        background: 'linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-        letterSpacing: '-0.02em',
-        lineHeight: 1.1,
-      }}>
+      <h1 className="mb-0 bg-linear-to-r from-accent-blue via-accent-purple to-accent-pink bg-clip-text text-[42px] leading-[1.1] font-black tracking-[-0.02em] text-transparent">
         The AI Agent Grid
       </h1>
 
-      {/* Subtitle */}
-      <p style={{
-        fontSize: 18,
-        color: '#e2e8f0',
-        margin: '12px 0 28px',
-        fontWeight: 400,
-      }}>
-        256×256 tiles on Base. Claim yours.
-      </p>
+      <p className="my-3 mb-7 text-[18px] font-normal text-text">256×256 tiles on Base. Claim yours.</p>
 
-      {/* How it works */}
-      <div style={{
-        background: '#0f0f1a',
-        border: '1px solid #1e1e30',
-        borderRadius: 12,
-        padding: '20px 28px',
-        marginBottom: 28,
-        textAlign: 'left',
-        maxWidth: 420,
-        width: '100%',
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#6366f1', marginBottom: 12, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          How it works
-        </div>
-        <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="mb-7 w-full max-w-[420px] rounded-xl border border-border bg-surface-alt px-7 py-5 text-left">
+        <div className="mb-3 text-[13px] font-bold uppercase tracking-[0.06em] text-indigo-500">How it works</div>
+        <ol className="flex list-decimal flex-col gap-2 pl-5">
           {HOW_IT_WORKS.map((step, i) => (
-            <li key={i} style={{ color: '#e2e8f0', fontSize: 14, lineHeight: 1.5 }}>
-              {step}
-            </li>
+            <li key={i} className="text-[14px] leading-[1.5] text-text">{step}</li>
           ))}
         </ol>
       </div>
 
-      {/* CTAs */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div className="flex flex-wrap justify-center gap-3">
         <button
           onClick={onClaimClick}
-          style={{
-            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 10,
-            padding: '14px 28px',
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: 'pointer',
-            letterSpacing: '0.01em',
-            transition: 'opacity 0.2s',
-            whiteSpace: 'nowrap',
-          }}
-          onMouseOver={e => (e.currentTarget.style.opacity = '0.88')}
-          onMouseOut={e => (e.currentTarget.style.opacity = '1')}
+          className="whitespace-nowrap rounded-[10px] bg-linear-to-r from-accent-blue to-accent-purple px-7 py-3.5 text-[15px] font-bold tracking-[0.01em] text-white transition-opacity hover:opacity-90"
         >
           Claim a Tile — ${price}
         </button>
 
         <button
           onClick={handleBrowseGrid}
-          style={{
-            background: 'transparent',
-            color: '#94a3b8',
-            border: '1px solid #2a2a3e',
-            borderRadius: 10,
-            padding: '14px 28px',
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'border-color 0.2s, color 0.2s',
-            whiteSpace: 'nowrap',
-          }}
-          onMouseOver={e => {
-            e.currentTarget.style.borderColor = '#6366f1';
-            e.currentTarget.style.color = '#e2e8f0';
-          }}
-          onMouseOut={e => {
-            e.currentTarget.style.borderColor = '#2a2a3e';
-            e.currentTarget.style.color = '#94a3b8';
-          }}
+          className="whitespace-nowrap rounded-[10px] border border-[#2a2a3e] bg-transparent px-7 py-3.5 text-[15px] font-semibold text-text-dim transition-colors hover:border-indigo-500 hover:text-text"
         >
           Browse Grid ↓
         </button>
       </div>
-
     </div>
   );
 }
