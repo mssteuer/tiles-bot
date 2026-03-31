@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
 function relativeTime(timestamp) {
@@ -67,10 +67,7 @@ function eventLabel(type, meta) {
 export default function ActivityPage() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const eventsRef = useRef(events);
-  eventsRef.current = events;
 
-  // Fetch initial activity
   useEffect(() => {
     fetch('/api/activity')
       .then(r => r.json())
@@ -81,12 +78,8 @@ export default function ActivityPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  // SSE real-time updates
   const prependEvent = useCallback((newEvent) => {
-    setEvents(prev => {
-      const next = [newEvent, ...prev];
-      return next.slice(0, 100);
-    });
+    setEvents(prev => [newEvent, ...prev].slice(0, 100));
   }, []);
 
   useEffect(() => {
@@ -174,7 +167,6 @@ export default function ActivityPage() {
     return () => es.close();
   }, [prependEvent]);
 
-  // Update relative times every 30s
   const [, setTick] = useState(0);
   useEffect(() => {
     const iv = setInterval(() => setTick(t => t + 1), 30000);
@@ -182,39 +174,22 @@ export default function ActivityPage() {
   }, []);
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0a0a0f',
-      color: '#e2e8f0',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
-        display: 'flex', alignItems: 'center', gap: 16,
-        background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
-        position: 'sticky', top: 0, zIndex: 10,
-      }}>
-        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
-        <span style={{ color: '#94a3b8' }}>|</span>
-        <span style={{ fontSize: 18, fontWeight: 700 }}>📡 Activity Feed</span>
+    <div className="min-h-screen bg-surface-dark font-body text-text">
+      <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-border-dim bg-linear-to-b from-surface-alt to-surface-dark px-6 py-3.5">
+        <Link href="/" className="text-[14px] text-text-dim no-underline">← Grid</Link>
+        <span className="text-text-dim">|</span>
+        <span className="text-[18px] font-bold">📡 Activity Feed</span>
       </div>
 
-      {/* Event List */}
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: '16px 20px' }}>
+      <div className="mx-auto max-w-[800px] px-5 py-4">
         {loading && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#cbd5e1' }}>
-            Loading activity…
-          </div>
+          <div className="px-10 py-10 text-center text-text-light">Loading activity…</div>
         )}
 
         {!loading && events.length === 0 && (
-          <div style={{
-            textAlign: 'center', padding: 60, color: '#cbd5e1',
-            background: '#0d0d1a', borderRadius: 12, border: '1px solid #1a1a2e',
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>📡</div>
-            <p style={{ fontSize: 16, margin: 0 }}>No activity yet — be the first to claim a tile!</p>
+          <div className="rounded-xl border border-border-dim bg-[#0d0d1a] px-6 py-15 text-center text-text-light">
+            <div className="mb-4 text-[48px]">📡</div>
+            <p className="m-0 text-[16px]">No activity yet — be the first to claim a tile!</p>
           </div>
         )}
 
@@ -222,57 +197,24 @@ export default function ActivityPage() {
           <Link
             key={`${evt.tileId}-${evt.timestamp}-${i}`}
             href={`/?tile=${evt.tileId}`}
-            style={{ textDecoration: 'none', color: 'inherit' }}
+            className="mb-2 block text-inherit no-underline"
           >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              padding: '14px 16px',
-              background: '#0d0d1a',
-              border: '1px solid #1a1a2e',
-              borderRadius: 10,
-              marginBottom: 8,
-              transition: 'border-color 0.15s ease',
-              cursor: 'pointer',
-            }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = '#2a2a4e'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = '#1a1a2e'}
-            >
-              {/* Icon */}
-              <div style={{
-                width: 40, height: 40, borderRadius: 10,
-                background: '#1a1a2e',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, flexShrink: 0,
-              }}>
+            <div className="flex cursor-pointer items-center gap-3.5 rounded-[10px] border border-border-dim bg-[#0d0d1a] px-4 py-3.5 transition-colors hover:border-[#2a2a4e]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-surface-2 text-[20px]">
                 {(evt.type !== 'tile_action' && evt.tileAvatar) || eventIcon(evt.type, evt.meta)}
               </div>
 
-              {/* Content */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>
-                    {evt.tileName || `Tile #${evt.tileId}`}
-                  </span>
-                  <span style={{
-                    fontSize: 10, color: '#8b5cf6', background: '#1a1a2e',
-                    padding: '2px 6px', borderRadius: 4,
-                  }}>
-                    #{evt.tileId}
-                  </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-semibold">{evt.tileName || `Tile #${evt.tileId}`}</span>
+                  <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-accent-purple">#{evt.tileId}</span>
                 </div>
-                <div style={{ fontSize: 12, color: '#cbd5e1', marginTop: 3 }}>
+                <div className="mt-[3px] text-[12px] text-text-light">
                   {eventLabel(evt.type, evt.meta)} • {truncateAddress(evt.owner)}
                 </div>
               </div>
 
-              {/* Timestamp */}
-              <div style={{
-                fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0,
-              }}>
-                {relativeTime(evt.timestamp)}
-              </div>
+              <div className="shrink-0 whitespace-nowrap text-[12px] text-text-dim">{relativeTime(evt.timestamp)}</div>
             </div>
           </Link>
         ))}
