@@ -15,31 +15,12 @@ const CATEGORIES = [
   { id: 'uncategorized', label: 'Uncategorized', emoji: '❓' },
 ];
 
-function truncateAddr(addr) {
-  if (!addr || addr.length < 10) return addr;
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
 function AvatarIcon({ tile }) {
   if (tile.imageUrl) {
-    return (
-      <img
-        src={tile.imageUrl}
-        alt={tile.name}
-        style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
-      />
-    );
+    return <img src={tile.imageUrl} alt={tile.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" />;
   }
   const emoji = tile.avatar || '🤖';
-  return (
-    <div style={{
-      width: 48, height: 48, borderRadius: 8, background: '#1a1a2e',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 24, flexShrink: 0, border: '1px solid #2a2a3e',
-    }}>
-      {emoji}
-    </div>
-  );
+  return <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[#2a2a3e] bg-surface-2 text-[24px]">{emoji}</div>;
 }
 
 function AgentCard({ agent, view }) {
@@ -49,90 +30,49 @@ function AgentCard({ agent, view }) {
 
   if (view === 'list') {
     return (
-      <Link href={href} style={{ textDecoration: 'none' }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-          background: '#0f0f1a', border: '1px solid #2a2a3e', borderRadius: 8,
-          cursor: 'pointer', transition: 'border-color 0.15s',
-        }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#6366f1'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = '#2a2a3e'}
-        >
+      <Link href={href} className="no-underline">
+        <div className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#2a2a3e] bg-surface-alt px-3.5 py-2.5 transition-colors hover:border-indigo-500">
           <AvatarIcon tile={agent} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>{agent.name}</span>
-              {isOnline && (
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} title="Online" />
-              )}
-              <span style={{ color: '#94a3b8', fontSize: 12 }}>{catEmoji} {agent.category}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] font-semibold text-text">{agent.name}</span>
+              {isOnline && <span className="inline-block h-2 w-2 rounded-full bg-accent-green" title="Online" />}
+              <span className="text-[12px] text-text-dim">{catEmoji} {agent.category}</span>
             </div>
             {agent.description && (
-              <p style={{ color: '#cbd5e1', fontSize: 12, margin: 0, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {agent.description}
-              </p>
+              <p className="mt-0.5 overflow-hidden truncate whitespace-nowrap text-[12px] text-text-light">{agent.description}</p>
             )}
           </div>
-          <div style={{ color: '#94a3b8', fontSize: 11, flexShrink: 0 }}>
-            #{agent.id}
-          </div>
+          <div className="shrink-0 text-[11px] text-text-dim">#{agent.id}</div>
         </div>
       </Link>
     );
   }
 
-  // Grid card
   return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
-      <div style={{
-        background: '#0f0f1a', border: '1px solid #2a2a3e', borderRadius: 10,
-        padding: 14, cursor: 'pointer', height: '100%', boxSizing: 'border-box',
-        transition: 'border-color 0.15s, transform 0.1s',
-        display: 'flex', flexDirection: 'column', gap: 10,
-      }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a3e'; e.currentTarget.style.transform = 'none'; }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+    <Link href={href} className="no-underline">
+      <div className="flex h-full cursor-pointer flex-col gap-2.5 rounded-[10px] border border-[#2a2a3e] bg-surface-alt p-3.5 transition-transform transition-colors hover:-translate-y-px hover:border-indigo-500">
+        <div className="flex items-start gap-2.5">
           <AvatarIcon tile={agent} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 14 }}>{agent.name}</span>
-              {isOnline && (
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} title="Online" />
-              )}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[14px] font-semibold text-text">{agent.name}</span>
+              {isOnline && <span className="inline-block h-2 w-2 rounded-full bg-accent-green" title="Online" />}
             </div>
-            <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>
-              {catEmoji} {agent.category} · #{agent.id}
-            </div>
+            <div className="mt-0.5 text-[11px] text-text-dim">{catEmoji} {agent.category} · #{agent.id}</div>
           </div>
         </div>
         {agent.description && (
-          <p style={{
-            color: '#cbd5e1', fontSize: 12, margin: 0, lineHeight: '1.5',
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>
-            {agent.description}
-          </p>
+          <p className="m-0 overflow-hidden text-[12px] leading-[1.5] text-text-light [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">{agent.description}</p>
         )}
-        <div style={{ marginTop: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="mt-auto flex flex-wrap gap-2">
           {agent.url && (
-            <a href={agent.url} target="_blank" rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{ color: '#6366f1', fontSize: 11, textDecoration: 'none' }}>
-              🌐 Website
-            </a>
+            <a href={agent.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[11px] text-indigo-500 no-underline">🌐 Website</a>
           )}
           {agent.xHandle && (
-            <a href={`https://x.com/${agent.xHandle.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{ color: '#6366f1', fontSize: 11, textDecoration: 'none' }}>
-              𝕏 {agent.xHandle}
-            </a>
+            <a href={`https://x.com/${agent.xHandle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[11px] text-indigo-500 no-underline">𝕏 {agent.xHandle}</a>
           )}
-          {agent.githubVerified && (
-            <span style={{ color: '#22c55e', fontSize: 11 }}>✓ GitHub</span>
-          )}
+          {agent.githubVerified && <span className="text-[11px] text-accent-green">✓ GitHub</span>}
         </div>
       </div>
     </Link>
@@ -162,18 +102,16 @@ export default function AgentsPage() {
         setCategoryCounts(d.categoryCounts || {});
         setLoading(false);
       })
-      .catch(e => { setError(e.message); setLoading(false); });
+      .catch(e => {
+        setError(e.message);
+        setLoading(false);
+      });
   }, []);
 
-  // Client-side filter
   const filtered = React.useMemo(() => {
     let result = agents;
-    if (showMyAgents && address) {
-      result = result.filter(a => a.owner?.toLowerCase() === address.toLowerCase());
-    }
-    if (category !== 'all') {
-      result = result.filter(a => (a.category || 'uncategorized') === category);
-    }
+    if (showMyAgents && address) result = result.filter(a => a.owner?.toLowerCase() === address.toLowerCase());
+    if (category !== 'all') result = result.filter(a => (a.category || 'uncategorized') === category);
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(a =>
@@ -183,114 +121,81 @@ export default function AgentsPage() {
       );
     }
     return result;
-  }, [agents, category, search]);
+  }, [agents, category, search, showMyAgents, address]);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* Header */}
-      <header style={{
-        padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
-        display: 'flex', alignItems: 'center', gap: 16,
-        background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
-        position: 'sticky', top: 0, zIndex: 10,
-      }}>
-        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
-        <span style={{ color: '#94a3b8' }}>|</span>
-        <span style={{ fontSize: 18, fontWeight: 700 }}>🤖 Agents</span>
-        <span style={{ fontSize: 13, color: '#94a3b8' }}>{total} claimed</span>
+    <div className="min-h-screen bg-surface-dark font-body text-text">
+      <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-border-dim bg-linear-to-b from-surface-alt to-surface-dark px-6 py-3.5">
+        <Link href="/" className="text-[14px] text-text-dim no-underline">← Grid</Link>
+        <span className="text-text-dim">|</span>
+        <span className="text-[18px] font-bold">🤖 Agents</span>
+        <span className="text-[13px] text-text-dim">{total} claimed</span>
       </header>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px' }}>
+      <div className="mx-auto max-w-[1100px] px-4 py-6">
+        <div className="mb-4 flex flex-wrap gap-2.5">
+          <input
+            type="text"
+            placeholder="Search agents…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="min-w-[200px] flex-1 rounded-lg border border-[#2a2a3e] bg-surface-alt px-3 py-2 text-[14px] text-text outline-hidden"
+          />
+          {isConnected && (
+            <button
+              onClick={() => setShowMyAgents(!showMyAgents)}
+              className={`cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-[13px] font-semibold ${showMyAgents ? 'border border-accent-blue bg-[rgba(59,130,246,0.15)] text-accent-blue' : 'border border-[#2a2a3e] bg-surface-alt text-text-dim'}`}
+            >
+              👤 My Agents
+            </button>
+          )}
+          <div className="flex gap-1">
+            {['grid', 'list'].map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`cursor-pointer rounded-lg border border-[#2a2a3e] px-3.5 py-2 text-[13px] font-medium ${view === v ? 'bg-indigo-500 text-white' : 'bg-surface-alt text-text-dim'}`}
+              >
+                {v === 'grid' ? '⊞ Grid' : '☰ List'}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      {/* Search + View Toggle */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search agents…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{
-            flex: 1, minWidth: 200, padding: '8px 12px', borderRadius: 8,
-            background: '#0f0f1a', border: '1px solid #2a2a3e', color: '#e2e8f0',
-            fontSize: 14, outline: 'none',
-          }}
-        />
-        {isConnected && (
-          <button onClick={() => setShowMyAgents(!showMyAgents)} style={{
-            padding: '8px 16px', borderRadius: 8,
-            border: showMyAgents ? '1px solid #3b82f6' : '1px solid #2a2a3e',
-            background: showMyAgents ? 'rgba(59,130,246,0.15)' : '#0f0f1a',
-            color: showMyAgents ? '#3b82f6' : '#94a3b8',
-            cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
-          }}>
-            👤 My Agents
-          </button>
+        <div className="mb-5 flex flex-wrap gap-2">
+          {CATEGORIES.map(cat => {
+            const count = cat.id === 'all' ? total : (categoryCounts[cat.id] || 0);
+            if (count === 0 && cat.id !== 'all') return null;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setCategory(cat.id)}
+                className={`cursor-pointer rounded-full border px-3 py-1.25 text-[12px] font-medium ${category === cat.id ? 'border-indigo-500 bg-[rgba(99,102,241,0.15)] text-indigo-400' : 'border-[#2a2a3e] bg-surface-alt text-text-light'}`}
+              >
+                {cat.emoji} {cat.label} {count > 0 && <span className="opacity-70">({count})</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {loading && <div className="px-4 py-15 text-center text-text-light">Loading agents…</div>}
+        {error && <div className="px-5 py-5 text-accent-red">Error: {error}</div>}
+        {!loading && !error && filtered.length === 0 && (
+          <div className="px-4 py-15 text-center text-text-light">{search ? `No agents found matching "${search}"` : 'No agents in this category yet.'}</div>
         )}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {['grid', 'list'].map(v => (
-            <button key={v} onClick={() => setView(v)} style={{
-              padding: '8px 14px', borderRadius: 8, border: '1px solid #2a2a3e',
-              background: view === v ? '#6366f1' : '#0f0f1a', color: view === v ? '#fff' : '#94a3b8',
-              cursor: 'pointer', fontSize: 13, fontWeight: 500,
-            }}>
-              {v === 'grid' ? '⊞ Grid' : '☰ List'}
-            </button>
-          ))}
-        </div>
-      </div>
+        {!loading && !error && filtered.length > 0 && (
+          <div className={view === 'grid' ? 'grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3' : 'flex flex-col gap-2'}>
+            {filtered.map(agent => <AgentCard key={agent.id} agent={agent} view={view} />)}
+          </div>
+        )}
 
-      {/* Category Filter */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {CATEGORIES.map(cat => {
-          const count = cat.id === 'all' ? total : (categoryCounts[cat.id] || 0);
-          if (count === 0 && cat.id !== 'all') return null;
-          return (
-            <button key={cat.id} onClick={() => setCategory(cat.id)} style={{
-              padding: '5px 12px', borderRadius: 20, border: '1px solid',
-              borderColor: category === cat.id ? '#6366f1' : '#2a2a3e',
-              background: category === cat.id ? 'rgba(99,102,241,0.15)' : '#0f0f1a',
-              color: category === cat.id ? '#818cf8' : '#cbd5e1',
-              cursor: 'pointer', fontSize: 12, fontWeight: 500,
-            }}>
-              {cat.emoji} {cat.label} {count > 0 && <span style={{ opacity: 0.7 }}>({count})</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Content */}
-      {loading && (
-        <div style={{ textAlign: 'center', color: '#cbd5e1', padding: 60 }}>Loading agents…</div>
-      )}
-      {error && (
-        <div style={{ color: '#ef4444', padding: 20 }}>Error: {error}</div>
-      )}
-      {!loading && !error && filtered.length === 0 && (
-        <div style={{ textAlign: 'center', color: '#cbd5e1', padding: 60 }}>
-          {search ? `No agents found matching "${search}"` : 'No agents in this category yet.'}
-        </div>
-      )}
-      {!loading && !error && filtered.length > 0 && (
-        <div style={view === 'grid' ? {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: 12,
-        } : {
-          display: 'flex', flexDirection: 'column', gap: 8,
-        }}>
-          {filtered.map(agent => (
-            <AgentCard key={agent.id} agent={agent} view={view} />
-          ))}
-        </div>
-      )}
-
-      {!loading && filtered.length > 0 && (
-        <div style={{ marginTop: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
-          Showing {filtered.length} of {total} agents
-          {search && ` matching "${search}"`}
-          {category !== 'all' && ` in ${category}`}
-        </div>
-      )}
+        {!loading && filtered.length > 0 && (
+          <div className="mt-6 text-center text-[13px] text-text-dim">
+            Showing {filtered.length} of {total} agents
+            {search && ` matching "${search}"`}
+            {category !== 'all' && ` in ${category}`}
+          </div>
+        )}
       </div>
     </div>
   );
