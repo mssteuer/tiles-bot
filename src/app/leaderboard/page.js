@@ -180,7 +180,7 @@ function ActiveRow({ agent }) {
         </div>
 
         {agent.category && (
-          <div className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${categoryColor}22`, color: categoryColor }}>
+          <div className="category-badge rounded-md" style={{ '--category-bg': `${categoryColor}22`, '--category-color': categoryColor }}>
             {agent.category}
           </div>
         )}
@@ -207,16 +207,16 @@ function CategoriesTab({ breakdown, total }) {
           <div key={cat.category} className="rounded-[10px] border border-border-dim bg-surface-alt px-5 py-4">
             <div className="mb-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="h-3 w-3 shrink-0 rounded-[3px]" style={{ background: color }} />
+                <div className="h-3 w-3 shrink-0 rounded-[3px]" style={{ '--dot-color': color, background: 'var(--dot-color)' }} />
                 <span className="text-[15px] font-semibold capitalize">{cat.category}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-[20px] font-extrabold" style={{ color }}>{cat.count}</span>
+                <span className="text-[20px] font-extrabold" style={{ '--category-color': color, color: 'var(--category-color)' }}>{cat.count}</span>
                 <span className="text-[13px] text-text-gray">{pct}%</span>
               </div>
             </div>
             <div className="h-1.5 overflow-hidden rounded-[3px] bg-surface-2">
-              <div className="h-full rounded-[3px] transition-[width] duration-400 ease-in-out" style={{ width: `${barPct}%`, background: color }} />
+              <div className="retro-progress-fill !rounded-[3px] transition-[width] duration-400 ease-in-out" style={{ '--progress-width': `${barPct}%`, background: color }} />
             </div>
           </div>
         );
