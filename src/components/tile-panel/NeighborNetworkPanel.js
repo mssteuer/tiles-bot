@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import { useSignMessage } from 'wagmi';
 import { getSizedImageUrl } from './utils';
 
+const NEIGHBOR_STATUS_DOT_CLASS = {
+  online: 'bg-accent-green',
+  busy: 'bg-accent-amber',
+  offline: 'bg-accent-red',
+};
+
 function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onNavigateToTile }) {
   const { signMessageAsync } = useSignMessage();
   const [neighbors, setNeighbors] = useState([]);
@@ -215,7 +221,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
       {neighbors.length > 0 && (
         <div className="flex flex-col gap-1">
           {neighbors.map(n => {
-            const statusColor = n.status === 'online' ? '#22c55e' : n.status === 'busy' ? '#f59e0b' : '#ef4444';
+            const statusDotClass = NEIGHBOR_STATUS_DOT_CLASS[n.status] || 'bg-accent-red';
             return (
               <div
                 key={n.tileId}
@@ -236,7 +242,7 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
                   </div>
                   {n.label && <div className="text-[10px] text-text-light">{n.label}</div>}
                 </div>
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: statusColor }} title={n.status} />
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDotClass}`} title={n.status} />
                 {isOwner && (
                   <button
                     onClick={() => handleDisconnect(n.tileId)}

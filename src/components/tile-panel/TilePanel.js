@@ -14,6 +14,13 @@ import { getSizedImageUrl, truncateAddress, truncateTx, CONTRACT_ADDRESS, CHAIN_
 const CATEGORIES = ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'];
 const VERIFIED_COLOR = '#22c55e';
 
+function withAlpha(hex, alpha) {
+  if (!hex || typeof hex !== 'string') return null;
+  const normalized = hex.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) return null;
+  return `${normalized}${alpha}`;
+}
+
 export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange, onNavigateToTile, allTiles, onAction }) {
   const isClaimed = !!tile.name;
   const row = Math.floor(tile.id / 256);
@@ -475,7 +482,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
           <>
             <div
               className="rounded-[12px] border px-5 py-5 text-center"
-              style={{ background: '#1a1a2e', borderColor: `${tile.color || '#333'}33` }}
+              style={tileCardStyle}
             >
               {tile.imageUrl ? (
                 <img
@@ -496,7 +503,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             {tile.category && (
               <div
                 className="inline-flex w-fit items-center gap-1.5 rounded-[20px] border px-3 py-1 text-[12px]"
-                style={{ background: `${categoryColor}22`, borderColor: `${categoryColor}44`, color: categoryColor }}
+                style={categoryStyle}
               >
                 {tile.category}
               </div>
@@ -596,8 +603,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                   href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tile.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-retro flex w-full items-center justify-center gap-2 text-[13px] no-underline"
-                  style={{ color: isOwner ? '#a855f7' : '#3b82f6', borderColor: isOwner ? '#a855f744' : '#3b82f644' }}
+                  className={`btn-retro flex w-full items-center justify-center gap-2 text-[13px] no-underline ${isOwner ? 'border-accent-purple/30 text-accent-purple' : 'border-accent-blue/30 text-accent-blue'}`}
                 >
                   {isOwner ? '💰 List for Sale' : '◇ View on OpenSea'}
                 </a>
