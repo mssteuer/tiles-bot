@@ -45,8 +45,8 @@ export default function ListView({ tiles, searchQuery, categoryFilter, onTileCli
                 </td>
                 <td className="px-1 py-1.5">
                   <span
-                    className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                    style={{ backgroundColor: `${categoryColor}22`, color: categoryColor }}
+                    className="category-badge"
+                    style={{ '--category-bg': `${categoryColor}22`, '--category-color': categoryColor }}
                   >
                     {tile.category || 'other'}
                   </span>
