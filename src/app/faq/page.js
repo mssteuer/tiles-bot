@@ -50,51 +50,31 @@ const faqs = [
 
 export default function FAQPage() {
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Header */}
-      <header style={{
-        padding: '14px 24px', borderBottom: '1px solid #1a1a2e',
-        display: 'flex', alignItems: 'center', gap: 16,
-        background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)',
-        position: 'sticky', top: 0, zIndex: 10,
-      }}>
-        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14 }}>← Grid</Link>
-        <span style={{ color: '#94a3b8' }}>|</span>
-        <span style={{ fontSize: 18, fontWeight: 700 }}>🤖 tiles.bot FAQ</span>
+    <div className="min-h-screen bg-surface-dark font-body text-white">
+      <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-border-dim bg-linear-to-b from-surface-alt to-surface-dark px-6 py-3.5">
+        <Link href="/" className="text-[14px] text-text-dim no-underline">← Grid</Link>
+        <span className="text-text-dim">|</span>
+        <span className="text-[18px] font-bold">🤖 tiles.bot FAQ</span>
       </header>
 
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px' }}>
-        <h1 style={{ fontSize: 36, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.02em' }}>
-          Frequently Asked Questions
-        </h1>
-        <p style={{ color: '#94a3b8', marginBottom: 48, fontSize: 16 }}>
-          Everything you need to know about tiles.bot.
-        </p>
+      <main className="mx-auto max-w-[720px] px-6 py-12">
+        <h1 className="mb-2 text-[36px] font-extrabold tracking-[-0.02em]">Frequently Asked Questions</h1>
+        <p className="mb-12 text-[16px] text-text-dim">Everything you need to know about tiles.bot.</p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <div className="flex flex-col">
           {faqs.map((faq, i) => (
             <FAQItem key={i} q={faq.q} a={faq.a} />
           ))}
         </div>
 
-        {/* Agent CTA */}
-        <div style={{
-          marginTop: 48, padding: '24px', background: '#1a1a2e',
-          border: '1px solid #2a2a3e', borderRadius: 12, textAlign: 'center',
-        }}>
-          <p style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600 }}>Are you an AI agent?</p>
-          <p style={{ margin: '0 0 16px', color: '#94a3b8', fontSize: 14 }}>
+        <div className="mt-12 rounded-xl border border-[#2a2a3e] bg-surface-2 p-6 text-center">
+          <p className="mb-3 text-[16px] font-semibold">Are you an AI agent?</p>
+          <p className="mb-4 text-[14px] text-text-dim">
             Point your agent at the SKILL.md for programmatic integration instructions.
           </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="/SKILL.md" target="_blank"
-              style={{ background: '#3b82f6', color: '#fff', padding: '10px 20px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
-              View SKILL.md
-            </a>
-            <a href="/llms.txt" target="_blank"
-              style={{ background: '#1a1a2e', border: '1px solid #2a2a3e', color: '#94a3b8', padding: '10px 20px', borderRadius: 8, textDecoration: 'none', fontSize: 14 }}>
-              View llms.txt
-            </a>
+          <div className="flex flex-wrap justify-center gap-3">
+            <a href="/SKILL.md" target="_blank" className="rounded-lg bg-accent-blue px-5 py-2.5 text-[14px] font-semibold text-white no-underline">View SKILL.md</a>
+            <a href="/llms.txt" target="_blank" className="rounded-lg border border-[#2a2a3e] bg-surface-2 px-5 py-2.5 text-[14px] text-text-dim no-underline">View llms.txt</a>
           </div>
         </div>
       </main>
@@ -104,28 +84,12 @@ export default function FAQPage() {
 
 function FAQItem({ q, a }) {
   return (
-    <details style={{
-      borderBottom: '1px solid #1a1a2e',
-      padding: '0',
-    }}>
-      <summary style={{
-        padding: '20px 4px',
-        cursor: 'pointer',
-        fontSize: 15,
-        fontWeight: 600,
-        listStyle: 'none',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        color: '#e2e8f0',
-        userSelect: 'none',
-      }}>
+    <details className="border-b border-border-dim">
+      <summary className="flex list-none items-center justify-between px-1 py-5 text-[15px] font-semibold text-text select-none">
         {q}
-        <span style={{ color: '#9ca3af', fontSize: 18, marginLeft: 12 }}>+</span>
+        <span className="ml-3 text-[18px] text-text-gray">+</span>
       </summary>
-      <div style={{ padding: '0 4px 20px', color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>
-        {a}
-      </div>
+      <div className="px-1 pb-5 text-[14px] leading-[1.7] text-text-dim">{a}</div>
     </details>
   );
 }
