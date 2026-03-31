@@ -691,7 +691,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             className="btn-retro btn-retro-primary w-full py-3 text-[15px]"
             onClick={() => onClaim?.(tile.id)}
           >
-            Claim This Tile{currentPrice != null ? ` — $${currentPrice.toFixed(2)}` : ''}
+            Claim This Tile{currentPrice != null ? ` — $${currentPrice < 0.01 ? currentPrice.toPrecision(3) : currentPrice.toFixed(4)} USDC` : ''}
           </button>
 
           <p className="text-center text-[12px] leading-[1.6] text-text-dim">
