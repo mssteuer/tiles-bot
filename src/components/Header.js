@@ -96,8 +96,11 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
           <span className="font-semibold text-white">{stats.claimed.toLocaleString()}</span>
           <span className="text-text-light">/</span>
           <span className="text-text-dim">{stats.total.toLocaleString()}</span>
-          <div className="h-[3px] w-[60px] overflow-hidden rounded-sm bg-[#2a2a3e]">
-            <div className="h-full rounded-sm bg-linear-to-r from-accent-blue to-accent-purple" style={{ width: `${Math.min(pct, 100)}%` }} />
+          <div className="retro-progress-track h-[3px] w-[60px]">
+            <div
+              className="retro-progress-fill bg-linear-to-r from-accent-blue to-accent-purple"
+              style={{ '--progress-width': `${Math.min(pct, 100)}%` }}
+            />
           </div>
           <span className="text-[10px] text-text-light">{pct.toFixed(2)}%</span>
         </div>
@@ -115,10 +118,10 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
           <span className="text-text-dim">Revenue</span>
           <span className="font-semibold text-accent-green">{fmtRevenue(totalRevenue)}</span>
           <span className="text-[10px] text-text-light">of {fmtRevenue(estimatedMax)}</span>
-          <div className="h-[3px] w-10 overflow-hidden rounded-sm bg-[#2a2a3e]">
+          <div className="retro-progress-track h-[3px] w-10">
             <div
-              className="h-full rounded-sm bg-linear-to-r from-green-600 to-accent-green"
-              style={{ width: `${Math.max(revenuePct, revenuePct > 0 ? 2 : 0)}%` }}
+              className="retro-progress-fill bg-linear-to-r from-green-600 to-accent-green"
+              style={{ '--progress-width': `${Math.max(revenuePct, revenuePct > 0 ? 2 : 0)}%` }}
             />
           </div>
         </div>

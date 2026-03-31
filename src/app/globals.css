@@ -239,6 +239,21 @@ body:not(:has(.app-shell)) { overflow: auto; }
   }
 }
 
+.retro-progress-track {
+  @apply overflow-hidden rounded-sm bg-[#2a2a3e];
+}
+
+.retro-progress-fill {
+  @apply h-full rounded-sm;
+  width: var(--progress-width, 0%);
+}
+
+.category-badge {
+  @apply rounded-full px-2 py-0.5 text-[11px] font-semibold;
+  background-color: var(--category-bg, rgba(148, 163, 184, 0.13));
+  color: var(--category-color, #94a3b8);
+}
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--color-bg); }
 ::-webkit-scrollbar-thumb {
