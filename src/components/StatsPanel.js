@@ -76,8 +76,8 @@ export default function StatsPanel({ stats }) {
                   Revenue collected: <span className="font-bold text-accent-green">{formatUsdShort(totalRevenue)}</span>
                   <span className="text-[11px] text-text-gray"> / {formatUsdShort(estimatedMax)} max</span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded bg-surface-2">
-                  <div className="h-full rounded bg-linear-to-r from-green-600 via-accent-green to-green-300 transition-[width] duration-500 ease-in-out" style={{ width: `${Math.max(revenuePct, revenuePct > 0 ? 1 : 0)}%` }} />
+                <div className="retro-progress-track h-1.5 w-full !rounded bg-surface-2">
+                  <div className="retro-progress-fill !rounded bg-linear-to-r from-green-600 via-accent-green to-green-300 transition-[width] duration-500 ease-in-out" style={{ '--progress-width': `${Math.max(revenuePct, revenuePct > 0 ? 1 : 0)}%` }} />
                 </div>
                 <div className="mt-0.5 text-[10px] text-text-gray">{revenuePct.toFixed(3)}% of max revenue</div>
               </div>
