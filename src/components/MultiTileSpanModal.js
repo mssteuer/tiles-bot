@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
 
 const GRID_SIZE = 256;
+const STEPS = ['configure', 'upload', 'processing', 'ready'];
 
 function getRectTileIds(topLeftId, width, height) {
   const col = topLeftId % GRID_SIZE;
@@ -11,9 +12,7 @@ function getRectTileIds(topLeftId, width, height) {
   if (col + width > GRID_SIZE || row + height > GRID_SIZE) return null;
   const ids = [];
   for (let r = 0; r < height; r++) {
-    for (let c = 0; c < width; c++) {
-      ids.push((row + r) * GRID_SIZE + (col + c));
-    }
+    for (let c = 0; c < width; c++) ids.push((row + r) * GRID_SIZE + (col + c));
   }
   return ids;
 }
@@ -24,6 +23,7 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
+
   const { address } = useAccount();
   const [width, setWidth] = useState(2);
   const [height, setHeight] = useState(1);
@@ -58,13 +58,10 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
   const tileIds = useMemo(() => getRectTileIds(topLeftId, width, height), [topLeftId, width, height]);
 
-  // Fresh tile data from server (tiles prop may be stale after batch claim)
   const [liveTiles, setLiveTiles] = useState(null);
   useEffect(() => {
     if (!tileIds || tileIds.length === 0) return;
-    Promise.all(tileIds.map(id =>
-      fetch(`/api/tiles/${id}`).then(r => r.ok ? r.json() : null).catch(() => null)
-    )).then(results => {
+    Promise.all(tileIds.map(id => fetch(`/api/tiles/${id}`).then(r => r.ok ? r.json() : null).catch(() => null))).then(results => {
       const map = {};
       results.forEach((t, i) => { if (t) map[tileIds[i]] = t; });
       setLiveTiles(map);
@@ -81,9 +78,7 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
     for (const id of tileIds) {
       const tile = tileSource[id] || tileSource[String(id)];
       if (!tile || !tile.owner) missing.push(id);
-      else if (!address || tile.owner?.toLowerCase() !== address.toLowerCase()) {
-        ok.push(id);
-      }
+      else if (!address || tile.owner?.toLowerCase() !== address.toLowerCase()) foreign.push(id);
       else ok.push(id);
     }
     return { missing, foreign, ok };
@@ -91,6 +86,7 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
   const canCreate = !!address && !!tileIds && tileIds.length >= 2 && tileIds.length <= 256 && availability.missing.length === 0 && availability.foreign.length === 0;
   const canUpload = !!createdSpan && !!uploadFile && !uploading;
+  const uploadDisabled = uploading || step === 'processing' || step === 'ready';
 
   async function pollSpanStatus(spanId) {
     setPolling(true);
@@ -162,148 +158,132 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
   }
 
   return (
-    <div
-      className="retro-modal-overlay"
-      onClick={e => e.stopPropagation()} /* no backdrop dismiss — use × or Cancel */
-    >
-      <div className="retro-modal" style={{ width: 540, maxWidth: '95vw' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+    <div className="retro-modal-overlay" onClick={e => e.stopPropagation()}>
+      <div className="retro-modal w-[540px] max-w-[95vw]">
+        <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 style={{ margin: 0, fontSize: 20 }}>Create Multi-Tile Span</h2>
-            <p style={{ margin: '4px 0 0', color: '#b0b8c4', fontSize: 13 }}>Create the rectangle, upload one image, then wait for the span to become ready.</p>
+            <h2 className="m-0 text-[20px]">Create Multi-Tile Span</h2>
+            <p className="mt-1 text-[13px] text-text-light">Create the rectangle, upload one image, then wait for the span to become ready.</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#b0b8c4', fontSize: 24, cursor: 'pointer', padding: '0 4px' }}>×</button>
+          <button onClick={onClose} className="cursor-pointer border-none bg-transparent px-1 text-[24px] text-text-light">×</button>
         </div>
 
-        {/* Step indicators */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, fontSize: 12 }}>
-          {['configure', 'upload', 'processing', 'ready'].map((label) => {
+        <div className="mb-4 flex gap-2 text-[12px]">
+          {STEPS.map((label) => {
             const active = label === step;
-            const done = ['configure', 'upload', 'processing', 'ready'].indexOf(label) < ['configure', 'upload', 'processing', 'ready'].indexOf(step);
+            const done = STEPS.indexOf(label) < STEPS.indexOf(step);
             return (
-              <div key={label} style={{
-                padding: '6px 10px', borderRadius: 2,
-                background: active ? '#7c3aed' : done ? 'rgba(34,197,94,0.2)' : 'var(--color-surface-2)',
-                border: `1px solid ${active ? '#7c3aed' : done ? 'rgba(34,197,94,0.4)' : 'var(--color-border)'}`,
-                color: active || done ? '#fff' : '#94a3b8',
-                textTransform: 'capitalize',
-              }}>{label}</div>
+              <div
+                key={label}
+                className={`rounded-[2px] px-2.5 py-1.5 capitalize ${active ? 'border border-[#7c3aed] bg-[#7c3aed] text-white' : done ? 'border border-green-500/40 bg-green-500/20 text-white' : 'border border-border bg-surface-2 text-text-dim'}`}
+              >
+                {label}
+              </div>
             );
           })}
         </div>
 
-        {/* Width / Height inputs */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#b0b8c4' }}>Width</span>
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] text-text-light">Width</span>
             <input
-              type="number" min="1" max="16" value={width} disabled={!!createdSpan}
+              type="number"
+              min="1"
+              max="16"
+              value={width}
+              disabled={!!createdSpan}
               onChange={e => setWidth(Math.max(1, Math.min(16, parseInt(e.target.value || '1', 10))))}
-              className="retro-input"
-              style={{ width: '100%' }}
+              className="retro-input w-full"
             />
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#b0b8c4' }}>Height</span>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] text-text-light">Height</span>
             <input
-              type="number" min="1" max="16" value={height} disabled={!!createdSpan}
+              type="number"
+              min="1"
+              max="16"
+              value={height}
+              disabled={!!createdSpan}
               onChange={e => setHeight(Math.max(1, Math.min(16, parseInt(e.target.value || '1', 10))))}
-              className="retro-input"
-              style={{ width: '100%' }}
+              className="retro-input w-full"
             />
           </label>
         </div>
 
-        <div style={{ marginBottom: 16, fontSize: 13, color: '#d1d5db' }}>
-          Top-left tile: #{topLeftId} · Rectangle: {width}×{height} · {tileIds?.length || 0} tiles
-        </div>
+        <div className="mb-4 text-[13px] text-text">Top-left tile: #{topLeftId} · Rectangle: {width}×{height} · {tileIds?.length || 0} tiles</div>
 
-        {/* Tile grid preview */}
-        <div style={{ display: 'inline-grid', gridTemplateColumns: `repeat(${Math.max(width, 1)}, 28px)`, gap: 2, padding: 8, background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 2, marginBottom: 16 }}>
+        <div
+          className="mb-4 inline-grid gap-0.5 rounded-[2px] border border-border bg-surface p-2"
+          style={{ gridTemplateColumns: `repeat(${Math.max(width, 1)}, 28px)` }}
+        >
           {(tileIds || []).map(id => {
             const bad = availability.missing.includes(id) || availability.foreign.includes(id);
-            return <div key={id} title={`Tile #${id}`} style={{ width: 28, height: 28, borderRadius: 2, background: bad ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.35)', border: `1px solid ${bad ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.6)'}` }} />;
+            return <div key={id} title={`Tile #${id}`} className={`h-7 w-7 rounded-[2px] border ${bad ? 'border-red-500/60 bg-red-500/35' : 'border-green-500/60 bg-green-500/35'}`} />;
           })}
         </div>
 
-        {availability.missing.length > 0 && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 8 }}>All tiles must already be claimed before creating a span. Missing: {availability.missing.length}</div>}
-        {availability.foreign.length > 0 && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 8 }}>All tiles must be owned by your connected wallet. Foreign tiles: {availability.foreign.length}</div>}
-        {tileIds && tileIds.length < 2 && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 8 }}>Minimum size is 2×1 or 1×2.</div>}
+        {availability.missing.length > 0 && <div className="mb-2 text-[13px] text-red-400">All tiles must already be claimed before creating a span. Missing: {availability.missing.length}</div>}
+        {availability.foreign.length > 0 && <div className="mb-2 text-[13px] text-red-400">All tiles must be owned by your connected wallet. Foreign tiles: {availability.foreign.length}</div>}
+        {tileIds && tileIds.length < 2 && <div className="mb-2 text-[13px] text-red-400">Minimum size is 2×1 or 1×2.</div>}
 
         {createdSpan && (
-          <div style={{ marginBottom: 16, padding: 12, borderRadius: 2, background: 'var(--color-surface)', border: '1px solid var(--color-border)', fontSize: 13 }}>
+          <div className="mb-4 rounded-[2px] border border-border bg-surface px-3 py-3 text-[13px]">
             <div>Span #{createdSpan.id} created.</div>
             <div>Status: <strong>{createdSpan.status}</strong></div>
           </div>
         )}
 
         {(step === 'upload' || step === 'processing' || step === 'ready') && (
-          <div style={{ marginBottom: 16 }}>
+          <div className="mb-4">
             {uploadFile && (
-              <div style={{ marginBottom: 8, borderRadius: 2, overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                <img src={URL.createObjectURL(uploadFile)} alt="Preview" style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }} />
+              <div className="mb-2 overflow-hidden rounded-[2px] border border-border">
+                <img src={URL.createObjectURL(uploadFile)} alt="Preview" className="max-h-[200px] w-full object-cover" />
               </div>
             )}
-            <label
-              className="btn-retro"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                opacity: (uploading || step === 'processing' || step === 'ready') ? 0.5 : 1,
-                cursor: (uploading || step === 'processing' || step === 'ready') ? 'not-allowed' : 'pointer',
-              }}
-            >
+            <label className={`btn-retro inline-flex items-center gap-1.5 ${uploadDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
               {uploadFile ? '📷 Change Image' : '📷 Choose Image'}
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 onChange={e => setUploadFile(e.target.files?.[0] || null)}
-                disabled={uploading || step === 'processing' || step === 'ready'}
-                style={{ display: 'none' }}
+                disabled={uploadDisabled}
+                className="hidden"
               />
             </label>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>PNG, JPG, or WebP. The image covers the full {width}×{height} rectangle, then sliced per tile.</div>
+            <div className="mt-1.5 text-[11px] text-text-dim">PNG, JPG, or WebP. The image covers the full {width}×{height} rectangle, then sliced per tile.</div>
           </div>
         )}
 
         {step === 'processing' && (
-          <div className="btn-loading" style={{ color: '#60a5fa', fontSize: 13, marginBottom: 12, padding: '10px 14px', borderRadius: 2, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', textAlign: 'center' }}>
-            <span className="spinner" style={{ borderTopColor: '#60a5fa', borderColor: 'rgba(96,165,250,0.3)' }} />
+          <div className="btn-loading mb-3 rounded-[2px] border border-blue-400/20 bg-blue-500/8 px-3.5 py-2.5 text-center text-[13px] text-blue-400">
+            <span className="spinner border-blue-400/30" style={{ borderTopColor: '#60a5fa' }} />
             Processing and slicing tiles{polling ? '…' : '.'}
           </div>
         )}
 
-        {step === 'ready' && (
-          <div style={{ color: '#22c55e', fontSize: 13, marginBottom: 12 }}>
-            ✅ Spanning image is ready.
-          </div>
-        )}
+        {step === 'ready' && <div className="mb-3 text-[13px] text-accent-green">✅ Spanning image is ready.</div>}
+        {error && <div className="mb-3 text-[13px] text-red-400">{error}</div>}
 
-        {error && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{error}</div>}
-
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} className="btn-retro" style={{ padding: '10px 16px' }}>
-            {step === 'ready' ? 'Done' : 'Cancel'}
-          </button>
+        <div className="flex justify-end gap-2.5">
+          <button onClick={onClose} className="btn-retro px-4 py-2.5">{step === 'ready' ? 'Done' : 'Cancel'}</button>
           {!createdSpan && (
             <button
               onClick={handleCreate}
               disabled={!canCreate || working}
-              className={`btn-retro btn-retro-primary${working ? ' btn-loading' : ''}`}
-              style={{ padding: '10px 16px', opacity: !canCreate ? 0.5 : 1, cursor: !canCreate ? 'not-allowed' : 'pointer' }}
+              className={`btn-retro btn-retro-primary px-4 py-2.5 ${working ? 'btn-loading' : ''} ${!canCreate ? 'cursor-not-allowed opacity-50' : 'cursor-pointer opacity-100'}`}
             >
-              {working && <span className="spinner" />}{working ? 'Creating span…' : 'Create Span'}
+              {working && <span className="spinner" />}
+              {working ? 'Creating span…' : 'Create Span'}
             </button>
           )}
           {createdSpan && step !== 'ready' && (
             <button
               onClick={handleUpload}
               disabled={!canUpload}
-              className={`btn-retro btn-retro-primary${uploading ? ' btn-loading' : ''}`}
-              style={{ padding: '10px 16px', opacity: !canUpload ? 0.5 : 1, cursor: !canUpload ? 'not-allowed' : 'pointer' }}
+              className={`btn-retro btn-retro-primary px-4 py-2.5 ${uploading ? 'btn-loading' : ''} ${!canUpload ? 'cursor-not-allowed opacity-50' : 'cursor-pointer opacity-100'}`}
             >
-              {uploading && <span className="spinner" />}{uploading ? 'Uploading image…' : 'Upload Image'}
+              {uploading && <span className="spinner" />}
+              {uploading ? 'Uploading image…' : 'Upload Image'}
             </button>
           )}
         </div>
