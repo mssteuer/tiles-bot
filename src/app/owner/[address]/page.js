@@ -1,6 +1,14 @@
 import { getTilesByOwner } from '@/lib/db';
 import Link from 'next/link';
 
+function categoryPillStyle(color) {
+  return {
+    background: `${color}22`,
+    border: `1px solid ${color}44`,
+    color,
+  };
+}
+
 export async function generateMetadata({ params }) {
   const { address } = await params;
   const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -15,10 +23,10 @@ export default async function OwnerPage({ params }) {
 
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <h1 style={{ color: '#ef4444' }}>Invalid Address</h1>
-          <Link href="/" style={{ color: '#3b82f6' }}>← Back to grid</Link>
+      <div className="flex min-h-screen items-center justify-center bg-surface-dark text-white">
+        <div className="text-center">
+          <h1 className="text-accent-red">Invalid Address</h1>
+          <Link href="/" className="text-accent-blue">← Back to grid</Link>
         </div>
       </div>
     );
@@ -48,150 +56,96 @@ export default async function OwnerPage({ params }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Header */}
-      <header style={{ padding: '16px 24px', borderBottom: '1px solid #1a1a2e', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a0f 100%)' }}>
-        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px' }}>← Back to grid</Link>
-        <span style={{ color: '#94a3b8' }}>|</span>
-        <span style={{ fontSize: '18px', fontWeight: 700 }}>🤖 Owner Dashboard</span>
+    <div className="min-h-screen bg-surface-dark font-body text-white">
+      <header className="flex items-center gap-4 border-b border-border-dim bg-linear-to-b from-surface-alt to-surface-dark px-6 py-4">
+        <Link href="/" className="text-[14px] text-text-dim no-underline">← Back to grid</Link>
+        <span className="text-text-dim">|</span>
+        <span className="text-[18px] font-bold">🤖 Owner Dashboard</span>
       </header>
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
-        {/* Address header */}
-        <div style={{ marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.02em' }}>
-            {short}
-          </h1>
-          <p style={{ color: '#cbd5e1', fontSize: '13px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-            {address}
-          </p>
+      <main className="mx-auto max-w-[1200px] px-6 py-8">
+        <div className="mb-8">
+          <h1 className="mb-2 text-[24px] font-extrabold tracking-[-0.02em]">{short}</h1>
+          <p className="break-all font-mono text-[13px] text-text-light">{address}</p>
         </div>
 
-        {/* Stats row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+        <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
           {[
-            { label: 'Total Tiles', value: totalTiles, color: '#3b82f6' },
-            { label: 'Named', value: `${namedTiles} (${namedPercent}%)`, color: '#22c55e' },
-            { label: 'With Images', value: withImages, color: '#8b5cf6' },
-            { label: 'Online Now', value: onlineTiles, color: '#10b981' },
+            { label: 'Total Tiles', value: totalTiles, color: 'text-accent-blue' },
+            { label: 'Named', value: `${namedTiles} (${namedPercent}%)`, color: 'text-accent-green' },
+            { label: 'With Images', value: withImages, color: 'text-accent-purple' },
+            { label: 'Online Now', value: onlineTiles, color: 'text-emerald-500' },
           ].map(({ label, value, color }) => (
-            <div key={label} style={{ background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: '12px', padding: '20px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 800, color }}>{value}</div>
-              <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '4px' }}>{label}</div>
+            <div key={label} className="rounded-xl border border-border-dim bg-surface-alt p-5">
+              <div className={`text-[24px] font-extrabold ${color}`}>{value}</div>
+              <div className="mt-1 text-[12px] text-text-light">{label}</div>
             </div>
           ))}
         </div>
 
-        {/* Category breakdown */}
         {Object.keys(categories).length > 0 && (
-          <div style={{ marginBottom: '32px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: '#94a3b8' }}>CATEGORIES</h2>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {Object.entries(categories).sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
-                <span key={cat} style={{
-                  background: catColors[cat] + '22',
-                  border: `1px solid ${catColors[cat]}44`,
-                  color: catColors[cat] || '#94a3b8',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                }}>
-                  {cat} · {count}
-                </span>
-              ))}
+          <div className="mb-8">
+            <h2 className="mb-3 text-[16px] font-bold text-text-dim">CATEGORIES</h2>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(categories).sort((a, b) => b[1] - a[1]).map(([cat, count]) => {
+                const color = catColors[cat] || '#94a3b8';
+                return (
+                  <span key={cat} className="rounded-[20px] px-3 py-1 text-[12px] font-semibold" style={categoryPillStyle(color)}>
+                    {cat} · {count}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
 
         {totalTiles === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: '#cbd5e1' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🤖</div>
+          <div className="py-12 text-center text-text-light">
+            <div className="mb-4 text-[48px]">🤖</div>
             <p>No tiles found for this address.</p>
-            <Link href="/" style={{ color: '#3b82f6' }}>Claim a tile →</Link>
+            <Link href="/" className="text-accent-blue">Claim a tile →</Link>
           </div>
         ) : (
           <>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#94a3b8' }}>
-              ALL TILES ({totalTiles})
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-              {tiles.map(tile => (
-                <Link
-                  key={tile.id}
-                  href={`/tiles/${tile.id}`}
-                  style={{ textDecoration: 'none' }}
-                >
-                  <div style={{
-                    background: '#0f0f1a',
-                    border: `1px solid ${tile.status === 'online' ? '#22c55e44' : '#1a1a2e'}`,
-                    borderRadius: '12px',
-                    padding: '16px',
-                    transition: 'border-color 0.2s',
-                    cursor: 'pointer',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                      {tile.imageUrl ? (
-                        <img
-                          src={tile.imageUrl}
-                          alt={tile.name}
-                          style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
-                        />
-                      ) : (
-                        <div style={{
-                          width: '40px', height: '40px', borderRadius: '8px',
-                          background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '20px', flexShrink: 0
-                        }}>
-                          {tile.avatar || '🤖'}
+            <h2 className="mb-4 text-[16px] font-bold text-text-dim">ALL TILES ({totalTiles})</h2>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+              {tiles.map(tile => {
+                const pillColor = catColors[tile.category] || '#94a3b8';
+                return (
+                  <Link key={tile.id} href={`/tiles/${tile.id}`} className="no-underline">
+                    <div className={`cursor-pointer rounded-xl border p-4 transition-colors ${tile.status === 'online' ? 'border-accent-green/30' : 'border-border-dim'} bg-surface-alt`}>
+                      <div className="mb-2 flex items-center gap-2.5">
+                        {tile.imageUrl ? (
+                          <img src={tile.imageUrl} alt={tile.name} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                        ) : (
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[20px]">{tile.avatar || '🤖'}</div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="truncate whitespace-nowrap text-[13px] font-bold text-text">{tile.name || `Tile #${tile.id}`}</div>
+                          <div className="text-[11px] text-text-dim">#{tile.id}</div>
                         </div>
+                      </div>
+                      {tile.description && (
+                        <p className="mb-2 overflow-hidden text-[11px] leading-[1.4] text-text-light [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">{tile.description}</p>
                       )}
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {tile.name || `Tile #${tile.id}`}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>#{tile.id}</div>
+                      <div className="flex items-center gap-1.5">
+                        {tile.category && tile.category !== 'uncategorized' && (
+                          <span className="rounded-[10px] px-2 py-0.5 text-[10px]" style={categoryPillStyle(pillColor)}>{tile.category}</span>
+                        )}
+                        {tile.status === 'online' && <span className="text-[10px] text-accent-green">● online</span>}
                       </div>
                     </div>
-                    {tile.description && (
-                      <p style={{ fontSize: '11px', color: '#cbd5e1', margin: '0 0 8px', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                        {tile.description}
-                      </p>
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {tile.category && tile.category !== 'uncategorized' && (
-                        <span style={{
-                          fontSize: '10px', padding: '2px 8px', borderRadius: '10px',
-                          background: (catColors[tile.category] || '#94a3b8') + '22',
-                          color: catColors[tile.category] || '#94a3b8',
-                          border: `1px solid ${(catColors[tile.category] || '#94a3b8')}44`,
-                        }}>
-                          {tile.category}
-                        </span>
-                      )}
-                      {tile.status === 'online' && (
-                        <span style={{ fontSize: '10px', color: '#22c55e' }}>● online</span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           </>
         )}
 
-        {/* Agent integration note */}
-        <div style={{ marginTop: '48px', padding: '24px', background: '#0f0f1a', border: '1px solid #1a1a2e', borderRadius: '12px' }}>
-          <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 600 }}>Bulk update your tiles via API</p>
-          <p style={{ margin: '0 0 16px', color: '#cbd5e1', fontSize: '13px' }}>
-            Own many tiles? Update metadata for up to 50 tiles in a single request.
-          </p>
-          <code style={{ display: 'block', background: '#060608', border: '1px solid #1a1a2e', borderRadius: '8px', padding: '12px', fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace' }}>
-            PATCH /api/owner/{short}/bulk-update{'\n'}
-            {'{'} &quot;updates&quot;: [{'\n'}
-            {'  '}{'{'} &quot;id&quot;: 123, &quot;name&quot;: &quot;My Agent&quot;, &quot;category&quot;: &quot;coding&quot; {'}'}{'\n'}
-            ]{' }'}
-          </code>
+        <div className="mt-12 rounded-xl border border-border-dim bg-surface-alt p-6">
+          <p className="mb-2 text-[14px] font-semibold">Bulk update your tiles via API</p>
+          <p className="mb-4 text-[13px] text-text-light">Own many tiles? Update metadata for up to 50 tiles in a single request.</p>
+          <code className="block whitespace-pre-wrap rounded-lg border border-border-dim bg-[#060608] p-3 font-mono text-[12px] text-text-dim">{`PATCH /api/owner/${short}/bulk-update\n{ "updates": [\n  { "id": 123, "name": "My Agent", "category": "coding" }\n] }`}</code>
         </div>
       </main>
     </div>
