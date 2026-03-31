@@ -49,108 +49,54 @@ export default function StatsPanel({ stats }) {
     return () => clearInterval(tick);
   }, []);
 
-  const panelStyle = {
-    background: '#0f0f1a',
-    border: '1px solid #2a2a3e',
-    borderRadius: 12,
-    overflow: 'hidden',
-    fontSize: 13,
-    color: '#94a3b8',
-    width: '100%',
-    minWidth: 0,
-    maxWidth: '100%',
-    flexShrink: 1,
-    alignSelf: 'stretch',
-    boxSizing: 'border-box',
-  };
-
-  const headerStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '10px 14px',
-    background: '#1a1a2e',
-    cursor: 'pointer',
-    userSelect: 'none',
-    borderBottom: open ? '1px solid #2a2a3e' : 'none',
-  };
-
-  const sectionTitle = {
-    color: '#6366f1',
-    fontWeight: 700,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    marginBottom: 6,
-  };
-
   return (
-    <div style={panelStyle}>
-      <div style={headerStyle} onClick={() => setOpen(o => !o)}>
-        <span style={{ fontWeight: 700, color: '#e2e8f0', fontSize: 13 }}>📊 Grid Stats</span>
-        <span style={{ fontSize: 16, color: '#6366f1' }}>{open ? '▲' : '▼'}</span>
+    <div className="w-full max-w-full min-w-0 shrink bg-surface-alt text-[13px] text-text-dim rounded-xl border border-[#2a2a3e] overflow-hidden self-stretch box-border">
+      <div className={`flex cursor-pointer items-center justify-between px-3.5 py-2.5 bg-surface-2 ${open ? 'border-b border-[#2a2a3e]' : ''}`} onClick={() => setOpen(o => !o)}>
+        <span className="text-[13px] font-bold text-text">📊 Grid Stats</span>
+        <span className="text-[16px] text-indigo-500">{open ? '▲' : '▼'}</span>
       </div>
 
       {open && (
-        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="flex flex-col gap-3.5 px-3.5 py-3">
           {stats ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="flex flex-col gap-1.5">
               <div>
-                <span style={{ color: '#3b82f6', fontWeight: 700 }}>{stats.claimed.toLocaleString()}</span>
-                <span style={{ color: '#cbd5e1' }}> / {stats.total.toLocaleString()} tiles claimed</span>
-                <span style={{ color: '#cbd5e1' }}> ({claimedPct}%)</span>
+                <span className="font-bold text-accent-blue">{stats.claimed.toLocaleString()}</span>
+                <span className="text-text-light"> / {stats.total.toLocaleString()} tiles claimed</span>
+                <span className="text-text-light"> ({claimedPct}%)</span>
               </div>
               <div>
-                Current price:{' '}
-                <span style={{ color: '#8b5cf6', fontWeight: 700 }}>
-                  {formatUsd(stats.currentPrice)} USDC
-                </span>
+                Current price: <span className="font-bold text-accent-purple">{formatUsd(stats.currentPrice)} USDC</span>
               </div>
               <div>
-                Est. sold out:{' '}
-                <span style={{ color: '#f59e0b', fontWeight: 700 }}>
-                  {formatUsd(stats.estimatedSoldOutRevenue)}
-                </span>
+                Est. sold out: <span className="font-bold text-amber-500">{formatUsd(stats.estimatedSoldOutRevenue)}</span>
               </div>
-              <div style={{ marginTop: 4 }}>
-                <div style={{ marginBottom: 4 }}>
-                  Revenue collected:{' '}
-                  <span style={{ color: '#22c55e', fontWeight: 700 }}>
-                    {formatUsdShort(totalRevenue)}
-                  </span>
-                  <span style={{ color: '#9ca3af', fontSize: 11 }}> / {formatUsdShort(estimatedMax)} max</span>
+              <div className="mt-1">
+                <div className="mb-1">
+                  Revenue collected: <span className="font-bold text-accent-green">{formatUsdShort(totalRevenue)}</span>
+                  <span className="text-[11px] text-text-gray"> / {formatUsdShort(estimatedMax)} max</span>
                 </div>
-                <div style={{ width: '100%', height: 6, background: '#1a1a2e', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${Math.max(revenuePct, revenuePct > 0 ? 1 : 0)}%`,
-                    height: '100%',
-                    background: 'linear-gradient(90deg, #16a34a 0%, #22c55e 60%, #86efac 100%)',
-                    borderRadius: 3,
-                    transition: 'width 0.5s ease',
-                  }} />
+                <div className="h-1.5 w-full overflow-hidden rounded bg-surface-2">
+                  <div className="h-full rounded bg-linear-to-r from-green-600 via-accent-green to-green-300 transition-[width] duration-500 ease-in-out" style={{ width: `${Math.max(revenuePct, revenuePct > 0 ? 1 : 0)}%` }} />
                 </div>
-                <div style={{ color: '#9ca3af', fontSize: 10, marginTop: 2 }}>{revenuePct.toFixed(3)}% of max revenue</div>
+                <div className="mt-0.5 text-[10px] text-text-gray">{revenuePct.toFixed(3)}% of max revenue</div>
               </div>
               <div>
-                Next tile:{' '}
-                <span style={{ color: '#22c55e', fontWeight: 700 }}>#{stats.nextAvailableTileId}</span>
+                Next tile: <span className="font-bold text-accent-green">#{stats.nextAvailableTileId}</span>
               </div>
             </div>
           ) : (
-            <div style={{ color: '#94a3b8' }}>Loading…</div>
+            <div className="text-text-dim">Loading…</div>
           )}
 
           {stats?.topHolders?.length > 0 && (
             <div>
-              <div style={sectionTitle}>Top Holders</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-indigo-500">Top Holders</div>
+              <div className="flex flex-col gap-1">
                 {stats.topHolders.map((h, i) => (
-                  <div key={h.owner} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#94a3b8' }}>
-                      <span style={{ color: '#94a3b8', marginRight: 4 }}>{i + 1}.</span>
-                      {truncateAddr(h.owner)}
-                    </span>
-                    <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{h.count} tiles</span>
+                  <div key={h.owner} className="flex justify-between">
+                    <span className="text-text-dim"><span className="mr-1 text-text-dim">{i + 1}.</span>{truncateAddr(h.owner)}</span>
+                    <span className="font-semibold text-text">{h.count} tiles</span>
                   </div>
                 ))}
               </div>
@@ -159,24 +105,19 @@ export default function StatsPanel({ stats }) {
 
           {stats?.recentlyClaimed?.length > 0 && (
             <div>
-              <div style={sectionTitle}>Recently Claimed</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-indigo-500">Recently Claimed</div>
+              <div className="flex flex-col gap-1">
                 {stats.recentlyClaimed.map(t => (
-                  <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ color: '#94a3b8', marginRight: 4 }}>#{t.id}</span>
-                      {t.name}
-                    </span>
-                    <span style={{ color: '#cbd5e1', flexShrink: 0 }}>{timeAgo(t.claimedAt, nowTs)}</span>
+                  <div key={t.id} className="flex justify-between gap-2">
+                    <span className="truncate whitespace-nowrap text-text-dim"><span className="mr-1 text-text-dim">#{t.id}</span>{t.name}</span>
+                    <span className="shrink-0 text-text-light">{timeAgo(t.claimedAt, nowTs)}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <div style={{ color: '#9ca3af', fontSize: 11, textAlign: 'right' }}>
-            Live updates via SSE
-          </div>
+          <div className="text-right text-[11px] text-text-gray">Live updates via SSE</div>
         </div>
       )}
     </div>
