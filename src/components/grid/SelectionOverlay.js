@@ -10,8 +10,8 @@ export default function SelectionOverlay({ selectionRect, hintOnly = false }) {
   }
   return (
     <div
-      className="pointer-events-none absolute rounded-[2px] border-2 border-dashed border-accent-blue bg-transparent"
-      style={{ left: selectionRect.x1, top: selectionRect.y1, width: selectionRect.x2 - selectionRect.x1, height: selectionRect.y2 - selectionRect.y1, borderColor: 'rgba(59,130,246,0.9)' }}
+      className="pointer-events-none absolute rounded-[2px] border-2 border-dashed border-accent-blue/90 bg-transparent"
+      style={{ left: selectionRect.x1, top: selectionRect.y1, width: selectionRect.x2 - selectionRect.x1, height: selectionRect.y2 - selectionRect.y1 }}
     />
   );
 }

@@ -236,14 +236,14 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
 
         {step === 'approve' && (
           <div className="btn-loading rounded-[2px] border border-amber-500/30 bg-amber-500/10 px-0 py-3.5 text-center text-[14px] text-amber-500">
-            <span className="spinner border-amber-500/30" style={{ borderTopColor: '#f59e0b' }} />
+            <span className="spinner spinner-amber" />
             Approving USDC — confirm in wallet…
           </div>
         )}
 
         {step === 'claim' && (
           <div className="btn-loading rounded-[2px] border border-blue-500/30 bg-blue-500/10 px-0 py-3.5 text-center text-[14px] text-accent-blue">
-            <span className="spinner border-blue-500/30" style={{ borderTopColor: '#3b82f6' }} />
+            <span className="spinner spinner-blue" />
             Claiming {unclaimed.length} tiles — confirm in wallet…
           </div>
         )}

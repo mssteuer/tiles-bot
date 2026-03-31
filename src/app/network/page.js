@@ -192,7 +192,7 @@ export default function NetworkPage() {
             <div className="flex justify-center gap-4 border-t border-border-dim px-4 py-3">
               {Object.entries(STATUS_COLORS).map(([status, color]) => (
                 <div key={status} className="flex items-center gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: STATUS_GLOW[status] }} />
+                  <div className="status-dot" style={{ '--dot-color': color, '--dot-glow': STATUS_GLOW[status] }} />
                   <span className="text-[11px] capitalize text-text-light">{status}</span>
                 </div>
               ))}

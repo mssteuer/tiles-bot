@@ -256,7 +256,7 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
         {step === 'processing' && (
           <div className="btn-loading mb-3 rounded-[2px] border border-blue-400/20 bg-blue-500/8 px-3.5 py-2.5 text-center text-[13px] text-blue-400">
-            <span className="spinner border-blue-400/30" style={{ borderTopColor: '#60a5fa' }} />
+            <span className="spinner spinner-blue-light" />
             Processing and slicing tiles{polling ? '…' : '.'}
           </div>
         )}
