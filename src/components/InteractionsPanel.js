@@ -330,10 +330,10 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
 }
 
 const TABS = [
-  { id: 'notes', label: '💬 Notes', shortLabel: '💬' },
-  { id: 'actions', label: '⚔️ Actions', shortLabel: '⚔️' },
-  { id: 'emotes', label: '🎭 Emotes', shortLabel: '🎭' },
-  { id: 'messages', label: '💌 DMs', shortLabel: '💌' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'actions', label: 'Actions' },
+  { id: 'emotes', label: 'Emotes' },
+  { id: 'messages', label: 'DMs' },
 ];
 
 export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, allTiles, onAction }) {
@@ -351,10 +351,9 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`btn-retro min-w-0 flex-1 px-0.5 py-1.5 text-center text-[11px] whitespace-nowrap overflow-visible ${active ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border text-text-dim font-normal'}`}
+              className={`relative cursor-pointer rounded-sm border-2 font-body text-[12px] min-w-0 flex-1 !px-1 py-1.5 text-center ${active ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border-bright bg-surface-2 text-text-dim font-normal hover:border-accent-blue/50'}`}
             >
-              <span className="hidden sm:inline">{t.label}</span>
-              <span className="sm:hidden">{t.shortLabel}</span>
+              {t.label}
             </button>
           );
         })}
