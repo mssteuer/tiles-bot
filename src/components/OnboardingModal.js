@@ -48,12 +48,8 @@ export default function OnboardingModal({ onComplete }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!localStorage.getItem(STORAGE_KEY)) {
-      setShow(true);
-    } else {
-      // Already onboarded — signal immediately
-      onComplete?.();
-    }
+    if (!localStorage.getItem(STORAGE_KEY)) setShow(true);
+    else onComplete?.();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function dismiss() {
@@ -69,54 +65,26 @@ export default function OnboardingModal({ onComplete }) {
 
   return (
     <div className="retro-modal-overlay">
-      <div className="retro-modal" style={{
-        padding: '40px 36px 32px', maxWidth: 480, textAlign: 'center',
-      }}>
-        {/* Slide dots */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 24 }}>
+      <div className="retro-modal max-w-[480px] px-9 pt-10 pb-8 text-center">
+        <div className="mb-6 flex justify-center gap-1.5">
           {SLIDES.map((_, i) => (
-            <div key={i} onClick={() => setSlide(i)} style={{
-              width: i === slide ? 20 : 8, height: 8, borderRadius: 4,
-              background: i === slide ? '#3b82f6' : '#333',
-              cursor: 'pointer', transition: 'all 0.3s ease',
-            }} />
+            <div key={i} onClick={() => setSlide(i)} className={`h-2 rounded-full transition-all duration-300 ease-in-out ${i === slide ? 'w-5 cursor-pointer bg-accent-blue' : 'w-2 cursor-pointer bg-[#333]'}`} />
           ))}
         </div>
 
-        {/* Slide image */}
-        <div style={{
-          width: '100%', maxWidth: 320, height: 180, margin: '0 auto 16px',
-          borderRadius: 2, overflow: 'hidden',
-          border: '2px solid var(--color-border-bright)',
-        }}>
-          <img src={s.image} alt={s.title} style={{
-            width: '100%', height: '100%', objectFit: 'cover',
-            imageRendering: 'auto',
-          }} />
+        <div className="mx-auto mb-4 h-[180px] w-full max-w-[320px] overflow-hidden rounded-[2px] border-2 border-border-bright">
+          <img src={s.image} alt={s.title} className="h-full w-full object-cover" />
         </div>
 
-        {/* Title */}
-        <h2 style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#fff' }}>{s.title}</h2>
+        <h2 className="mb-3 text-[18px] font-bold text-white">{s.title}</h2>
+        <p className="mb-8 text-[15px] leading-[1.6] text-text-dim">{s.body}</p>
 
-        {/* Body */}
-        <p style={{ margin: '0 0 32px', fontSize: 15, lineHeight: 1.6, color: '#94a3b8' }}>
-          {s.body}
-        </p>
-
-        {/* Buttons */}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <button onClick={dismiss} className="btn-retro" style={{ fontSize: 13 }}>
-            Skip
-          </button>
-
+        <div className="flex justify-center gap-2.5">
+          <button onClick={dismiss} className="btn-retro text-[13px]">Skip</button>
           {!isLast ? (
-            <button onClick={() => setSlide(s => s + 1)} className="btn-retro btn-retro-primary" style={{ fontSize: 13 }}>
-              Next ▶
-            </button>
+            <button onClick={() => setSlide(s => s + 1)} className="btn-retro btn-retro-primary text-[13px]">Next ▶</button>
           ) : (
-            <button onClick={dismiss} className="btn-retro btn-retro-green" style={{ fontSize: 13 }}>
-              Enter World 1 ▶
-            </button>
+            <button onClick={dismiss} className="btn-retro btn-retro-green text-[13px]">Enter World 1 ▶</button>
           )}
         </div>
       </div>
