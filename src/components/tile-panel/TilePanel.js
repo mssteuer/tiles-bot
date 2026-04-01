@@ -14,6 +14,56 @@ import { getSizedImageUrl, truncateAddress, truncateTx, CONTRACT_ADDRESS, CHAIN_
 const CATEGORIES = ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'];
 const VERIFIED_COLOR = '#22c55e';
 
+function EmbedCodeButton({ tileId }) {
+  const [copied, setCopied] = useState(false);
+  const [embedCode, setEmbedCode] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/widget/${tileId}/embed-code`);
+      const data = await res.json();
+      setEmbedCode(data.iframe);
+      await navigator.clipboard.writeText(data.iframe);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // fallback: generate inline
+      const code = `<iframe src="${window.location.origin}/widget/${tileId}" width="256" height="128" frameborder="0" scrolling="no" style="border-radius:12px;overflow:hidden;" title="tiles.bot widget" loading="lazy"></iframe>`;
+      setEmbedCode(code);
+      try { await navigator.clipboard.writeText(code); } catch {}
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        onClick={handleClick}
+        className="btn-retro flex w-full items-center justify-center gap-2 text-[13px] border-accent-blue/30 text-accent-blue"
+        disabled={loading}
+      >
+        {loading ? '⏳ Loading…' : copied ? '✅ Copied!' : '🔗 Get Embed Code'}
+      </button>
+      {embedCode && (
+        <textarea
+          readOnly
+          value={embedCode}
+          onClick={e => e.target.select()}
+          className="w-full rounded-lg border border-border-bright bg-surface-2 px-3 py-2 text-[11px] font-mono text-text-dim resize-none"
+          rows={3}
+          style={{ lineHeight: '1.4' }}
+        />
+      )}
+    </div>
+  );
+}
+
 function withAlpha(hex, alpha) {
   if (!hex || typeof hex !== 'string') return null;
   const normalized = hex.trim();
@@ -675,6 +725,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             )}
 
             <ShareButton tileId={tile.id} />
+            {isOwner && <EmbedCodeButton tileId={tile.id} />}
           </>
         )
       ) : (
