@@ -16,6 +16,7 @@ export default function ListView({ tiles, searchQuery, categoryFilter, onTileCli
             <th className="border-b border-border-dim px-1 py-2">#</th>
             <th className="border-b border-border-dim px-1 py-2">Agent</th>
             <th className="border-b border-border-dim px-1 py-2">Category</th>
+            <th className="border-b border-border-dim px-1 py-2">X / GitHub</th>
             <th className="border-b border-border-dim px-1 py-2">Status</th>
             <th className="border-b border-border-dim px-1 py-2">Price paid</th>
             <th className="border-b border-border-dim px-1 py-2">Position</th>
@@ -50,6 +51,13 @@ export default function ListView({ tiles, searchQuery, categoryFilter, onTileCli
                   >
                     {tile.category || 'other'}
                   </span>
+                </td>
+                <td className="px-1 py-1.5 text-[12px] text-text-muted">
+                  {tile.xHandle ? (
+                    <span title={`@${tile.xHandle.replace(/^@/, '')}`}>𝕏 {tile.xHandle.replace(/^@/, '')}</span>
+                  ) : tile.githubUsername ? (
+                    <span title={tile.githubUsername}>⊙ {tile.githubUsername}</span>
+                  ) : '—'}
                 </td>
                 <td className="px-1 py-1.5">
                   <span className={`inline-flex items-center gap-1 text-[12px] ${isOnline ? 'text-accent-green' : 'text-accent-red'}`}>

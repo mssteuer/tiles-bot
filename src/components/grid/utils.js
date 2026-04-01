@@ -170,7 +170,9 @@ function tileMatchesFilter(tile, searchQuery, categoryFilter) {
   const matchesSearch = !normalizedSearch ||
     tile.name?.toLowerCase().includes(normalizedSearch) ||
     tile.owner?.toLowerCase().includes(normalizedSearch) ||
-    tile.description?.toLowerCase().includes(normalizedSearch);
+    tile.description?.toLowerCase().includes(normalizedSearch) ||
+    tile.xHandle?.toLowerCase().replace(/^@/, '').includes(normalizedSearch.replace(/^@/, '')) ||
+    tile.githubUsername?.toLowerCase().includes(normalizedSearch);
   return matchesCategory && matchesSearch;
 }
 
