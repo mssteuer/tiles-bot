@@ -6,7 +6,7 @@ function ShareButton({ tileId }) {
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
-    const url = `https://tiles.bot/?tile=${tileId}`;
+    const url = `https://tiles.bot/tiles/${tileId}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
