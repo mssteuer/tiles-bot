@@ -39,7 +39,7 @@ export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, on
       {/* Search */}
       <input
         type="text"
-        placeholder="Search..."
+        placeholder="Search name, @handle, wallet..."
         value={search}
         onChange={handleSearch}
         className="search-input"
