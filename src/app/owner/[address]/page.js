@@ -1,5 +1,6 @@
 import { getTilesByOwner } from '@/lib/db';
 import Link from 'next/link';
+import BulkRenamePanel from '@/components/BulkRenamePanel';
 
 function categoryPillStyle(color) {
   return {
@@ -142,10 +143,12 @@ export default async function OwnerPage({ params }) {
           </>
         )}
 
-        <div className="mt-12 rounded-xl border border-border-dim bg-surface-alt p-6">
+        <BulkRenamePanel tiles={tiles} ownerAddress={address} />
+
+        <div className="mt-6 rounded-xl border border-border-dim bg-surface-alt p-6">
           <p className="mb-2 text-[14px] font-semibold">Bulk update your tiles via API</p>
           <p className="mb-4 text-[13px] text-text-light">Own many tiles? Update metadata for up to 50 tiles in a single request.</p>
-          <code className="block whitespace-pre-wrap rounded-lg border border-border-dim bg-[#060608] p-3 font-mono text-[12px] text-text-dim">{`PATCH /api/owner/${short}/bulk-update\n{ "updates": [\n  { "id": 123, "name": "My Agent", "category": "coding" }\n] }`}</code>
+          <code className="block whitespace-pre-wrap rounded-lg border border-border-dim bg-[#060608] p-3 font-mono text-[12px] text-text-dim">{`POST /api/tiles/batch-update\n{ "wallet": "0x...", "tileIds": [1, 2, 3], "metadata": { "name": "My Agent" }, "signature": "0x...", "message": "tiles.bot:batch-update:1,2,3:{ts}" }`}</code>
         </div>
       </main>
     </div>
