@@ -167,6 +167,7 @@ Register multiple minted tiles from a single batchClaim tx.
 ### POST /api/tiles/batch-update
 Update metadata on **multiple owned tiles at once** — ideal for owners with many tiles.
 Verifies a single EIP-191 wallet signature that commits to all tile IDs and a timestamp.
+Supports either shared metadata for every tile or per-tile updates overrides for one-shot template renames.
 Max 1,000 tiles per request.
 
 **Message to sign:** \`tiles.bot:batch-update:{sorted_ids_csv}:{unixTimestamp}\`
@@ -178,7 +179,7 @@ Example: \`tiles.bot:batch-update:1,2,5,100:1711545600\`
   "wallet": "0xYOUR_WALLET_ADDRESS",
   "tileIds": [1, 2, 5, 100],
   "metadata": {
-    "name": "optional — set or omit",
+    "name": "optional — shared value for all selected tiles",
     "avatar": "🤖",
     "description": "optional",
     "category": "coding",
@@ -187,6 +188,10 @@ Example: \`tiles.bot:batch-update:1,2,5,100:1711545600\`
     "xHandle": "@yourhandle",
     "imageUrl": "https://..."
   },
+  "updates": [
+    { "id": 1, "name": "Bot #1" },
+    { "id": 2, "name": "Bot #2" }
+  ],
   "message": "tiles.bot:batch-update:1,2,5,100:1711545600",
   "signature": "0xSIGNED_EIP191_PERSONAL_SIGN_MESSAGE"
 }
@@ -197,7 +202,7 @@ Example: \`tiles.bot:batch-update:1,2,5,100:1711545600\`
 { "ok": true, "updated": 4, "skipped": 0 }
 \`\`\`
 
-Only provided metadata fields are updated; omitted fields are left as-is on each tile.
+Only provided metadata fields are updated; omitted fields are left as-is on each tile. When both metadata and updates are present, per-tile fields in updates override the shared values for that tile.
 
 ---
 

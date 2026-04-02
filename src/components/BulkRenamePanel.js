@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAccount, useSignMessage } from 'wagmi';
 
 /**
@@ -13,6 +14,7 @@ import { useAccount, useSignMessage } from 'wagmi';
  * Uses POST /api/tiles/batch-update with EIP-191 wallet signature.
  */
 export default function BulkRenamePanel({ tiles, ownerAddress }) {
+  const router = useRouter();
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
@@ -101,141 +103,59 @@ export default function BulkRenamePanel({ tiles, ownerAddress }) {
         const chunk = chunks[ci];
         setProgress({ done: ci * CHUNK, total: selectedIds.length });
 
-        // Build per-tile name map for template strategy
-        // For batch-update API, all tiles in a batch get the same metadata object.
-        // So for template strategy we must do one call per unique name, or fall back to
-        // calling the single-tile API. However, since most use "Bot #{{id}}" which is
-        // unique per tile, we batch by name pattern — if template has {{id}}, we do it
-        // per-tile in parallel groups; otherwise one batch call works fine.
+        const sortedIds = [...chunk].sort((a, b) => a - b);
+        const ts = Math.floor(Date.now() / 1000);
+        const idsStr = sortedIds.join(',');
+        const message = `tiles.bot:batch-update:${idsStr}:${ts}`;
+
+        const sig = await signMessageAsync({ message }).catch(e => {
+          setError(`Wallet signature rejected: ${e.message || e}`);
+          return null;
+        });
+        if (!sig) { setBusy(false); setProgress(null); return; }
+
+        const sampleTile = tiles.find(t => t.id === sortedIds[0]);
+        const resolvedName = resolveNameForTile(sampleTile || { id: sortedIds[0] });
+        const payload = {
+          wallet: address,
+          tileIds: sortedIds,
+          signature: sig,
+          message,
+        };
 
         if (strategy === 'template' && template.includes('{{id}}')) {
-          // Per-tile calls — but sign once per batch for UX, then call individually.
-          // We can't avoid multiple signatures if names differ across tiles.
-          // Approach: group tiles into batches by resolved name — but every id differs.
-          // Better: use the single-tile PUT for each tile, but sign once with a combined message.
-          // Actually: the batch API applies the SAME metadata to all tileIds.
-          // So for unique-per-tile names, we call the single-tile endpoint for each tile.
-          // We'll sign once per chunk using a timestamp and loop the PUT calls in parallel.
-          const ts = Math.floor(Date.now() / 1000 / 300) * 300;
-
-          // Sign once per chunk using a generic tiles.bot:metadata:batch message.
-          // The single-tile PUT endpoint uses: tiles.bot:metadata:{id}:{ts}
-          // So we need per-tile signatures. We batch the sign UX by prompting once for
-          // each chunk of 50 tiles (a reasonable UX tradeoff).
-          // For simplicity and UX: prompt user once, use timestamp-window auth.
-          // Sign per tile in parallel — one wallet pop per chunk (user signs once, reuse ts).
-
-          // Reuse the same ts-bucketed message scheme per tile — all signed with same ts bucket.
-          let chunkSig = null;
-          let chunkSignErr = null;
-          // We sign for the first tile in the chunk to get the wallet approval,
-          // then reuse the same ts for all others (wallet will auto-sign same ts window).
-          // Actually wagmi prompts per signMessageAsync call. Let's use batch-update with
-          // a creative approach: sort tiles, build updates array one message per call.
-
-          // Real solution: sign once for the batch using batch-update format,
-          // then use the metadata object with name={{id}} replaced.
-          // But batch-update applies the SAME name to all tiles.
-          // Final approach: for template with {{id}}, iterate tiles and sign ONCE (first tile),
-          // then reuse the same ts-window for all subsequent single-tile calls.
-          // User will see one wallet pop then automatic processing.
-
-          const singleSig = await signMessageAsync({
-            message: `tiles.bot:metadata:${chunk[0]}:${ts}`,
-          }).catch(e => { chunkSignErr = e.message || String(e); return null; });
-
-          if (!singleSig) {
-            setError(`Wallet signature rejected: ${chunkSignErr}`);
-            setBusy(false);
-            setProgress(null);
-            return;
-          }
-
-          // Process tiles for this chunk in parallel batches of 20
-          const PARALLEL = 20;
-          for (let pi = 0; pi < chunk.length; pi += PARALLEL) {
-            setProgress({ done: ci * CHUNK + pi, total: selectedIds.length });
-            const group = chunk.slice(pi, pi + PARALLEL);
-            const reqs = group.map(async (tileId) => {
-              const tile = tiles.find(t => t.id === tileId);
-              if (!tile) return { ok: false, tileId, err: 'not found' };
-              const resolvedName = resolveNameForTile(tile);
-              const tileMsg = `tiles.bot:metadata:${tileId}:${ts}`;
-              // For tiles other than the first, we need a fresh signature.
-              // We'll re-sign silently if possible (MetaMask auto-approves same domain+ts).
-              let sig = singleSig;
-              if (tileId !== chunk[0]) {
-                try {
-                  sig = await signMessageAsync({ message: tileMsg });
-                } catch {
-                  // fallback: use the chunk[0] sig with a different tileId — the server will reject.
-                  // This will just increment skipped. Not great, but graceful.
-                  return { ok: false, tileId, err: 'sig failed' };
-                }
-              }
-              const res = await fetch(`/api/tiles/${tileId}/metadata`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Wallet-Address': address,
-                  'X-Wallet-Signature': sig,
-                  'X-Wallet-Message': tileMsg,
-                },
-                body: JSON.stringify({ name: resolvedName }),
-              });
-              if (res.ok) return { ok: true };
-              const body = await res.json().catch(() => ({}));
-              return { ok: false, tileId, err: body.error || res.statusText };
-            });
-            const results = await Promise.all(reqs);
-            results.forEach(r => {
-              if (r.ok) totalUpdated++;
-              else { totalSkipped++; if (r.err) allErrors.push(r); }
-            });
-          }
+          payload.updates = sortedIds.map(tileId => {
+            const tile = tiles.find(t => t.id === tileId);
+            return {
+              id: tileId,
+              name: resolveNameForTile(tile || { id: tileId }),
+            };
+          });
         } else {
-          // All tiles get the same name — one batch-update call
-          const sortedIds = [...chunk].sort((a, b) => a - b);
-          const ts = Math.floor(Date.now() / 1000);
-          const idsStr = sortedIds.join(',');
-          const message = `tiles.bot:batch-update:${idsStr}:${ts}`;
-
-          const sig = await signMessageAsync({ message }).catch(e => {
-            setError(`Wallet signature rejected: ${e.message || e}`);
-            return null;
-          });
-          if (!sig) { setBusy(false); setProgress(null); return; }
-
-          const sampleTile = tiles.find(t => t.id === sortedIds[0]);
-          const resolvedName = resolveNameForTile(sampleTile || { id: sortedIds[0] });
-
-          const res = await fetch('/api/tiles/batch-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              wallet: address,
-              tileIds: sortedIds,
-              metadata: { name: resolvedName },
-              signature: sig,
-              message,
-            }),
-          });
-
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setError(data.error || `Batch update failed (${res.status})`);
-            setBusy(false);
-            setProgress(null);
-            return;
-          }
-          totalUpdated += data.updated || 0;
-          totalSkipped += data.skipped || 0;
-          if (data.errors) allErrors.push(...data.errors);
+          payload.metadata = { name: resolvedName };
         }
+
+        const res = await fetch('/api/tiles/batch-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(data.error || `Batch update failed (${res.status})`);
+          setBusy(false);
+          setProgress(null);
+          return;
+        }
+        totalUpdated += data.updated || 0;
+        totalSkipped += data.skipped || 0;
+        if (data.errors) allErrors.push(...data.errors);
       }
 
       setProgress({ done: selectedIds.length, total: selectedIds.length });
       setResult({ updated: totalUpdated, skipped: totalSkipped, errors: allErrors });
+      router.refresh();
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -326,7 +246,7 @@ export default function BulkRenamePanel({ tiles, ownerAddress }) {
             {strategy === 'template' ? (
               <div>
                 <label className="mb-1 block text-[12px] text-text-dim">
-                  Template <span className="text-text-light">(use <code className="rounded bg-surface-dark px-1">{'{{id}}'}</code> for tile ID)</span>
+                  Template <span className="text-text-light">(use <code className="rounded bg-surface-dark px-1">{'{{id}}'}</code>, <code className="rounded bg-surface-dark px-1">{'{{x}}'}</code>, or <code className="rounded bg-surface-dark px-1">{'{{y}}'}</code>)</span>
                 </label>
                 <input
                   type="text"
@@ -338,7 +258,7 @@ export default function BulkRenamePanel({ tiles, ownerAddress }) {
                 />
                 {template && selectedIds.length > 0 && (
                   <p className="mt-1 text-[11px] text-text-dim">
-                    Preview: "{template.replace(/\{\{id\}\}/g, tiles.find(t => t.id === selectedIds[0])?.id ?? '123')}"
+                    Preview: "{template.replace(/\{\{id\}\}/g, selectedIds[0] ?? '123')}"
                   </p>
                 )}
               </div>
@@ -372,7 +292,7 @@ export default function BulkRenamePanel({ tiles, ownerAddress }) {
               {result.errors?.length > 0 && (
                 <span className="text-accent-red"> {result.errors.length} error{result.errors.length !== 1 ? 's' : ''}.</span>
               )}
-              <span className="block mt-1 text-[11px] text-text-dim">Refresh the page to see updated names.</span>
+              <span className="block mt-1 text-[11px] text-text-dim">Tile list refreshed automatically after completion.</span>
             </div>
           )}
 

@@ -15,8 +15,8 @@ import { verifyWalletSignature } from '@/lib/verify-wallet-sig';
  * Body: {
  *   wallet: "0x...",
  *   tileIds: [1, 2, 3, ...],        // which tiles to update
- *   metadata: {                      // fields to apply to all tiles
- *     name?: string,                 // if omitted, each tile keeps its name
+ *   metadata?: {                     // optional shared fields for all tiles
+ *     name?: string,
  *     avatar?: string,
  *     description?: string,
  *     category?: string,
@@ -25,6 +25,10 @@ import { verifyWalletSignature } from '@/lib/verify-wallet-sig';
  *     xHandle?: string,
  *     imageUrl?: string,
  *   },
+ *   updates?: [                      // optional per-tile overrides
+ *     { id: 1, name: "Bot #1" },
+ *     { id: 2, name: "Bot #2" }
+ *   ],
  *   signature: "0x...",             // sign the message below
  *   message: "tiles.bot:batch-update:{sorted_ids}:{ts}", // message that was signed
  * }
@@ -42,12 +46,12 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { wallet, tileIds, metadata, signature, message } = body;
+  const { wallet, tileIds, metadata, updates, signature, message } = body;
 
   // Basic validation
-  if (!wallet || !Array.isArray(tileIds) || !tileIds.length || !metadata || !signature || !message) {
+  if (!wallet || !Array.isArray(tileIds) || !tileIds.length || !signature || !message) {
     return NextResponse.json(
-      { error: 'wallet, tileIds[], metadata, signature, and message are required' },
+      { error: 'wallet, tileIds[], signature, and message are required' },
       { status: 400 }
     );
   }
@@ -94,10 +98,42 @@ export async function POST(request) {
   // Only allow known metadata fields
   const ALLOWED = ['name', 'avatar', 'description', 'category', 'color', 'url', 'xHandle', 'imageUrl'];
   const filteredMeta = {};
-  for (const key of ALLOWED) {
-    if (metadata[key] !== undefined) filteredMeta[key] = metadata[key];
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    for (const key of ALLOWED) {
+      if (metadata[key] !== undefined) filteredMeta[key] = metadata[key];
+    }
   }
-  if (Object.keys(filteredMeta).length === 0) {
+
+  const perTileUpdates = new Map();
+  if (updates !== undefined) {
+    if (!Array.isArray(updates)) {
+      return NextResponse.json({ error: 'updates must be an array' }, { status: 400 });
+    }
+
+    for (const entry of updates) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        return NextResponse.json({ error: 'Each updates entry must be an object' }, { status: 400 });
+      }
+
+      const tileId = Number(entry.id);
+      if (!Number.isInteger(tileId) || !validIds.includes(tileId)) {
+        return NextResponse.json({ error: 'Each updates entry id must be a valid tile included in tileIds' }, { status: 400 });
+      }
+
+      const filteredEntry = {};
+      for (const key of ALLOWED) {
+        if (entry[key] !== undefined) filteredEntry[key] = entry[key];
+      }
+
+      if (Object.keys(filteredEntry).length === 0) {
+        return NextResponse.json({ error: `No valid metadata fields provided for tile ${tileId}` }, { status: 400 });
+      }
+
+      perTileUpdates.set(tileId, filteredEntry);
+    }
+  }
+
+  if (Object.keys(filteredMeta).length === 0 && perTileUpdates.size === 0) {
     return NextResponse.json({ error: 'No valid metadata fields provided' }, { status: 400 });
   }
 
@@ -117,8 +153,16 @@ export async function POST(request) {
       continue;
     }
 
+    const tileSpecificMeta = perTileUpdates.get(Number(tileId)) || {};
+    const mergedMeta = { ...filteredMeta, ...tileSpecificMeta };
+
+    if (Object.keys(mergedMeta).length === 0) {
+      skipped++;
+      continue;
+    }
+
     try {
-      updateTileMetadata(Number(tileId), filteredMeta);
+      updateTileMetadata(Number(tileId), mergedMeta);
       updated++;
     } catch (err) {
       errors.push({ tileId, error: String(err.message || err) });
@@ -127,9 +171,15 @@ export async function POST(request) {
 
   // Log a single batch event
   if (updated > 0) {
+    const fieldSet = new Set(Object.keys(filteredMeta));
+    for (const entry of perTileUpdates.values()) {
+      Object.keys(entry).forEach(key => fieldSet.add(key));
+    }
+
     logEvent('batch_metadata_updated', null, wallet, {
       count: updated,
-      fields: Object.keys(filteredMeta),
+      fields: [...fieldSet],
+      perTileOverrides: perTileUpdates.size,
     });
   }
 
