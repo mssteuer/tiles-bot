@@ -124,6 +124,7 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE tiles ADD COLUMN span_id INTEGER`); } catch {}
   try { db.exec(`ALTER TABLE tile_spans ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','ready','error'))`); } catch {}
   try { db.exec(`ALTER TABLE tile_blocks ADD COLUMN status TEXT NOT NULL DEFAULT 'offline'`); } catch {}
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN rep_score REAL NOT NULL DEFAULT 0`); } catch {}
 }
 
 export function getRectTileIds(topLeftId, width, height, gridSize = GRID_SIZE) {
@@ -174,6 +175,7 @@ function rowToTile(row) {
     xVerified: row.x_verified === 1,
     xHandleVerified: row.x_handle_verified || null,
     xTweetUrl: row.x_tweet_url || null,
+    repScore: row.rep_score != null ? row.rep_score : 0,
   };
 }
 
@@ -1710,6 +1712,98 @@ export function getHeartbeatStats() {
   const everPinged = db.prepare('SELECT COUNT(*) as n FROM tiles WHERE last_heartbeat IS NOT NULL').get().n;
   const lastHour = db.prepare('SELECT COUNT(*) as n FROM tiles WHERE last_heartbeat > ?').get(Date.now() - 3600000).n;
   return { online, total, everPinged, lastHour };
+}
+
+/**
+ * Compute a reputation score for a tile based on objective activity metrics.
+ *
+ * Score components (max 100 total):
+ *   - Heartbeat recency: up to 20 pts. Online now = 20, last 24h = 15, last week = 8, last month = 3, never = 0
+ *   - Connections: up to 20 pts. 1pt per accepted connection, cap 20
+ *   - Notes received: up to 15 pts. 3pt per note, cap 15
+ *   - Actions performed (emotes + slaps + waves etc): up to 15 pts. 1pt per action sent, cap 15
+ *   - Age bonus: up to 10 pts. Days since claim / 30, cap 10
+ *   - Verified identity: up to 10 pts. GitHub verified = 5, X verified = 5
+ *   - Has profile (name + description + image): up to 10 pts. Each filled field = ~3.33
+ */
+export function computeRepScore(tileId) {
+  const db = getDb();
+  const tile = db.prepare('SELECT * FROM tiles WHERE id = ?').get(tileId);
+  if (!tile) return 0;
+
+  let score = 0;
+
+  // Heartbeat recency (max 20)
+  if (tile.last_heartbeat) {
+    const ageSec = (Date.now() - tile.last_heartbeat) / 1000;
+    if (ageSec < 300) score += 20;          // online now (within 5 min)
+    else if (ageSec < 86400) score += 15;   // last 24h
+    else if (ageSec < 604800) score += 8;   // last week
+    else if (ageSec < 2592000) score += 3;  // last month
+  }
+
+  // Connections (max 20)
+  const connCount = db.prepare(
+    'SELECT COUNT(*) as n FROM tile_connections WHERE from_id = ? OR to_id = ?'
+  ).get(tileId, tileId).n;
+  score += Math.min(connCount, 20);
+
+  // Notes received (max 15)
+  const noteCount = db.prepare(
+    'SELECT COUNT(*) as n FROM tile_notes WHERE tile_id = ?'
+  ).get(tileId).n;
+  score += Math.min(noteCount * 3, 15);
+
+  // Actions performed — emotes sent + actions from this tile (max 15)
+  const actionCount = db.prepare(
+    'SELECT COUNT(*) as n FROM tile_actions WHERE from_tile = ?'
+  ).get(tileId).n;
+  const emoteCount = db.prepare(
+    'SELECT COUNT(*) as n FROM tile_emotes WHERE from_tile = ?'
+  ).get(tileId).n;
+  score += Math.min(actionCount + emoteCount, 15);
+
+  // Age bonus (max 10)
+  if (tile.claimed_at) {
+    const ageMs = Date.now() - new Date(tile.claimed_at).getTime();
+    const ageDays = ageMs / 86400000;
+    score += Math.min(Math.floor(ageDays / 3), 10); // 1 pt per 3 days, cap 10
+  }
+
+  // Verified identity (max 10)
+  if (tile.github_verified === 1) score += 5;
+  if (tile.x_verified === 1) score += 5;
+
+  // Has profile data (max 10)
+  const hasName = tile.name && !tile.name.startsWith('Tile #');
+  const hasDesc = !!tile.description;
+  const hasImage = !!tile.image_url;
+  if (hasName) score += Math.round(10 / 3);
+  if (hasDesc) score += Math.round(10 / 3);
+  if (hasImage) score += Math.round(10 / 3);
+
+  return Math.min(Math.round(score), 100);
+}
+
+/**
+ * Compute and persist rep scores for all claimed tiles.
+ * Returns { updated: N, skipped: 0 }
+ */
+export function refreshAllRepScores() {
+  const db = getDb();
+  const tiles = db.prepare('SELECT id FROM tiles').all();
+  const updateStmt = db.prepare('UPDATE tiles SET rep_score = ? WHERE id = ?');
+  const updateAll = db.transaction(() => {
+    let updated = 0;
+    for (const { id } of tiles) {
+      const score = computeRepScore(id);
+      updateStmt.run(score, id);
+      updated++;
+    }
+    return updated;
+  });
+  const updated = updateAll();
+  return { updated };
 }
 
 export { ALLOWED_EMOTES };
