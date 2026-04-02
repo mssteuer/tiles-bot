@@ -1,5 +1,6 @@
 import { getTilesByOwner } from '@/lib/db';
 import Link from 'next/link';
+import OwnerDashboardBulkRename from '@/components/OwnerDashboardBulkRename';
 
 function categoryPillStyle(color) {
   return {
@@ -107,6 +108,8 @@ export default async function OwnerPage({ params }) {
           </div>
         ) : (
           <>
+            <OwnerDashboardBulkRename ownerAddress={address} initialTiles={tiles} />
+
             <h2 className="mb-4 text-[16px] font-bold text-text-dim">ALL TILES ({totalTiles})</h2>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
               {tiles.map(tile => {
