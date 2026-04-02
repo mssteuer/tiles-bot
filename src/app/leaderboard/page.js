@@ -75,6 +75,7 @@ export default function LeaderboardPage() {
           {[
             { key: 'holders', label: '🏅 Top Holders' },
             { key: 'active', label: '⚡ Recently Active' },
+            { key: 'viewed', label: '👁 Most Viewed' },
             { key: 'categories', label: '📊 Categories' },
           ].map(t => (
             <button
@@ -90,6 +91,7 @@ export default function LeaderboardPage() {
         {loading && <div className="px-6 py-16 text-center text-[24px] text-text-gray">Loading leaderboard…</div>}
         {!loading && data && tab === 'holders' && <HoldersTab holders={data.topHolders} />}
         {!loading && data && tab === 'active' && <ActiveTab agents={data.recentlyActive} />}
+        {!loading && data && tab === 'viewed' && <MostViewedTab tiles={data.mostViewed || []} />}
         {!loading && data && tab === 'categories' && <CategoriesTab breakdown={data.categoryBreakdown} total={data.totalClaimed} />}
       </main>
     </div>
@@ -223,6 +225,37 @@ function CategoriesTab({ breakdown, total }) {
       })}
 
       <p className="mt-2 text-right text-[12px] text-text-gray">{total} total claimed · categories based on self-reported metadata</p>
+    </div>
+  );
+}
+
+function MostViewedTab({ tiles }) {
+  if (!tiles || tiles.length === 0) return <Empty msg="No view data yet — check back soon." />;
+  return (
+    <div className="flex flex-col gap-2">
+      {tiles.map((tile, i) => (
+        <Link key={tile.id} href={`/?tile=${tile.id}`} className="no-underline">
+          <div className="flex items-center gap-4 rounded-xl border border-border-dim bg-surface-alt px-5 py-3 transition-colors hover:border-accent-blue/40">
+            <div className="w-7 shrink-0 text-center text-[15px] font-extrabold text-text-dim">
+              {i < 3 ? MEDAL[i] : `#${i + 1}`}
+            </div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-dark text-[18px]">
+              {tile.imageUrl
+                ? <img src={tile.imageUrl} alt={tile.name} className="h-10 w-10 rounded-lg object-cover" />
+                : (tile.avatar || '🤖')}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[14px] font-bold">{tile.name || `Tile #${tile.id}`}</div>
+              <div className="text-[11px] text-text-dim">Tile #{tile.id}{tile.category && tile.category !== 'uncategorized' ? ` · ${tile.category}` : ''}</div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[17px] font-extrabold text-accent-blue">{(tile.totalViews || 0).toLocaleString()}</div>
+              <div className="text-[11px] text-text-dim">views</div>
+            </div>
+          </div>
+        </Link>
+      ))}
+      <p className="mt-2 text-right text-[12px] text-text-gray">All-time view counts · Updates every 60s</p>
     </div>
   );
 }

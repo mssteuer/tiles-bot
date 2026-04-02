@@ -1212,6 +1212,45 @@ export function getViewCountToday(tileId) {
 }
 
 /**
+ * Get total (all-time) view count for a tile.
+ */
+export function getTotalViewCount(tileId) {
+  const db = getDb();
+  const row = db.prepare(`SELECT SUM(view_count) AS total FROM tile_views WHERE tile_id = ?`).get(tileId);
+  return row?.total || 0;
+}
+
+/**
+ * Get view counts for multiple tiles in one query (returns Map<tileId, total>).
+ * Used for leaderboard / stats pages.
+ */
+export function getTotalViewCounts(tileIds) {
+  if (!tileIds || tileIds.length === 0) return new Map();
+  const db = getDb();
+  const placeholders = tileIds.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT tile_id, SUM(view_count) AS total FROM tile_views WHERE tile_id IN (${placeholders}) GROUP BY tile_id`
+  ).all(...tileIds);
+  return new Map(rows.map(r => [r.tile_id, r.total || 0]));
+}
+
+/**
+ * Get top N most-viewed tiles (all time).
+ */
+export function getTopViewedTiles(limit = 20) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT tv.tile_id AS id, SUM(tv.view_count) AS totalViews,
+            t.name, t.avatar, t.category, t.status, t.owner, t.image_url AS imageUrl
+     FROM tile_views tv
+     LEFT JOIN tiles t ON t.id = tv.tile_id
+     GROUP BY tv.tile_id
+     ORDER BY totalViews DESC
+     LIMIT ?`
+  ).all(limit);
+}
+
+/**
  * Get webhook URL for a tile (null if not set).
  */
 export function getTileWebhookUrl(tileId) {

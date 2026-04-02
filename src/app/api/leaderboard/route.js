@@ -5,6 +5,7 @@ import {
   getRecentlyActive,
   getCategoryBreakdown,
   getClaimedCount,
+  getTopViewedTiles,
   TOTAL_TILES,
   checkHeartbeats,
 } from '@/lib/db';
@@ -17,6 +18,7 @@ export async function GET() {
   const recentlyActive = getRecentlyActive(15);
   const categoryBreakdown = getCategoryBreakdown();
   const totalClaimed = getClaimedCount();
+  const mostViewed = getTopViewedTiles(20);
 
   return NextResponse.json({
     topHolders,
@@ -25,5 +27,6 @@ export async function GET() {
     categoryBreakdown,
     totalClaimed,
     totalTiles: TOTAL_TILES,
+    mostViewed,
   });
 }
