@@ -1,18 +1,27 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
+import { useAccount, useSignMessage } from 'wagmi';
+import { useRouter } from 'next/navigation';
 
 function isUnnamedTile(tile) {
-  return !tile.name || tile.name === `Tile #${tile.id}` || tile.name.startsWith('Tile #');
+  return !tile.name || /^Tile #\d+$/.test(tile.name);
 }
 
 function applyNameTemplate(template, tileId) {
   return template.replace(/#\{\s*id\s*\}/g, String(tileId)).trim();
 }
 
+function supportsPerTileNames(template) {
+  return /#\{\s*id\s*\}/.test(template);
+}
+
 const BATCH_SIZE = 50; // API limit per request
 
 export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles }) {
+  const router = useRouter();
+  const { address: connectedAddress, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const [tiles, setTiles] = useState(initialTiles || []);
   const [selectedTileIds, setSelectedTileIds] = useState([]);
   const [templateMode, setTemplateMode] = useState('template');
@@ -25,10 +34,15 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
 
   const unnamedTileIds = useMemo(() => tiles.filter(isUnnamedTile).map(t => t.id), [tiles]);
   const selectedCount = selectedTileIds.length;
-  const canSubmit = selectedCount > 0 && !submitting && (
-    (templateMode === 'template' && template.trim()) ||
-    (templateMode === 'custom' && customName.trim())
-  );
+  const canSubmit = useMemo(() => (
+    selectedCount > 0 &&
+    !submitting &&
+    isConnected &&
+    connectedAddress?.toLowerCase() === ownerAddress.toLowerCase() && (
+      (templateMode === 'template' && template.trim()) ||
+      (templateMode === 'custom' && customName.trim())
+    )
+  ), [selectedCount, submitting, isConnected, connectedAddress, ownerAddress, templateMode, template, customName]);
 
   function setMessage(msg, isError = false) {
     setStatus(msg);
@@ -82,6 +96,21 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
       return;
     }
 
+    if (templateMode === 'template' && supportsPerTileNames(template)) {
+      setMessage('Per-tile templates are not compatible with the signed batch endpoint. Use a single shared name for now.', true);
+      return;
+    }
+
+    if (!isConnected || !connectedAddress) {
+      setMessage('Connect the owner wallet to rename tiles.', true);
+      return;
+    }
+
+    if (connectedAddress.toLowerCase() !== ownerAddress.toLowerCase()) {
+      setMessage('Connected wallet does not match this owner dashboard.', true);
+      return;
+    }
+
     setSubmitting(true);
     setProgress({ done: 0, total: updates.length });
     setMessage('');
@@ -93,11 +122,29 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
       // Batch in groups of BATCH_SIZE (API limit is 50)
       for (let i = 0; i < updates.length; i += BATCH_SIZE) {
         const batch = updates.slice(i, i + BATCH_SIZE);
+        const firstName = batch[0]?.name;
+        const sameNameForBatch = batch.every(update => update.name === firstName);
+        if (!sameNameForBatch) {
+          allErrors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1} uses multiple names, which /api/tiles/batch-update does not support`);
+          setProgress({ done: Math.min(i + BATCH_SIZE, updates.length), total: updates.length });
+          continue;
+        }
 
-        const res = await fetch(`/api/owner/${ownerAddress}/bulk-update`, {
-          method: 'PATCH',
+        const tileIds = batch.map(update => update.id).sort((a, b) => a - b);
+        const timestamp = Math.floor(Date.now() / 1000);
+        const message = `tiles.bot:batch-update:${tileIds.join(',')}:${timestamp}`;
+        const signature = await signMessageAsync({ message });
+
+        const res = await fetch('/api/tiles/batch-update', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ updates: batch }),
+          body: JSON.stringify({
+            wallet: connectedAddress,
+            tileIds,
+            metadata: { name: firstName },
+            signature,
+            message,
+          }),
         });
 
         const data = await res.json().catch(() => null);
@@ -106,7 +153,7 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
         } else {
           totalUpdated += data?.updated || 0;
           if (data?.errors?.length) {
-            allErrors.push(...data.errors.map(err => `Tile #${err.id}: ${err.error}`));
+            allErrors.push(...data.errors.map(err => `Tile #${err.id ?? err.tileId}: ${err.error}`));
           }
         }
 
@@ -114,6 +161,7 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
       }
 
       await refreshTiles();
+      router.refresh();
       setSelectedTileIds([]);
       setProgress(null);
 
@@ -147,11 +195,12 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
         <div>
           <h2 className="text-[18px] font-bold text-text">Bulk rename tiles</h2>
           <p className="mt-1 text-[13px] text-text-light">
-            Select unnamed tiles, apply a template like <span className="font-mono text-text">Bot #&#123;id&#125;</span>, and rename them in one go.
+            Select unnamed tiles and apply the same name to all selected tiles in one signed batch request.
           </p>
         </div>
-        <div className="text-[12px] text-text-dim">
-          {unnamedTileIds.length} unnamed · {tiles.length} total
+        <div className="text-right text-[12px] text-text-dim">
+          <div>{unnamedTileIds.length} unnamed · {tiles.length} total</div>
+          <div>{isConnected && connectedAddress ? `${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}` : 'Wallet not connected'}</div>
         </div>
       </div>
 
@@ -189,7 +238,7 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
               checked={templateMode === 'template'}
               onChange={() => setTemplateMode('template')}
             />
-            Template with #&#123;id&#125;
+            Same name for selected tiles
           </label>
           <label className="flex items-center gap-2 text-[13px] text-text-light cursor-pointer">
             <input
@@ -199,17 +248,17 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
               checked={templateMode === 'custom'}
               onChange={() => setTemplateMode('custom')}
             />
-            Same name for all
+            Custom name
           </label>
         </div>
 
         {templateMode === 'template' ? (
           <label className="block text-[13px] text-text-light">
-            <span className="mb-1 block">Name template</span>
+            <span className="mb-1 block">Name</span>
             <input
               value={template}
               onChange={e => setTemplate(e.target.value)}
-              placeholder="Bot #{id}"
+              placeholder="My Tile Fleet"
               className="w-full rounded-lg border border-border-dim bg-surface-dark px-3 py-2 text-[14px] text-text outline-none transition focus:border-accent-blue/50"
             />
           </label>
@@ -266,32 +315,8 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
         </div>
       )}
 
-      {/* Tile grid */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
-        {tiles.map(tile => {
-          const selected = selectedTileIds.includes(tile.id);
-          const unnamed = isUnnamedTile(tile);
-          return (
-            <button
-              key={tile.id}
-              type="button"
-              onClick={() => toggleTile(tile.id)}
-              className={`rounded-xl border p-3 text-left transition ${selected ? 'border-accent-blue bg-accent-blue/10' : 'border-border-dim bg-surface-dark hover:border-border-bright'} ${submitting ? 'cursor-wait' : 'cursor-pointer'}`}
-              disabled={submitting}
-            >
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="truncate text-[13px] font-bold text-text">{tile.name || `Tile #${tile.id}`}</div>
-                  <div className="text-[11px] text-text-dim">#{tile.id}</div>
-                </div>
-                <div className={`h-4 w-4 flex-shrink-0 rounded border ${selected ? 'border-accent-blue bg-accent-blue' : 'border-border-bright bg-transparent'}`} />
-              </div>
-              <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] ${unnamed ? 'bg-amber-400/10 text-amber-300' : 'bg-accent-green/10 text-accent-green'}`}>
-                {unnamed ? 'unnamed' : 'named'}
-              </span>
-            </button>
-          );
-        })}
+      <div className="rounded-xl border border-border-dim bg-surface-dark p-4 text-[13px] text-text-light">
+        Use <span className="font-semibold text-text">Select all unnamed tiles</span> to target default tile names automatically, or click cards in the tile list below to choose a smaller set before running the signed batch rename.
       </div>
     </div>
   );
