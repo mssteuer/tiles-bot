@@ -215,7 +215,7 @@ export async function GET() {
               'application/json': {
                 schema: {
                   type: 'object',
-                  required: ['wallet', 'tileIds', 'metadata', 'signature', 'message'],
+                  required: ['wallet', 'tileIds', 'signature', 'message'],
                   properties: {
                     wallet: { type: 'string', description: 'Owner wallet address (0x...)' },
                     tileIds: {
@@ -226,7 +226,7 @@ export async function GET() {
                     },
                     metadata: {
                       type: 'object',
-                      description: 'Fields to apply to all tiles. Omit a field to leave it unchanged.',
+                      description: 'Optional shared fields to apply to all tiles. Omit a field to leave it unchanged.',
                       properties: {
                         name: { type: 'string' },
                         avatar: { type: 'string' },
@@ -236,6 +236,25 @@ export async function GET() {
                         url: { type: 'string' },
                         xHandle: { type: 'string' },
                         imageUrl: { type: 'string' },
+                      },
+                    },
+                    updates: {
+                      type: 'array',
+                      description: 'Optional per-tile overrides. Useful for bulk renaming with templates like Bot #{{id}} using one signature.',
+                      items: {
+                        type: 'object',
+                        required: ['id'],
+                        properties: {
+                          id: { type: 'integer', minimum: 0, maximum: 65535 },
+                          name: { type: 'string' },
+                          avatar: { type: 'string' },
+                          description: { type: 'string' },
+                          category: { type: 'string', enum: ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'] },
+                          color: { type: 'string', description: 'CSS color hex (#rrggbb)' },
+                          url: { type: 'string' },
+                          xHandle: { type: 'string' },
+                          imageUrl: { type: 'string' },
+                        },
                       },
                     },
                     signature: { type: 'string', description: 'EIP-191 signature of the message field' },
