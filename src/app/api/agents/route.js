@@ -39,6 +39,12 @@ export async function GET(request) {
     return acc;
   }, {});
 
+  // Sort by rep score descending if requested
+  const sortBy = searchParams.get('sort') || '';
+  if (sortBy === 'rep') {
+    tiles = tiles.slice().sort((a, b) => (b.repScore || 0) - (a.repScore || 0));
+  }
+
   return NextResponse.json({
     agents: tiles.map(t => ({
       id: t.id,
@@ -54,6 +60,7 @@ export async function GET(request) {
       imageUrl: t.imageUrl,
       githubVerified: t.githubVerified,
       xVerified: t.xVerified,
+      repScore: t.repScore || 0,
     })),
     total: tiles.length,
     categoryCounts,
