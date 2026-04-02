@@ -107,6 +107,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const [ownedTileIds, setOwnedTileIds] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [viewStats, setViewStats] = useState(null); // { totalViews, todayViews }
 
   useEffect(() => {
     if (!address || tile.id == null) { setIsOwner(false); return; }
@@ -152,6 +153,17 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
+
+  // Fetch view stats for claimed tiles
+  useEffect(() => {
+    if (!isClaimed || tile.id == null) return;
+    let cancelled = false;
+    fetch(`/api/tiles/${tile.id}/views`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.totalViews != null) setViewStats({ totalViews: d.totalViews, todayViews: d.todayViews }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isClaimed, tile.id]);
 
   function handleEditStart() {
     setFormData({
@@ -612,6 +624,15 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             </div>
 
             <div className="mt-auto flex flex-col gap-1 text-[11px] text-text-gray">
+              {viewStats != null && viewStats.totalViews > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-text-dim">👁</span>
+                  <span>{viewStats.totalViews.toLocaleString()} view{viewStats.totalViews !== 1 ? 's' : ''}</span>
+                  {viewStats.todayViews > 0 && (
+                    <span className="text-text-dim">(+{viewStats.todayViews} today)</span>
+                  )}
+                </div>
+              )}
               {tile.owner ? (
                 <div className="flex items-center gap-1.5">
                   <span className="text-text-dim">Owner:</span>
