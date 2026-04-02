@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { isUnnamedTile } from '@/lib/tileUtils';
 
 function categoryPillStyle(color) {
   return {
@@ -9,10 +10,6 @@ function categoryPillStyle(color) {
     border: `1px solid ${color}44`,
     color,
   };
-}
-
-function isUnnamedTile(tile) {
-  return !tile.name || /^Tile #\d+$/.test(tile.name);
 }
 
 const catColors = {
@@ -27,6 +24,15 @@ const catColors = {
 export default function OwnerTilesGrid({ initialTiles }) {
   const [filter, setFilter] = useState('all');
 
+  const counts = useMemo(() => {
+    const unnamed = initialTiles.filter(isUnnamedTile).length;
+    return {
+      all: initialTiles.length,
+      unnamed,
+      named: initialTiles.length - unnamed,
+    };
+  }, [initialTiles]);
+
   const tiles = useMemo(() => {
     if (filter === 'unnamed') return initialTiles.filter(isUnnamedTile);
     if (filter === 'named') return initialTiles.filter(tile => !isUnnamedTile(tile));
@@ -39,9 +45,9 @@ export default function OwnerTilesGrid({ initialTiles }) {
         <h2 className="text-[16px] font-bold text-text-dim">ALL TILES ({tiles.length})</h2>
         <div className="flex flex-wrap gap-2 text-[12px]">
           {[
-            { id: 'all', label: `All (${initialTiles.length})` },
-            { id: 'unnamed', label: `Unnamed (${initialTiles.filter(isUnnamedTile).length})` },
-            { id: 'named', label: `Named (${initialTiles.filter(tile => !isUnnamedTile(tile)).length})` },
+            { id: 'all', label: `All (${counts.all})` },
+            { id: 'unnamed', label: `Unnamed (${counts.unnamed})` },
+            { id: 'named', label: `Named (${counts.named})` },
           ].map(option => (
             <button
               key={option.id}

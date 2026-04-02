@@ -3,10 +3,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { useRouter } from 'next/navigation';
-
-function isUnnamedTile(tile) {
-  return !tile.name || /^Tile #\d+$/.test(tile.name);
-}
+import { isUnnamedTile } from '@/lib/tileUtils';
 
 function applyNameTemplate(template, tileId) {
   return template.replace(/#\{\s*id\s*\}/g, String(tileId)).trim();
@@ -24,9 +21,7 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
   const { signMessageAsync } = useSignMessage();
   const [tiles, setTiles] = useState(initialTiles || []);
   const [selectedTileIds, setSelectedTileIds] = useState([]);
-  const [templateMode, setTemplateMode] = useState('template');
-  const [template, setTemplate] = useState('Bot #{id}');
-  const [customName, setCustomName] = useState('');
+  const [nameInput, setNameInput] = useState('My Bot Fleet');
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(null); // { done, total }
   const [status, setStatus] = useState('');
@@ -38,11 +33,9 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
     selectedCount > 0 &&
     !submitting &&
     isConnected &&
-    connectedAddress?.toLowerCase() === ownerAddress.toLowerCase() && (
-      (templateMode === 'template' && template.trim()) ||
-      (templateMode === 'custom' && customName.trim())
-    )
-  ), [selectedCount, submitting, isConnected, connectedAddress, ownerAddress, templateMode, template, customName]);
+    connectedAddress?.toLowerCase() === ownerAddress.toLowerCase() &&
+    nameInput.trim()
+  ), [selectedCount, submitting, isConnected, connectedAddress, ownerAddress, nameInput]);
 
   function setMessage(msg, isError = false) {
     setStatus(msg);
@@ -87,7 +80,7 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
     // Build per-tile update objects
     const updates = sortedIds.map(id => ({
       id,
-      name: templateMode === 'template' ? applyNameTemplate(template, id) : customName.trim(),
+      name: applyNameTemplate(nameInput, id),
     }));
 
     const emptyNames = updates.filter(u => !u.name);
@@ -96,8 +89,8 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
       return;
     }
 
-    if (templateMode === 'template' && supportsPerTileNames(template)) {
-      setMessage('Per-tile templates are not compatible with the signed batch endpoint. Use a single shared name for now.', true);
+    if (supportsPerTileNames(nameInput)) {
+      setMessage('Per-tile templates are not compatible with the signed batch endpoint. Use one shared name for the selected tiles.', true);
       return;
     }
 
@@ -184,9 +177,9 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
     const ids = selectedTileIds.slice(0, 3);
     return ids.map(id => ({
       id,
-      name: templateMode === 'template' ? applyNameTemplate(template, id) : customName.trim(),
+      name: applyNameTemplate(nameInput, id),
     }));
-  }, [selectedTileIds, template, customName, templateMode]);
+  }, [selectedTileIds, nameInput]);
 
   return (
     <div className="mb-8 rounded-2xl border border-border-dim bg-surface-alt p-5">
@@ -229,50 +222,15 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
 
       {/* Rename form */}
       <form onSubmit={handleBulkRename} className="mb-5 space-y-4 rounded-xl border border-border-dim bg-surface-2 p-4">
-        <div className="flex flex-wrap gap-3">
-          <label className="flex items-center gap-2 text-[13px] text-text-light cursor-pointer">
-            <input
-              type="radio"
-              name="renameMode"
-              value="template"
-              checked={templateMode === 'template'}
-              onChange={() => setTemplateMode('template')}
-            />
-            Same name for selected tiles
-          </label>
-          <label className="flex items-center gap-2 text-[13px] text-text-light cursor-pointer">
-            <input
-              type="radio"
-              name="renameMode"
-              value="custom"
-              checked={templateMode === 'custom'}
-              onChange={() => setTemplateMode('custom')}
-            />
-            Custom name
-          </label>
-        </div>
-
-        {templateMode === 'template' ? (
-          <label className="block text-[13px] text-text-light">
-            <span className="mb-1 block">Name</span>
-            <input
-              value={template}
-              onChange={e => setTemplate(e.target.value)}
-              placeholder="My Tile Fleet"
-              className="w-full rounded-lg border border-border-dim bg-surface-dark px-3 py-2 text-[14px] text-text outline-none transition focus:border-accent-blue/50"
-            />
-          </label>
-        ) : (
-          <label className="block text-[13px] text-text-light">
-            <span className="mb-1 block">Custom name</span>
-            <input
-              value={customName}
-              onChange={e => setCustomName(e.target.value)}
-              placeholder="My Tile Fleet"
-              className="w-full rounded-lg border border-border-dim bg-surface-dark px-3 py-2 text-[14px] text-text outline-none transition focus:border-accent-blue/50"
-            />
-          </label>
-        )}
+        <label className="block text-[13px] text-text-light">
+          <span className="mb-1 block">Name</span>
+          <input
+            value={nameInput}
+            onChange={e => setNameInput(e.target.value)}
+            placeholder="My Bot Fleet"
+            className="w-full rounded-lg border border-border-dim bg-surface-dark px-3 py-2 text-[14px] text-text outline-none transition focus:border-accent-blue/50"
+          />
+        </label>
 
         {/* Preview */}
         {previewNames.length > 0 && (
@@ -316,7 +274,7 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
       )}
 
       <div className="rounded-xl border border-border-dim bg-surface-dark p-4 text-[13px] text-text-light">
-        Use <span className="font-semibold text-text">Select all unnamed tiles</span> to target default tile names automatically, or click cards in the tile list below to choose a smaller set before running the signed batch rename.
+        Use <span className="font-semibold text-text">Select all unnamed tiles</span> to target default tile names automatically, then run one signed batch rename for the current selection.
       </div>
     </div>
   );
