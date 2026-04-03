@@ -126,6 +126,7 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE tile_spans ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','ready','error'))`); } catch {}
   try { db.exec(`ALTER TABLE tile_blocks ADD COLUMN status TEXT NOT NULL DEFAULT 'offline'`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN rep_score REAL NOT NULL DEFAULT 0`); } catch {}
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN effects TEXT`); } catch {}
 }
 
 export function getRectTileIds(topLeftId, width, height, gridSize = GRID_SIZE) {
@@ -178,6 +179,7 @@ function rowToTile(row) {
     xTweetUrl: row.x_tweet_url || null,
     repScore: row.rep_score != null ? row.rep_score : 0,
     hasTrophy: row.trophy_expires_at ? new Date(row.trophy_expires_at) > new Date() : false,
+    effects: row.effects ? JSON.parse(row.effects) : null,
   };
 }
 
@@ -327,14 +329,17 @@ export function updateTileMetadata(id, metadata) {
   const existing = db.prepare('SELECT * FROM tiles WHERE id = ?').get(id);
   if (!existing) return null;
 
-  const allowed = ['name', 'avatar', 'description', 'category', 'color', 'url', 'xHandle', 'imageUrl'];
+  const allowed = ['name', 'avatar', 'description', 'category', 'color', 'url', 'xHandle', 'imageUrl', 'effects'];
   const updates = {};
   for (const key of allowed) {
     if (metadata[key] !== undefined) {
       // Map camelCase to snake_case column names
-      const colMap = { xHandle: 'x_handle', imageUrl: 'image_url' };
+      const colMap = { xHandle: 'x_handle', imageUrl: 'image_url', effects: 'effects' };
       const col = colMap[key] || key;
-      updates[col] = metadata[key];
+      // JSON-encode object fields
+      updates[col] = (key === 'effects' && metadata[key] !== null)
+        ? JSON.stringify(metadata[key])
+        : metadata[key];
     }
   }
 

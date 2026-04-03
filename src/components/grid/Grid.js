@@ -544,6 +544,30 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           ctx.save();
           if (!tileMatches) ctx.globalAlpha = 0.25;
 
+          // ── Custom tile effects (border color + glow) ──
+          if (tile.effects) {
+            const fx = tile.effects;
+            const fxColor = fx.border || null;
+            if (fxColor && /^#[0-9a-fA-F]{6}$/.test(fxColor)) {
+              const fr = parseInt(fxColor.slice(1, 3), 16);
+              const fg = parseInt(fxColor.slice(3, 5), 16);
+              const fb = parseInt(fxColor.slice(5, 7), 16);
+              // Glow halo
+              if (fx.glow) {
+                const ga = 0.18 + 0.10 * pulse;
+                ctx.fillStyle = `rgba(${fr},${fg},${fb},${ga.toFixed(3)})`;
+                ctx.fillRect(x - 4, y - 4, TILE_SIZE + 8, TILE_SIZE + 8);
+                ctx.fillStyle = `rgba(${fr},${fg},${fb},${(ga * 0.6).toFixed(3)})`;
+                ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
+              }
+              // Custom border
+              const ba = 0.85 + 0.15 * pulse;
+              ctx.strokeStyle = `rgba(${fr},${fg},${fb},${ba.toFixed(3)})`;
+              ctx.lineWidth = Math.max(1, 2 / cam.zoom);
+              ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+            }
+          }
+
           // ── Alliance border glow (below rep/heartbeat glow) ──
           if (alliances && alliances[id]) {
             const allianceColor = alliances[id].color || '#888888';
