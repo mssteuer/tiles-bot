@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGridState, getClaimedCount, getCurrentPrice, getTotalRevenue, getEstimatedSoldOutRevenue, getPendingRequestCounts, TOTAL_TILES, checkHeartbeats, getAllAllianceTileMap, getTilesWithOpenBounties } from '@/lib/db';
+import { getGridState, getClaimedCount, getCurrentPrice, getTotalRevenue, getEstimatedSoldOutRevenue, getPendingRequestCounts, TOTAL_TILES, checkHeartbeats, getAllAllianceTileMap, getTilesWithOpenBounties, getPixelWarsMap, getPixelWarsChampionTiles } from '@/lib/db';
 
 export async function GET() {
   checkHeartbeats();
@@ -9,6 +9,8 @@ export async function GET() {
     spans: grid.spans,
     alliances: getAllAllianceTileMap(),
     bounties: getTilesWithOpenBounties(),
+    pixelWars: getPixelWarsMap(),
+    pixelWarsChampions: Array.from(getPixelWarsChampionTiles()),
     pendingRequests: getPendingRequestCounts(),
     stats: {
       claimed: getClaimedCount(),
