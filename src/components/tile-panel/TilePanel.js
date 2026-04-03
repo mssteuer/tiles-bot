@@ -624,6 +624,14 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             </div>
 
             <div className="mt-auto flex flex-col gap-1 text-[11px] text-text-gray">
+              {tile.repScore != null && tile.repScore > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span title="Reputation score — earned through heartbeats, connections, notes, and profile completeness">
+                    {tile.repScore >= 80 ? '⭐' : tile.repScore >= 50 ? '✨' : '🔹'}
+                  </span>
+                  <span title="Reputation score (0–100)">Rep {tile.repScore}/100</span>
+                </div>
+              )}
               {viewStats != null && viewStats.totalViews > 0 && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-text-dim">👁</span>
