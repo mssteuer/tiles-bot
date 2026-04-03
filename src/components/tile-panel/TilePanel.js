@@ -109,6 +109,11 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const [isMobile, setIsMobile] = useState(false);
   const [viewStats, setViewStats] = useState(null); // { totalViews, todayViews }
   const [repBreakdown, setRepBreakdown] = useState(null); // { heartbeat, connections, notes, actions, age, identity, profile }
+  const [fxExpanded, setFxExpanded] = useState(false);
+  const [fxBorder, setFxBorder] = useState(tile.effects?.border || '#3b82f6');
+  const [fxGlow, setFxGlow] = useState(tile.effects?.glow ?? false);
+  const [savingFx, setSavingFx] = useState(false);
+  const [fxMsg, setFxMsg] = useState('');
 
   useEffect(() => {
     if (!address || tile.id == null) { setIsOwner(false); return; }
@@ -355,6 +360,39 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
       setSaveMsg(`Error: ${e.message}`);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveEffects() {
+    setSavingFx(true);
+    setFxMsg('');
+    try {
+      const ts = Math.floor(Date.now() / 1000 / 300) * 300;
+      const message = `tiles.bot:metadata:${tile.id}:${ts}`;
+      const sig = await signMessageAsync({ message });
+      const effects = fxBorder ? { border: fxBorder, glow: fxGlow } : null;
+      const res = await fetch(`/api/tiles/${tile.id}/metadata`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Wallet-Address': address,
+          'X-Wallet-Signature': sig,
+          'X-Wallet-Message': message,
+        },
+        body: JSON.stringify({ effects }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Save failed (${res.status})`);
+      }
+      const { tile: updatedTile } = await res.json();
+      setFxMsg('✓ Saved');
+      if (onTileUpdated) onTileUpdated(tile.id, updatedTile);
+      setTimeout(() => setFxMsg(''), 3000);
+    } catch (e) {
+      setFxMsg(`Error: ${e.message}`);
+    } finally {
+      setSavingFx(false);
     }
   }
 
@@ -704,6 +742,81 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             {isOwner && (
               <div className="text-center text-[11px] text-text-gray">
                 🔑 You own this tile — click ✏️ Edit to update its info
+              </div>
+            )}
+
+            {isOwner && (
+              <div className="rounded-lg border border-border-dim bg-surface-2 p-3">
+                <button
+                  onClick={() => setFxExpanded(v => !v)}
+                  className="flex w-full items-center justify-between text-[13px] font-semibold text-text"
+                >
+                  <span>🎨 Customize Effects</span>
+                  <span className="text-text-gray">{fxExpanded ? '▲' : '▼'}</span>
+                </button>
+                {fxExpanded && (
+                  <div className="mt-3 flex flex-col gap-3">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { label: 'Fire', color: '#f97316', glow: true },
+                        { label: 'Ice', color: '#38bdf8', glow: true },
+                        { label: 'Gold', color: '#f59e0b', glow: true },
+                        { label: 'Neon', color: '#4ade80', glow: true },
+                        { label: 'Purple', color: '#a855f7', glow: true },
+                        { label: 'White', color: '#f8fafc', glow: false },
+                      ].map(preset => (
+                        <button
+                          key={preset.label}
+                          onClick={() => { setFxBorder(preset.color); setFxGlow(preset.glow); }}
+                          className="rounded border border-border-dim px-2 py-1 text-[11px] text-text-dim hover:border-current"
+                          style={{ borderColor: preset.color, color: preset.color }}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[11px] uppercase tracking-[0.8px] text-text-gray">Border Color</label>
+                      <input
+                        type="color"
+                        value={fxBorder}
+                        onChange={e => setFxBorder(e.target.value)}
+                        className="h-6 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                      />
+                      <span className="font-mono text-[11px] text-text-dim">{fxBorder}</span>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 text-[12px] text-text-dim">
+                      <input
+                        type="checkbox"
+                        checked={fxGlow}
+                        onChange={e => setFxGlow(e.target.checked)}
+                        className="accent-accent-blue"
+                      />
+                      Glow effect
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleSaveEffects}
+                        disabled={savingFx}
+                        className="btn-retro flex-1 px-3 py-1.5 text-[12px]"
+                      >
+                        {savingFx ? 'Saving…' : 'Apply Effects'}
+                      </button>
+                      <button
+                        onClick={() => { setFxBorder('#3b82f6'); setFxGlow(false); }}
+                        className="btn-retro px-3 py-1.5 text-[11px] text-text-gray"
+                        title="Reset to defaults"
+                      >
+                        ↺
+                      </button>
+                    </div>
+                    {fxMsg && (
+                      <div className={`rounded px-2 py-1 text-[11px] ${fxMsg.startsWith('Error') ? 'text-accent-red' : 'text-accent-green'}`}>
+                        {fxMsg}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

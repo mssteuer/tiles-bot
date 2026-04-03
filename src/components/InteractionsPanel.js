@@ -519,6 +519,124 @@ function ChallengesTab({ tile, address, ownedTiles, allTiles }) {
   );
 }
 
+// — Pixel Wars Tab ——————————————————————————————————————————————————————
+function PixelWarsTab({ tile, address, ownedTiles }) {
+  const [leaderboard, setLeaderboard] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [paintColor, setPaintColor] = useState('#ff4500');
+  const [targetTileId, setTargetTileId] = useState('');
+  const [msg, setMsg] = useState('');
+  const [painting, setPainting] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/games/pixel-wars/leaderboard').then(r => r.json()).then(setLeaderboard).catch(() => {});
+  }, [tile.id]);
+
+  // Owned tile IDs for painting from
+  const myOwnedIds = ownedTiles ? ownedTiles.map(t => t.id || t) : [];
+  const [fromTileId, setFromTileId] = useState('');
+
+  async function handlePaint(e) {
+    e.preventDefault();
+    const fId = parseInt(fromTileId, 10);
+    const tId = parseInt(targetTileId, 10);
+    if (isNaN(fId) || isNaN(tId)) { setMsg('Enter valid tile IDs'); return; }
+    if (!address) { setMsg('Connect wallet first'); return; }
+    setPainting(true);
+    setMsg('');
+    try {
+      const res = await fetch('/api/games/pixel-wars', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerTileId: fId, targetTileId: tId, color: paintColor, wallet: address }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMsg(`🎨 Painted tile #${tId}! Expires in 1h.`);
+        fetch('/api/games/pixel-wars/leaderboard').then(r => r.json()).then(setLeaderboard).catch(() => {});
+      } else {
+        setMsg(data.error || 'Failed to paint');
+      }
+    } catch { setMsg('Network error'); }
+    finally { setPainting(false); }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[11px] text-text-dim">
+        Paint unclaimed tiles adjacent to your own. Each tile stays painted for 1 hour. Max 5 paints/hour.
+        Round winner (most tiles painted) earns the 🎨 Pixel Champion badge.
+      </div>
+
+      {address && myOwnedIds.length > 0 ? (
+        <form onSubmit={handlePaint} className="rounded border border-border-bright bg-surface-2 p-2 space-y-2">
+          <div className="text-[11px] font-semibold text-text-dim uppercase tracking-wide">Paint a Tile</div>
+          <div className="flex gap-2 items-center">
+            <label className="text-[11px] text-text-dim w-20">From tile</label>
+            <select value={fromTileId} onChange={e => setFromTileId(e.target.value)}
+              className="retro-input flex-1 text-[12px]">
+              <option value="">Pick your tile</option>
+              {myOwnedIds.map(id => <option key={id} value={id}>#{id}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-2 items-center">
+            <label className="text-[11px] text-text-dim w-20">Target tile</label>
+            <input value={targetTileId} onChange={e => setTargetTileId(e.target.value)}
+              placeholder="Unclaimed adjacent #" className="retro-input flex-1 text-[12px]" />
+          </div>
+          <div className="flex gap-2 items-center">
+            <label className="text-[11px] text-text-dim w-20">Color</label>
+            <input type="color" value={paintColor} onChange={e => setPaintColor(e.target.value)}
+              className="h-7 w-10 cursor-pointer rounded border border-border-bright bg-surface-2" />
+            <span className="text-[11px] text-text-dim font-mono">{paintColor}</span>
+          </div>
+          <button type="submit" disabled={painting} className="btn-retro btn-retro-primary px-3 py-1 text-[12px] w-full">
+            {painting ? 'Painting...' : '🎨 Paint'}
+          </button>
+          {msg && <div className="text-[11px] text-accent-blue">{msg}</div>}
+        </form>
+      ) : (
+        <div className="text-[11px] text-text-dim rounded border border-border-bright bg-surface-2 px-2 py-1.5">
+          {!address ? 'Connect wallet to paint tiles.' : 'Claim a tile first to participate.'}
+        </div>
+      )}
+
+      {leaderboard && (
+        <>
+          {leaderboard.champion && (
+            <div className="rounded border border-[#f59e0b] bg-surface-2 px-2 py-1.5 flex items-center gap-2">
+              <span className="text-base">🎨</span>
+              <div>
+                <div className="text-[11px] font-semibold text-[#f59e0b]">Pixel Champion</div>
+                <div className="text-[12px] text-text">{leaderboard.champion.tile_name || `Tile #${leaderboard.champion.tile_id}`}</div>
+              </div>
+            </div>
+          )}
+          {leaderboard.round && (
+            <div className="text-[11px] text-text-dim">
+              Round ends: {new Date(leaderboard.round.ends_at + 'Z').toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+          {leaderboard.entries && leaderboard.entries.length > 0 && (
+            <div>
+              <div className="mb-1 text-[11px] font-semibold text-text-dim uppercase tracking-wide">Leaderboard</div>
+              <div className="space-y-1">
+                {leaderboard.entries.map((e, i) => (
+                  <div key={e.owner} className="flex items-center gap-2 rounded border border-border-bright bg-surface-2 px-2 py-1">
+                    <span className="text-[11px] text-text-dim w-4">{i + 1}.</span>
+                    <span className="text-[12px] text-text flex-1 truncate">{e.tile_name || `Tile #${e.owner_tile}`}</span>
+                    <span className="text-[11px] text-text-dim">{e.paint_count} 🎨</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 const TABS = [
   { id: 'notes', label: 'Notes' },
   { id: 'actions', label: 'Actions' },
@@ -527,6 +645,7 @@ const TABS = [
   { id: 'challenges', label: '⚔️' },
   { id: 'alliance', label: '🤝' },
   { id: 'bounties', label: '💰' },
+  { id: 'pixelwars', label: '🎨' },
 ];
 
 function BountiesTab({ tile, address, ownedTiles, isOwner }) {
@@ -809,6 +928,7 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
       {tab === 'challenges' && <ChallengesTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} />}
       {tab === 'alliance' && <AllianceTab tile={tile} address={address} ownedTiles={ownedTiles} />}
       {tab === 'bounties' && <BountiesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
+      {tab === 'pixelwars' && <PixelWarsTab tile={tile} address={address} ownedTiles={ownedTiles} />}
     </div>
   );
 }
