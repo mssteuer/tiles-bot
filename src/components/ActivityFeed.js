@@ -39,6 +39,7 @@ function eventIcon(type, meta) {
     case 'tile_action': return ACTION_EMOJIS[meta?.actionType] || '⚡';
     case 'tile_emote': return meta?.emoji || '🎭';
     case 'tile_message': return '💌';
+    case 'heartbeat': return '💓';
     default: return '📡';
   }
 }
@@ -59,6 +60,7 @@ function eventDescription(type, meta, tileName) {
     case 'tile_emote':
       return `${name} received ${meta?.emoji || 'an emote'}`;
     case 'tile_message': return `${name} got a message`;
+    case 'heartbeat': return `${name} is online 🟢`;
     default: return `${name} had activity`;
   }
 }
@@ -90,6 +92,9 @@ function normalizeSSEEvent(data) {
   if (data.type === 'tile_emote') {
     return { ...base, type: 'tile_emote', tileId: data.toTile, tileName: data.toName ?? `Tile #${data.toTile}`, tileAvatar: null, owner: data.actor || '', meta: { emoji: data.emoji, fromTile: data.fromTile, fromName: data.fromName } };
   }
+  if (data.type === 'heartbeat') {
+    return { ...base, type: 'heartbeat', tileId: data.tileId, tileName: data.tileName ?? `Tile #${data.tileId}`, tileAvatar: data.tileAvatar || null, owner: data.wallet || '' };
+  }
   return null;
 }
 
@@ -112,12 +117,16 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
   const [newCount, setNewCount] = useState(0);
   const [, setTick] = useState(0);
   const esRef = useRef(null);
+  // Use a ref for collapsed so prependEvent stays stable across collapse toggles
+  // (avoids SSE reconnect on every collapse/expand)
+  const collapsedRef = useRef(collapsed);
+  useEffect(() => { collapsedRef.current = collapsed; }, [collapsed]);
 
   // Prepend a new event (via SSE), bump new-event counter if collapsed
   const prependEvent = useCallback((evt) => {
     setEvents(prev => [evt, ...prev].slice(0, MAX_EVENTS));
-    if (collapsed) setNewCount(n => n + 1);
-  }, [collapsed]);
+    if (collapsedRef.current) setNewCount(n => n + 1);
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -142,7 +151,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
             const latestTs = prev[0]?.timestamp;
             const newer = incoming.filter(e => e.timestamp > latestTs);
             if (!newer.length) return prev;
-            if (collapsed) setNewCount(n => n + newer.length);
+            if (collapsedRef.current) setNewCount(n => n + newer.length);
             return [...newer, ...prev].slice(0, MAX_EVENTS);
           });
         })
@@ -151,7 +160,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
       setTick(t => t + 1);
     }, POLL_INTERVAL_MS);
     return () => clearInterval(iv);
-  }, [collapsed]);
+  }, []);
 
   // SSE connection for instant updates
   useEffect(() => {
