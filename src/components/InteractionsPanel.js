@@ -329,11 +329,202 @@ function MessagesTab({ tile, address, ownedTiles, isOwner }) {
   );
 }
 
+// — Challenges Tab ————————————————————————————————————————
+
+const TASK_TYPES = [
+  { id: 'general', label: 'General' },
+  { id: 'code_quality', label: 'Code' },
+  { id: 'trivia', label: 'Trivia' },
+  { id: 'market_prediction', label: 'Prediction' },
+  { id: 'speed', label: 'Speed' },
+  { id: 'creativity', label: 'Creativity' },
+];
+
+const CHALLENGE_STATUS_LABELS = {
+  pending: { label: 'Pending acceptance', color: '#f59e0b' },
+  active: { label: 'In progress', color: '#3b82f6' },
+  completed: { label: 'Completed', color: '#22c55e' },
+  expired: { label: 'Expired', color: '#6b7280' },
+};
+
+function ChallengesTab({ tile, address, ownedTiles, allTiles }) {
+  const [challenges, setChallenges] = useState([]);
+  const [taskType, setTaskType] = useState('general');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [submitScore, setSubmitScore] = useState({}); // {[challengeId]: score}
+  const [submitting, setSubmitting] = useState(null);
+
+  const fromTileId = ownedTiles?.[0] ?? null;
+
+  const fetchChallenges = useCallback(() => {
+    fetch(`/api/tiles/${tile.id}/challenges`).then(r => r.json()).then(d => setChallenges(d.challenges || [])).catch(() => {});
+  }, [tile.id]);
+
+  useEffect(() => { fetchChallenges(); }, [fetchChallenges]);
+
+  async function handleChallenge() {
+    if (!fromTileId || !address) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/tiles/${fromTileId}/challenges`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetId: tile.id, taskType, message: message.trim() || null, wallet: address }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMessage('');
+        fetchChallenges();
+      } else {
+        alert(data.error || 'Failed to issue challenge');
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleAccept(challengeId) {
+    if (!address) return;
+    const res = await fetch(`/api/tiles/${tile.id}/challenges/${challengeId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'accept', wallet: address }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) fetchChallenges();
+    else alert(data.error || 'Failed to accept challenge');
+  }
+
+  async function handleSubmitScore(challengeId, participantTileId) {
+    const score = parseFloat(submitScore[challengeId]);
+    if (isNaN(score) || score < 0 || score > 100) { alert('Enter a valid score (0–100)'); return; }
+    setSubmitting(challengeId);
+    try {
+      const res = await fetch(`/api/tiles/${participantTileId}/challenges/${challengeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'submit', score, wallet: address }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { setSubmitScore(s => ({ ...s, [challengeId]: '' })); fetchChallenges(); }
+      else alert(data.error || 'Failed to submit score');
+    } finally {
+      setSubmitting(null);
+    }
+  }
+
+  const myOwnedSet = new Set((ownedTiles || []).map(Number));
+
+  return (
+    <div>
+      {/* Issue challenge button (only for non-owned tiles when wallet connected) */}
+      {address && fromTileId && !myOwnedSet.has(tile.id) && (
+        <div className="mb-3 rounded-lg border border-border-dim bg-surface-2 p-3">
+          <div className="mb-2 text-[12px] font-semibold text-text-dim">⚔️ Challenge this tile</div>
+          <div className="mb-2 flex flex-wrap gap-1">
+            {TASK_TYPES.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTaskType(t.id)}
+                className={`cursor-pointer rounded-full border px-2.5 py-0.5 text-[11px] ${taskType === t.id ? 'border-indigo-500 bg-indigo-500/15 text-indigo-400' : 'border-border-dim bg-surface-alt text-text-dim'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1.5">
+            <input
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Optional taunt… (max 200 chars)"
+              maxLength={200}
+              className="retro-input flex-1 text-[12px]"
+            />
+            <button
+              onClick={handleChallenge}
+              disabled={sending}
+              className="btn-retro btn-retro-primary px-3 py-1.5 text-[12px]"
+            >
+              {sending ? '⏳' : '⚔️ Challenge'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Challenge list */}
+      {challenges.length === 0 && <EmptyState>No challenges yet</EmptyState>}
+      {challenges.map(ch => {
+        const isChallenger = myOwnedSet.has(ch.challenger_id);
+        const isDefender = myOwnedSet.has(ch.defender_id);
+        const isParticipant = isChallenger || isDefender;
+        const myTileId = isChallenger ? ch.challenger_id : ch.defender_id;
+        const statusInfo = CHALLENGE_STATUS_LABELS[ch.status] || { label: ch.status, color: '#6b7280' };
+
+        return (
+          <div key={ch.id} className="mb-2 rounded-lg border border-border-dim bg-surface-2 p-2.5">
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <span className="text-[13px]">⚔️</span>
+              <span className="text-[12px] font-semibold text-text">
+                {ch.challenger_name || `Tile #${ch.challenger_id}`} vs {ch.defender_name || `Tile #${ch.defender_id}`}
+              </span>
+              <span className="ml-auto text-[10px] font-semibold" style={{ color: statusInfo.color }}>{statusInfo.label}</span>
+            </div>
+            <div className="mb-1 text-[11px] text-text-dim">
+              Task: <strong>{ch.task_type}</strong>
+              {ch.message && <span> · &ldquo;{ch.message}&rdquo;</span>}
+            </div>
+            {ch.status === 'completed' && (
+              <div className="text-[12px]">
+                {ch.winner_id ? (
+                  <span style={{ color: '#f59e0b' }}>🏆 Winner: {ch.winner_name || `Tile #${ch.winner_id}`} ({ch.challenger_score ?? '?'} vs {ch.defender_score ?? '?'})</span>
+                ) : (
+                  <span className="text-text-dim">Tie! ({ch.challenger_score} vs {ch.defender_score})</span>
+                )}
+              </div>
+            )}
+            {/* Accept button for defender */}
+            {ch.status === 'pending' && isDefender && address && (
+              <button
+                onClick={() => handleAccept(ch.id)}
+                className="btn-retro btn-retro-green mt-1.5 px-3 py-1 text-[11px]"
+              >
+                Accept Challenge
+              </button>
+            )}
+            {/* Score submission for active challenges */}
+            {ch.status === 'active' && isParticipant && address && (
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <span className="text-[11px] text-text-dim">Your score:</span>
+                <input
+                  type="number" min="0" max="100"
+                  value={submitScore[ch.id] ?? ''}
+                  onChange={e => setSubmitScore(s => ({ ...s, [ch.id]: e.target.value }))}
+                  placeholder="0–100"
+                  className="retro-input w-16 text-[11px]"
+                />
+                <button
+                  onClick={() => handleSubmitScore(ch.id, myTileId)}
+                  disabled={submitting === ch.id}
+                  className="btn-retro btn-retro-primary px-2 py-0.5 text-[11px]"
+                >
+                  {submitting === ch.id ? '⏳' : 'Submit'}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const TABS = [
   { id: 'notes', label: 'Notes' },
   { id: 'actions', label: 'Actions' },
   { id: 'emotes', label: 'Emotes' },
   { id: 'messages', label: 'DMs' },
+  { id: 'challenges', label: '⚔️' },
 ];
 
 export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, allTiles, onAction }) {
@@ -362,6 +553,7 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
       {tab === 'actions' && <ActionsTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} onAction={onAction} />}
       {tab === 'emotes' && <EmotesTab tile={tile} address={address} ownedTiles={ownedTiles} onAction={onAction} />}
       {tab === 'messages' && <MessagesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
+      {tab === 'challenges' && <ChallengesTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} />}
     </div>
   );
 }
