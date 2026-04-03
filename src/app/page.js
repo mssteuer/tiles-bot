@@ -106,7 +106,7 @@ function HomeInner() {
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [claimModalTile, setClaimModalTile] = useState(null);
   const [nextAvailableTileId, setNextAvailableTileId] = useState(null);
-  const [activityFeedOpen, setActivityFeedOpen] = useState(false);
+  const [activityFeedOpen, setActivityFeedOpen] = useState(true);
 
   // Sync ?tile= query param → selectedTile + flyTo (handles activity/tile links)
   useEffect(() => {
@@ -330,25 +330,16 @@ function HomeInner() {
         onHeatmapToggle={setHeatmapMode}
       />
       <div className="main-content">
-        {/* Activity Feed — collapsible left panel */}
+        {/* Activity Feed — collapsible left panel (single persistent instance) */}
         <div className={`activity-panel${activityFeedOpen ? ' open' : ''}`}>
-          {activityFeedOpen ? (
-            <ActivityFeed
-              onTileClick={(tileId) => {
-                setSelectedTile(tileId);
-                setFlyToTileId({ id: tileId, ts: Date.now() });
-              }}
-              collapsed={false}
-              onToggleCollapse={() => setActivityFeedOpen(false)}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <ActivityFeed
-                collapsed={true}
-                onToggleCollapse={() => setActivityFeedOpen(true)}
-              />
-            </div>
-          )}
+          <ActivityFeed
+            onTileClick={(tileId) => {
+              setSelectedTile(tileId);
+              setFlyToTileId({ id: tileId, ts: Date.now() });
+            }}
+            collapsed={!activityFeedOpen}
+            onToggleCollapse={() => setActivityFeedOpen(v => !v)}
+          />
         </div>
         <Grid
           tiles={tiles}
