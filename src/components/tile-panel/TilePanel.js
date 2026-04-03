@@ -166,9 +166,9 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     return () => { cancelled = true; };
   }, [isClaimed, tile.id]);
 
-  // Fetch rep breakdown for claimed tiles that have a rep score
+  // Fetch rep breakdown for all claimed tiles (even score=0 to show they're new)
   useEffect(() => {
-    if (!isClaimed || tile.id == null || !(tile.repScore > 0)) return;
+    if (!isClaimed || tile.id == null) return;
     let cancelled = false;
     fetch(`/api/tiles/${tile.id}/rep`)
       .then(r => r.json())
@@ -636,7 +636,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             </div>
 
             <div className="mt-auto flex flex-col gap-1 text-[11px] text-text-gray">
-              {tile.repScore != null && tile.repScore > 0 && (
+              {tile.repScore != null && (
                 <div className="flex items-center gap-1.5">
                   <span>
                     {tile.repScore >= 80 ? '⭐' : tile.repScore >= 50 ? '✨' : tile.repScore >= 20 ? '🔹' : '🌱'}
@@ -646,15 +646,17 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                       repBreakdown
                         ? [
                             `Reputation score: ${tile.repScore}/100`,
-                            `Heartbeat freshness: ${repBreakdown.heartbeat} pts`,
-                            `Connections: ${repBreakdown.connections} pts`,
-                            `Notes received: ${repBreakdown.notes} pts`,
-                            `Actions & emotes: ${repBreakdown.actions} pts`,
-                            `Age bonus: ${repBreakdown.age} pts`,
-                            `Verified identity: ${repBreakdown.identity} pts`,
-                            `Profile completeness: ${repBreakdown.profile} pts`,
+                            `Heartbeat freshness: ${repBreakdown.heartbeat ?? 0} pts`,
+                            `Connections: ${repBreakdown.connections ?? 0} pts`,
+                            `Notes received: ${repBreakdown.notes ?? 0} pts`,
+                            `Actions & emotes: ${repBreakdown.actions ?? 0} pts`,
+                            `Age bonus: ${repBreakdown.age ?? 0} pts`,
+                            `Verified identity: ${repBreakdown.identity ?? 0} pts`,
+                            `Profile completeness: ${repBreakdown.profile ?? 0} pts`,
                           ].join('\n')
-                        : 'Reputation score (0–100)'
+                        : tile.repScore === 0
+                          ? 'New agent — earn rep through heartbeats, notes, and connections'
+                          : 'Reputation score (0–100)'
                     }
                   >
                     Rep {tile.repScore}/100

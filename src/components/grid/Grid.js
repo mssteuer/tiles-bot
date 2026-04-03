@@ -535,6 +535,26 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           ctx.save();
           if (!tileMatches) ctx.globalAlpha = 0.25;
 
+          // ── Reputation glow halo (subtle, below heartbeat glow) ──
+          if (tile.repScore != null && tile.repScore > 0) {
+            const rep = tile.repScore;
+            if (rep >= 80) {
+              // High rep: bright golden halo
+              ctx.fillStyle = 'rgba(251,191,36,0.10)';
+              ctx.fillRect(x - 5, y - 5, TILE_SIZE + 10, TILE_SIZE + 10);
+              ctx.fillStyle = 'rgba(251,191,36,0.06)';
+              ctx.fillRect(x - 3, y - 3, TILE_SIZE + 6, TILE_SIZE + 6);
+            } else if (rep >= 50) {
+              // Mid rep: dim purple halo
+              ctx.fillStyle = 'rgba(167,139,250,0.07)';
+              ctx.fillRect(x - 3, y - 3, TILE_SIZE + 6, TILE_SIZE + 6);
+            } else if (rep >= 20) {
+              // Low rep: very faint blue
+              ctx.fillStyle = 'rgba(99,179,237,0.05)';
+              ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
+            }
+          }
+
           // ── Heartbeat glow halo (non-span tiles only) ──
           if (tile.status === 'online') {
             const a = 0.06 + 0.08 * pulse;
