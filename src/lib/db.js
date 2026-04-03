@@ -2357,3 +2357,229 @@ export function getTilesWithOpenBounties() {
   for (const r of rows) map[r.tile_id] = r.count;
   return map;
 }
+
+// — Pixel Wars ——————————————————————————————————————————————————————
+// r/place-style mini-game: tile owners color adjacent unclaimed tiles.
+// Paints expire after 1 hour. Each wallet can paint max 5 tiles/hour.
+// A 24h round tracks coverage; round winner earns "Pixel Champion" badge.
+
+const PIXEL_WARS_RATE_LIMIT = 5;       // max paints per wallet per hour
+const PIXEL_WARS_PAINT_TTL_HOURS = 1;  // paint expires after 1 hour
+const PIXEL_WARS_ROUND_HOURS = 24;     // round duration
+
+function ensurePixelWarsTables() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pixel_wars_paints (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      tile_id    INTEGER NOT NULL UNIQUE,
+      owner      TEXT NOT NULL,
+      owner_tile INTEGER NOT NULL,
+      color      TEXT NOT NULL,
+      painted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_pw_tile    ON pixel_wars_paints(tile_id);
+    CREATE INDEX IF NOT EXISTS idx_pw_owner   ON pixel_wars_paints(owner);
+    CREATE INDEX IF NOT EXISTS idx_pw_expires ON pixel_wars_paints(expires_at);
+
+    CREATE TABLE IF NOT EXISTS pixel_wars_rounds (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      started_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      ends_at      TEXT NOT NULL,
+      winner_owner TEXT,
+      winner_tile  INTEGER,
+      paint_count  INTEGER,
+      finalized_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pw_rounds_ends ON pixel_wars_rounds(ends_at);
+
+    CREATE TABLE IF NOT EXISTS pixel_wars_champion (
+      tile_id    INTEGER PRIMARY KEY,
+      owner      TEXT NOT NULL,
+      badge_until TEXT NOT NULL,
+      round_id   INTEGER
+    );
+  `);
+}
+ensurePixelWarsTables();
+
+/** Expire old paints + ensure a current round exists. */
+function pixelWarsHousekeeping(db) {
+  // Expire paints
+  db.prepare(`DELETE FROM pixel_wars_paints WHERE expires_at <= datetime('now')`).run();
+  // Close finished rounds
+  const finishedRound = db.prepare(
+    `SELECT * FROM pixel_wars_rounds WHERE finalized_at IS NULL AND ends_at <= datetime('now') LIMIT 1`
+  ).get();
+  if (finishedRound) {
+    // Determine winner: wallet with most active paints this round
+    const winner = db.prepare(
+      `SELECT owner, owner_tile, COUNT(*) as cnt
+       FROM pixel_wars_paints
+       WHERE painted_at >= ? AND painted_at <= ?
+       GROUP BY owner ORDER BY cnt DESC LIMIT 1`
+    ).get(finishedRound.started_at, finishedRound.ends_at);
+    if (winner) {
+      // Award champion badge for 24h
+      const badgeUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+      db.prepare(
+        `INSERT INTO pixel_wars_champion (tile_id, owner, badge_until, round_id)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(tile_id) DO UPDATE SET owner=excluded.owner, badge_until=excluded.badge_until, round_id=excluded.round_id`
+      ).run(winner.owner_tile, winner.owner, badgeUntil, finishedRound.id);
+      db.prepare(
+        `UPDATE pixel_wars_rounds SET winner_owner=?, winner_tile=?, paint_count=?, finalized_at=datetime('now') WHERE id=?`
+      ).run(winner.owner, winner.owner_tile, winner.cnt, finishedRound.id);
+    } else {
+      db.prepare(`UPDATE pixel_wars_rounds SET finalized_at=datetime('now') WHERE id=?`).run(finishedRound.id);
+    }
+    // Expire old champion badges
+    db.prepare(`DELETE FROM pixel_wars_champion WHERE badge_until <= datetime('now')`).run();
+  }
+  // Ensure there is always an active round
+  const activeRound = db.prepare(
+    `SELECT id FROM pixel_wars_rounds WHERE finalized_at IS NULL AND ends_at > datetime('now') LIMIT 1`
+  ).get();
+  if (!activeRound) {
+    const endsAt = new Date(Date.now() + PIXEL_WARS_ROUND_HOURS * 60 * 60 * 1000)
+      .toISOString().replace('T', ' ').slice(0, 19);
+    db.prepare(`INSERT INTO pixel_wars_rounds (ends_at) VALUES (?)`).run(endsAt);
+  }
+}
+
+/** Paint an unclaimed tile adjacent to the wallet's owned tile. */
+export function pixelWarsPaint(ownerTileId, targetTileId, color, wallet) {
+  const db = getDb();
+  pixelWarsHousekeeping(db);
+
+  // Validate color
+  if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) throw new Error('Color must be a hex value like #FF5500');
+
+  // Owner must own the tile they're painting from
+  const ownerTile = db.prepare('SELECT id, owner, name FROM tiles WHERE id = ?').get(ownerTileId);
+  if (!ownerTile) throw new Error('Owner tile not found');
+  if (!ownerTile.owner) throw new Error('Owner tile is not claimed');
+  if (ownerTile.owner.toLowerCase() !== wallet.toLowerCase()) throw new Error('Not the owner of the source tile');
+
+  // Target must be unclaimed
+  const target = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(targetTileId);
+  if (target && target.owner) throw new Error('Target tile is already claimed — only unclaimed tiles can be painted');
+
+  // Tiles must be adjacent
+  if (!areAdjacent(ownerTileId, targetTileId)) throw new Error('Target tile must be adjacent to your tile');
+
+  // Rate limit: max 5 paints per wallet per rolling hour
+  const GRID = 256;
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+  const recentPaints = db.prepare(
+    `SELECT COUNT(*) as cnt FROM pixel_wars_paints WHERE owner = ? AND painted_at >= ?`
+  ).get(wallet.toLowerCase(), oneHourAgo);
+  if (recentPaints.cnt >= PIXEL_WARS_RATE_LIMIT) {
+    throw new Error(`Rate limit: you can paint at most ${PIXEL_WARS_RATE_LIMIT} tiles per hour`);
+  }
+
+  const expiresAt = new Date(Date.now() + PIXEL_WARS_PAINT_TTL_HOURS * 60 * 60 * 1000)
+    .toISOString().replace('T', ' ').slice(0, 19);
+
+  db.prepare(
+    `INSERT INTO pixel_wars_paints (tile_id, owner, owner_tile, color, painted_at, expires_at)
+     VALUES (?, ?, ?, ?, datetime('now'), ?)
+     ON CONFLICT(tile_id) DO UPDATE SET owner=excluded.owner, owner_tile=excluded.owner_tile,
+       color=excluded.color, painted_at=excluded.painted_at, expires_at=excluded.expires_at`
+  ).run(targetTileId, wallet.toLowerCase(), ownerTileId, color, expiresAt);
+
+  return {
+    tileId: targetTileId,
+    ownerTile: ownerTileId,
+    color,
+    expiresAt,
+    ownerName: ownerTile.name || `Tile #${ownerTileId}`,
+  };
+}
+
+/** Remove a paint placed by this wallet on a tile. */
+export function pixelWarsErase(targetTileId, wallet) {
+  const db = getDb();
+  const paint = db.prepare('SELECT * FROM pixel_wars_paints WHERE tile_id = ?').get(targetTileId);
+  if (!paint) throw new Error('No paint on this tile');
+  if (paint.owner !== wallet.toLowerCase()) throw new Error('You did not paint this tile');
+  db.prepare('DELETE FROM pixel_wars_paints WHERE tile_id = ?').run(targetTileId);
+  return { ok: true };
+}
+
+/** Get all active (non-expired) pixel war paints as a map { tileId: color }. */
+export function getPixelWarsMap() {
+  const db = getDb();
+  pixelWarsHousekeeping(db);
+  const rows = db.prepare(
+    `SELECT tile_id, color, owner, owner_tile, expires_at FROM pixel_wars_paints WHERE expires_at > datetime('now')`
+  ).all();
+  const map = {};
+  for (const r of rows) map[r.tile_id] = { color: r.color, owner: r.owner, ownerTile: r.owner_tile, expiresAt: r.expires_at };
+  return map;
+}
+
+/** Get Pixel Wars leaderboard for the current round. */
+export function getPixelWarsLeaderboard(limit = 20) {
+  const db = getDb();
+  pixelWarsHousekeeping(db);
+  // Active round
+  const round = db.prepare(
+    `SELECT * FROM pixel_wars_rounds WHERE finalized_at IS NULL AND ends_at > datetime('now') ORDER BY id DESC LIMIT 1`
+  ).get();
+  // Paint counts per wallet in the active round (only active paints count)
+  const entries = db.prepare(
+    `SELECT p.owner, p.owner_tile, COUNT(*) as paint_count,
+            t.name as tile_name, t.avatar as tile_avatar
+     FROM pixel_wars_paints p
+     LEFT JOIN tiles t ON t.id = p.owner_tile
+     WHERE p.expires_at > datetime('now')
+     GROUP BY p.owner
+     ORDER BY paint_count DESC
+     LIMIT ?`
+  ).all(limit);
+  // Champion badge
+  const champion = db.prepare(
+    `SELECT pc.*, t.name as tile_name, t.avatar as tile_avatar
+     FROM pixel_wars_champion pc
+     LEFT JOIN tiles t ON t.id = pc.tile_id
+     WHERE pc.badge_until > datetime('now')
+     LIMIT 1`
+  ).get();
+  return { round, entries, champion };
+}
+
+/** Get paints by a specific wallet. */
+export function getPixelWaintsByWallet(wallet) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT * FROM pixel_wars_paints WHERE owner = ? AND expires_at > datetime('now') ORDER BY painted_at DESC`
+  ).get(wallet.toLowerCase());
+}
+
+/** Check if a tile is currently painted. */
+export function getPixelWarsPaint(tileId) {
+  const db = getDb();
+  const paint = db.prepare(
+    `SELECT * FROM pixel_wars_paints WHERE tile_id = ? AND expires_at > datetime('now')`
+  ).get(tileId);
+  return paint || null;
+}
+
+/** Get champion badge for a tile (if active). */
+export function getPixelWarsChampionBadge(tileId) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT * FROM pixel_wars_champion WHERE tile_id = ? AND badge_until > datetime('now')`
+  ).get(tileId) || null;
+}
+
+/** Map of all tiles that are currently Pixel Champion. */
+export function getPixelWarsChampionTiles() {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT tile_id FROM pixel_wars_champion WHERE badge_until > datetime('now')`
+  ).all();
+  return new Set(rows.map(r => r.tile_id));
+}

@@ -87,6 +87,8 @@ function HomeInner() {
   const [spans, setSpans] = useState([]);
   const [alliances, setAlliances] = useState({});
   const [bountyTiles, setBountyTiles] = useState({});
+  const [pixelWars, setPixelWars] = useState({});
+  const [pixelWarsChampions, setPixelWarsChampions] = useState([]);
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
   // Intro readiness:
@@ -148,6 +150,8 @@ function HomeInner() {
         if (grid.spans) setSpans(grid.spans);
         if (grid.alliances) setAlliances(grid.alliances);
         if (grid.bounties) setBountyTiles(grid.bounties);
+        if (grid.pixelWars) setPixelWars(grid.pixelWars);
+        if (grid.pixelWarsChampions) setPixelWarsChampions(grid.pixelWarsChampions);
       }
 
       setBlocks(prev => blockList.length ? blockList : prev);
@@ -211,6 +215,18 @@ function HomeInner() {
           setActionAnimation({
             fromTile: event.fromTile, toTile: event.toTile,
             emoji: event.emoji, actionType: 'emote', ts: Date.now(),
+          });
+        } else if (event.type === 'pixel_wars_paint') {
+          // Update pixel wars map in real-time
+          setPixelWars(prev => ({
+            ...prev,
+            [event.tileId]: { color: event.color, owner: event.ownerName, ownerTile: event.ownerTile, expiresAt: event.expiresAt },
+          }));
+        } else if (event.type === 'pixel_wars_erase') {
+          setPixelWars(prev => {
+            const next = { ...prev };
+            delete next[event.tileId];
+            return next;
           });
         } else if (event.type === 'connection_request') {
           playSound('notification');
@@ -379,6 +395,8 @@ function HomeInner() {
           heatmapMode={heatmapMode}
           alliances={alliances}
           bountyTiles={bountyTiles}
+          pixelWars={pixelWars}
+          pixelWarsChampions={pixelWarsChampions}
         />
         <div className={`side-panel${panelOpen ? ' open' : ''}`}>
         {panelOpen ? (
