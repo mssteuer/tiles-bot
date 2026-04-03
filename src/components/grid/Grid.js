@@ -667,6 +667,17 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
           }
 
+          // — Trophy badge for challenge winners —
+          if (tile?.hasTrophy && cam.zoom > 0.15) {
+            const tr = Math.max(5, TILE_SIZE * 0.2);
+            const tx = x + TILE_SIZE * 0.5;
+            const ty = y + tr * 0.6;
+            ctx.font = `${Math.round(tr * 1.8)}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🏆', tx, ty);
+          }
+
           // Pending connection request badge (orange dot with count)
           const pendingCount = pendingRequestsRef.current[id];
           if (pendingCount > 0 && cam.zoom > 0.15) {
