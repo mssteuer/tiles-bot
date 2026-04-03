@@ -1,5 +1,7 @@
 import { getTilesByOwner } from '@/lib/db';
 import Link from 'next/link';
+import OwnerDashboardBulkRename from '@/components/OwnerDashboardBulkRename';
+import OwnerTilesGrid from '@/components/OwnerTilesGrid';
 
 function categoryPillStyle(color) {
   return {
@@ -107,38 +109,9 @@ export default async function OwnerPage({ params }) {
           </div>
         ) : (
           <>
-            <h2 className="mb-4 text-[16px] font-bold text-text-dim">ALL TILES ({totalTiles})</h2>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
-              {tiles.map(tile => {
-                const pillColor = catColors[tile.category] || '#94a3b8';
-                return (
-                  <Link key={tile.id} href={`/tiles/${tile.id}`} className="no-underline">
-                    <div className={`cursor-pointer rounded-xl border p-4 transition-colors ${tile.status === 'online' ? 'border-accent-green/30' : 'border-border-dim'} bg-surface-alt`}>
-                      <div className="mb-2 flex items-center gap-2.5">
-                        {tile.imageUrl ? (
-                          <img src={tile.imageUrl} alt={tile.name} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
-                        ) : (
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[20px]">{tile.avatar || '🤖'}</div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="truncate whitespace-nowrap text-[13px] font-bold text-text">{tile.name || `Tile #${tile.id}`}</div>
-                          <div className="text-[11px] text-text-dim">#{tile.id}</div>
-                        </div>
-                      </div>
-                      {tile.description && (
-                        <p className="mb-2 overflow-hidden text-[11px] leading-[1.4] text-text-light [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">{tile.description}</p>
-                      )}
-                      <div className="flex items-center gap-1.5">
-                        {tile.category && tile.category !== 'uncategorized' && (
-                          <span className="rounded-[10px] px-2 py-0.5 text-[10px]" style={categoryPillStyle(pillColor)}>{tile.category}</span>
-                        )}
-                        {tile.status === 'online' && <span className="text-[10px] text-accent-green">● online</span>}
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            <OwnerDashboardBulkRename ownerAddress={address} initialTiles={tiles} />
+
+            <OwnerTilesGrid initialTiles={tiles} />
           </>
         )}
 
