@@ -1251,6 +1251,20 @@ export function getTopViewedTiles(limit = 20) {
 }
 
 /**
+ * Get top tiles by reputation score.
+ */
+export function getTopByReputation(limit = 20) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT id, name, avatar, category, owner, status, rep_score AS repScore
+     FROM tiles
+     WHERE owner IS NOT NULL AND owner != '0x0000000000000000000000000000000000000000' AND rep_score > 0
+     ORDER BY rep_score DESC
+     LIMIT ?`
+  ).all(limit);
+}
+
+/**
  * Get webhook URL for a tile (null if not set).
  */
 export function getTileWebhookUrl(tileId) {

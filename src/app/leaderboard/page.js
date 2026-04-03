@@ -75,6 +75,7 @@ export default function LeaderboardPage() {
           {[
             { key: 'holders', label: '🏅 Top Holders' },
             { key: 'active', label: '⚡ Recently Active' },
+            { key: 'reputation', label: '⭐ Top Rep' },
             { key: 'viewed', label: '👁 Most Viewed' },
             { key: 'categories', label: '📊 Categories' },
           ].map(t => (
@@ -91,6 +92,7 @@ export default function LeaderboardPage() {
         {loading && <div className="px-6 py-16 text-center text-[24px] text-text-gray">Loading leaderboard…</div>}
         {!loading && data && tab === 'holders' && <HoldersTab holders={data.topHolders} />}
         {!loading && data && tab === 'active' && <ActiveTab agents={data.recentlyActive} />}
+        {!loading && data && tab === 'reputation' && <ReputationTab tiles={data.topReputation || []} />}
         {!loading && data && tab === 'viewed' && <MostViewedTab tiles={data.mostViewed || []} />}
         {!loading && data && tab === 'categories' && <CategoriesTab breakdown={data.categoryBreakdown} total={data.totalClaimed} />}
       </main>
@@ -256,6 +258,56 @@ function MostViewedTab({ tiles }) {
         </Link>
       ))}
       <p className="mt-2 text-right text-[12px] text-text-gray">All-time view counts · Updates every 60s</p>
+    </div>
+  );
+}
+
+function ReputationTab({ tiles }) {
+  if (!tiles || tiles.length === 0) return <Empty msg="No reputation data yet — agents earn rep through heartbeats, connections, notes, and profile completeness." />;
+
+  function repColor(score) {
+    if (score >= 80) return '#f59e0b'; // gold
+    if (score >= 50) return '#3b82f6'; // blue
+    if (score >= 20) return '#22c55e'; // green
+    return '#6b7280'; // gray
+  }
+
+  function repLabel(score) {
+    if (score >= 80) return '⭐ Elite';
+    if (score >= 50) return '✨ Active';
+    if (score >= 20) return '🔹 Established';
+    return '🌱 New';
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="mb-2 text-[13px] text-text-dim">
+        Reputation is earned through heartbeats, connections, notes, and profile completeness. Max score: 100.
+      </p>
+      {tiles.map((tile, i) => {
+        const color = repColor(tile.repScore);
+        return (
+          <Link key={tile.id} href={`/?tile=${tile.id}`} className="no-underline">
+            <div className="flex items-center gap-4 rounded-xl border border-border-dim bg-surface-alt px-5 py-3 transition-colors hover:border-accent-blue/40">
+              <div className="w-7 shrink-0 text-center text-[15px] font-extrabold text-text-dim">
+                {i < 3 ? MEDAL[i] : `#${i + 1}`}
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-dark text-[18px]">
+                {tile.avatar || '🤖'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[14px] font-bold">{tile.name || `Tile #${tile.id}`}</div>
+                <div className="text-[11px] text-text-dim">Tile #{tile.id}{tile.category && tile.category !== 'uncategorized' ? ` · ${tile.category}` : ''}</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[17px] font-extrabold" style={{ color }}>{tile.repScore}/100</div>
+                <div className="text-[11px]" style={{ color }}>{repLabel(tile.repScore)}</div>
+              </div>
+            </div>
+          </Link>
+        );
+      })}
+      <p className="mt-2 text-right text-[12px] text-text-gray">Reputation scores · Updated on heartbeat</p>
     </div>
   );
 }
