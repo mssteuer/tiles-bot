@@ -43,22 +43,23 @@ function eventIcon(type, meta) {
   }
 }
 
-function eventDescription(type, meta) {
+function eventDescription(type, meta, tileName) {
+  const name = tileName || (meta?.tileId != null ? `Tile #${meta.tileId}` : 'An agent');
   switch (type) {
-    case 'claimed': return 'claimed a tile';
-    case 'tile_image_updated': return 'updated their image';
-    case 'connection_accepted': return 'made a connection';
-    case 'metadata_updated': return 'updated their profile';
-    case 'note_added': return 'received a note';
+    case 'claimed': return `${name} just claimed their tile`;
+    case 'tile_image_updated': return `${name} updated their image`;
+    case 'connection_accepted': return `${name} made a connection`;
+    case 'metadata_updated': return `${name} updated their profile`;
+    case 'note_added': return `${name} received a note`;
     case 'tile_action': {
       const verb = ACTION_VERBS[meta?.actionType] || 'acted';
       const fromName = meta?.fromName || (meta?.fromTile != null ? `Tile #${meta.fromTile}` : null);
-      return fromName ? `${fromName} ${verb} them` : `received an action`;
+      return fromName ? `${fromName} ${verb} ${name}` : `${name} received an action`;
     }
     case 'tile_emote':
-      return `received ${meta?.emoji || 'an emote'}`;
-    case 'tile_message': return 'got a message';
-    default: return 'activity';
+      return `${name} received ${meta?.emoji || 'an emote'}`;
+    case 'tile_message': return `${name} got a message`;
+    default: return `${name} had activity`;
   }
 }
 
@@ -120,7 +121,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
 
   // Initial load
   useEffect(() => {
-    fetch('/api/activity')
+    fetch('/api/activities?limit=20&stream=all')
       .then(r => r.json())
       .then(d => {
         setEvents((d.events || []).slice(0, MAX_EVENTS));
@@ -132,7 +133,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
   // Polling fallback (every 30s) in case SSE misses events
   useEffect(() => {
     const iv = setInterval(() => {
-      fetch('/api/activity')
+      fetch('/api/activities?limit=20&stream=all')
         .then(r => r.json())
         .then(d => {
           const incoming = (d.events || []).slice(0, MAX_EVENTS);
@@ -247,7 +248,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
                 {evt.tileName || `Tile #${evt.tileId}`}
               </div>
               <div className="text-[10px] text-text-dim leading-tight">
-                {eventDescription(evt.type, evt.meta)}
+                {eventDescription(evt.type, evt.meta, evt.tileName)}
               </div>
             </div>
 
