@@ -87,6 +87,7 @@ function HomeInner() {
   const [spans, setSpans] = useState([]);
   const [alliances, setAlliances] = useState({});
   const [bountyTiles, setBountyTiles] = useState({});
+  const [pixelWars, setPixelWars] = useState({});
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
   // Intro readiness:
@@ -148,6 +149,7 @@ function HomeInner() {
         if (grid.spans) setSpans(grid.spans);
         if (grid.alliances) setAlliances(grid.alliances);
         if (grid.bounties) setBountyTiles(grid.bounties);
+        if (grid.pixelWars) setPixelWars(grid.pixelWars);
       }
 
       setBlocks(prev => blockList.length ? blockList : prev);
@@ -254,6 +256,7 @@ function HomeInner() {
       setBlocks(data.blocks || blockList0);
       setSpans(data.spans || spanList0);
       setStats(prev => ({ ...prev, ...data.stats, ...(statsData || {}) }));
+      if (data.pixelWars) setPixelWars(data.pixelWars);
       const nextId = statsData?.nextAvailableTileId ?? data.stats?.nextAvailableTileId;
       if (nextId != null) setNextAvailableTileId(nextId);
     })();
@@ -379,6 +382,7 @@ function HomeInner() {
           heatmapMode={heatmapMode}
           alliances={alliances}
           bountyTiles={bountyTiles}
+          pixelWars={pixelWars}
         />
         <div className={`side-panel${panelOpen ? ' open' : ''}`}>
         {panelOpen ? (
