@@ -69,6 +69,8 @@ export async function POST(request) {
     return NextResponse.json({ error: 'One or more invalid tile IDs' }, { status: 400 });
   }
 
+  const validIdSet = new Set(validIds.map(Number));
+
   // Validate message format: tiles.bot:batch-update:{sorted_ids_csv}:{timestamp}
   const msgParts = message.split(':');
   if (msgParts[0] !== 'tiles.bot' || msgParts[1] !== 'batch-update') {
@@ -116,7 +118,7 @@ export async function POST(request) {
       }
 
       const tileId = Number(entry.id);
-      if (!Number.isInteger(tileId) || !validIds.includes(tileId)) {
+      if (!Number.isInteger(tileId) || !validIdSet.has(tileId)) {
         return NextResponse.json({ error: 'Each updates entry id must be a valid tile included in tileIds' }, { status: 400 });
       }
 
