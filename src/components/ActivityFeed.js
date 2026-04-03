@@ -114,6 +114,7 @@ const POLL_INTERVAL_MS = 30_000;
 export default function ActivityFeed({ onTileClick, collapsed = false, onToggleCollapse }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [feedError, setFeedError] = useState(false);
   const [newCount, setNewCount] = useState(0);
   const [, setTick] = useState(0);
   const esRef = useRef(null);
@@ -136,7 +137,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
         setEvents((d.events || []).slice(0, MAX_EVENTS));
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setLoading(false); setFeedError(true); });
   }, []);
 
   // Polling fallback (every 30s) in case SSE misses events
@@ -237,7 +238,10 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
         {loading && (
           <div className="px-3 py-4 text-center text-[11px] text-text-dim">Loading…</div>
         )}
-        {!loading && events.length === 0 && (
+        {!loading && feedError && (
+          <div className="px-3 py-4 text-center text-[11px] text-text-dim">Feed unavailable</div>
+        )}
+        {!loading && !feedError && events.length === 0 && (
           <div className="px-3 py-4 text-center text-[11px] text-text-dim">No activity yet</div>
         )}
         {events.map((evt, i) => (
