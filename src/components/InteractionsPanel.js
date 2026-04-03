@@ -525,7 +525,145 @@ const TABS = [
   { id: 'emotes', label: 'Emotes' },
   { id: 'messages', label: 'DMs' },
   { id: 'challenges', label: '⚔️' },
+  { id: 'alliance', label: '🤝' },
 ];
+
+function AllianceTab({ tile, address, ownedTiles }) {
+  const [alliance, setAlliance] = useState(null);
+  const [alliances, setAlliancesList] = useState([]);
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState('#3B82F6');
+  const [joinId, setJoinId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const isOwnerOfTile = address && tile.owner && address.toLowerCase() === tile.owner.toLowerCase();
+  const fromTile = isOwnerOfTile ? tile.id : ownedTiles?.[0];
+
+  const fetchAlliance = useCallback(() => {
+    fetch(`/api/tiles/${tile.id}/alliance`).then(r => r.json()).then(d => setAlliance(d.alliance || null)).catch(() => {});
+  }, [tile.id]);
+
+  const fetchAlliances = useCallback(() => {
+    fetch('/api/alliances?limit=10').then(r => r.json()).then(d => setAlliancesList(d.alliances || [])).catch(() => {});
+  }, []);
+
+  useEffect(() => { fetchAlliance(); fetchAlliances(); }, [fetchAlliance, fetchAlliances]);
+
+  async function handleCreate() {
+    if (!newName.trim() || !isOwnerOfTile) return;
+    setLoading(true); setMsg('');
+    const res = await fetch('/api/alliances', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim(), color: newColor, founder_tile_id: tile.id, wallet: address }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { setMsg(data.error || 'Failed'); return; }
+    setMsg('Alliance created!');
+    setNewName('');
+    fetchAlliance(); fetchAlliances();
+  }
+
+  async function handleJoin() {
+    const id = parseInt(joinId, 10);
+    if (isNaN(id) || !isOwnerOfTile) return;
+    setLoading(true); setMsg('');
+    const res = await fetch(`/api/alliances/${id}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tile_id: tile.id, wallet: address }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { setMsg(data.error || 'Failed'); return; }
+    setMsg('Joined!');
+    setJoinId('');
+    fetchAlliance(); fetchAlliances();
+  }
+
+  async function handleLeave() {
+    if (!alliance || !isOwnerOfTile) return;
+    setLoading(true); setMsg('');
+    const res = await fetch(`/api/alliances/${alliance.id}/leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tile_id: tile.id, wallet: address }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { setMsg(data.error || 'Failed'); return; }
+    setMsg(data.disbanded ? 'Alliance disbanded.' : 'Left alliance.');
+    fetchAlliance(); fetchAlliances();
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Current alliance status */}
+      {alliance ? (
+        <div className="rounded border border-border-bright bg-surface-2 p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ background: alliance.color }} />
+            <span className="font-semibold text-[13px] text-text">{alliance.name}</span>
+            <span className="text-[11px] text-text-dim ml-auto">{alliance.member_count} tile{alliance.member_count !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="text-[11px] text-text-dim mb-2">Tile #{tile.id} is in this alliance.</div>
+          {isOwnerOfTile && (
+            <button onClick={handleLeave} disabled={loading} className="btn-retro px-3 py-1 text-[12px] opacity-70 hover:opacity-100">
+              Leave
+            </button>
+          )}
+        </div>
+      ) : (
+        isOwnerOfTile && (
+          <div className="space-y-2">
+            <div className="text-[12px] text-text-dim">This tile is not in any alliance.</div>
+            {/* Create */}
+            <div className="rounded border border-border-bright bg-surface-2 p-2 space-y-1.5">
+              <div className="text-[11px] font-semibold text-text-dim uppercase tracking-wide">Create Alliance</div>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Alliance name" maxLength={32} className="retro-input w-full text-[12px]" />
+              <div className="flex gap-2 items-center">
+                <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} className="h-7 w-10 cursor-pointer rounded border border-border-bright bg-surface-2" />
+                <span className="text-[11px] text-text-dim">Color</span>
+              </div>
+              <button onClick={handleCreate} disabled={loading || !newName.trim()} className="btn-retro btn-retro-primary px-3 py-1 text-[12px] w-full">
+                Create
+              </button>
+            </div>
+            {/* Join */}
+            <div className="rounded border border-border-bright bg-surface-2 p-2 space-y-1.5">
+              <div className="text-[11px] font-semibold text-text-dim uppercase tracking-wide">Join Alliance</div>
+              <div className="flex gap-1.5">
+                <input value={joinId} onChange={e => setJoinId(e.target.value)} placeholder="Alliance ID" className="retro-input flex-1 text-[12px]" />
+                <button onClick={handleJoin} disabled={loading || !joinId} className="btn-retro btn-retro-primary px-3 py-1 text-[12px]">Join</button>
+              </div>
+            </div>
+          </div>
+        )
+      )}
+      {msg && <div className="text-[11px] text-accent-blue">{msg}</div>}
+      {/* Leaderboard */}
+      <div>
+        <div className="mb-1 text-[11px] font-semibold text-text-dim uppercase tracking-wide">Top Alliances</div>
+        {alliances.length === 0 ? (
+          <div className="text-[12px] text-text-dim">No alliances yet.</div>
+        ) : (
+          <div className="space-y-1">
+            {alliances.map((a, i) => (
+              <div key={a.id} className="flex items-center gap-2 rounded border border-border-bright bg-surface-2 px-2 py-1">
+                <span className="text-[11px] text-text-dim w-4">{i + 1}.</span>
+                <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: a.color }} />
+                <span className="text-[12px] text-text flex-1 truncate">{a.name}</span>
+                <span className="text-[11px] text-text-dim">{a.member_count}T</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, allTiles, onAction }) {
   const [tab, setTab] = useState('notes');
@@ -554,6 +692,7 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
       {tab === 'emotes' && <EmotesTab tile={tile} address={address} ownedTiles={ownedTiles} onAction={onAction} />}
       {tab === 'messages' && <MessagesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
       {tab === 'challenges' && <ChallengesTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} />}
+      {tab === 'alliance' && <AllianceTab tile={tile} address={address} ownedTiles={ownedTiles} />}
     </div>
   );
 }
