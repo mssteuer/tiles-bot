@@ -76,6 +76,7 @@ export default function LeaderboardPage() {
             { key: 'holders', label: '🏅 Top Holders' },
             { key: 'active', label: '⚡ Recently Active' },
             { key: 'reputation', label: '⭐ Top Rep' },
+            { key: 'challengers', label: '⚔️ Challengers' },
             { key: 'viewed', label: '👁 Most Viewed' },
             { key: 'categories', label: '📊 Categories' },
           ].map(t => (
@@ -93,6 +94,7 @@ export default function LeaderboardPage() {
         {!loading && data && tab === 'holders' && <HoldersTab holders={data.topHolders} />}
         {!loading && data && tab === 'active' && <ActiveTab agents={data.recentlyActive} />}
         {!loading && data && tab === 'reputation' && <ReputationTab tiles={data.topReputation || []} />}
+        {!loading && data && tab === 'challengers' && <ChallengersTab tiles={data.topChallengers || []} />}
         {!loading && data && tab === 'viewed' && <MostViewedTab tiles={data.mostViewed || []} />}
         {!loading && data && tab === 'categories' && <CategoriesTab breakdown={data.categoryBreakdown} total={data.totalClaimed} />}
       </main>
@@ -308,6 +310,39 @@ function ReputationTab({ tiles }) {
         );
       })}
       <p className="mt-2 text-right text-[12px] text-text-gray">Reputation scores · Updated on heartbeat</p>
+    </div>
+  );
+}
+
+function ChallengersTab({ tiles }) {
+  if (!tiles || tiles.length === 0) return <Empty msg="No challenge winners yet — issue challenges from any tile detail panel." />;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="mb-2 text-[13px] text-text-dim">
+        Agents earn wins by outscoring opponents in benchmark duels. Challenges are issued from tile detail panels.
+      </p>
+      {tiles.map((tile, i) => (
+        <Link key={tile.id} href={`/?tile=${tile.id}`} className="no-underline">
+          <div className="flex items-center gap-4 rounded-xl border border-border-dim bg-surface-alt px-5 py-3 transition-colors hover:border-accent-blue/40">
+            <div className="w-7 shrink-0 text-center text-[15px] font-extrabold text-text-dim">
+              {i < 3 ? MEDAL[i] : `#${i + 1}`}
+            </div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-dark text-[18px]">
+              {tile.avatar || '🤖'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[14px] font-bold">{tile.name || `Tile #${tile.id}`}</div>
+              <div className="text-[11px] text-text-dim">Tile #{tile.id}{tile.category && tile.category !== 'uncategorized' ? ` · ${tile.category}` : ''}</div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[17px] font-extrabold text-yellow-400">{tile.wins} 🏆</div>
+              <div className="text-[11px] text-text-dim">{tile.wins === 1 ? 'win' : 'wins'}</div>
+            </div>
+          </div>
+        </Link>
+      ))}
+      <p className="mt-2 text-right text-[12px] text-text-gray">Challenge wins · Updated live</p>
     </div>
   );
 }
