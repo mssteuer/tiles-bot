@@ -11,7 +11,7 @@ import SelectionOverlay from './SelectionOverlay';
 import ToolToggle from './ToolToggle';
 import { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, imageCache, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile } from './utils';
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles, pixelWars, pixelWarsChampions }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -252,6 +252,12 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   const bountyTilesRef = useRef(bountyTiles || {});
   useEffect(() => { bountyTilesRef.current = bountyTiles || {}; }, [bountyTiles]);
+
+  const pixelWarsRef = useRef(pixelWars || {});
+  useEffect(() => { pixelWarsRef.current = pixelWars || {}; }, [pixelWars]);
+
+  const pixelWarsChampionsRef = useRef(new Set(pixelWarsChampions || []));
+  useEffect(() => { pixelWarsChampionsRef.current = new Set(pixelWarsChampions || []); }, [pixelWarsChampions]);
 
   // Block tiles feature removed
 
@@ -815,6 +821,57 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     }
 
     // Heat map feature removed
+
+    // ── Pixel Wars paint overlay ──────────────────────────────────────────
+    // Render color wash on unclaimed tiles that have been pixel-war painted
+    const pwMap = pixelWarsRef.current;
+    const pwChampions = pixelWarsChampionsRef.current;
+    if (pwMap && Object.keys(pwMap).length > 0) {
+      for (const [tileIdStr, paint] of Object.entries(pwMap)) {
+        const tid = Number(tileIdStr);
+        if (tiles[tid]) continue; // skip claimed tiles
+        const row = Math.floor(tid / GRID_SIZE);
+        const col = tid % GRID_SIZE;
+        if (row < minRow || row > maxRow || col < minCol || col > maxCol) continue;
+        const x = col * TILE_SIZE;
+        const y = row * TILE_SIZE;
+        // Parse hex color
+        const hex = paint.color || '#888888';
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        // Animated alpha pulse (fades in and out subtly)
+        const alpha = 0.35 + 0.1 * Math.sin(Date.now() / 800 + tid * 0.05);
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        // Small paint splash marker in corner when zoomed in
+        if (cam.zoom > 0.25) {
+          ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
+          const splashR = Math.max(3, TILE_SIZE * 0.15);
+          ctx.beginPath();
+          ctx.arc(x + splashR, y + TILE_SIZE - splashR, splashR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    // Champion badge on claimed tiles
+    if (pwChampions && pwChampions.size > 0 && cam.zoom > 0.15) {
+      for (const tid of pwChampions) {
+        const tile = tiles[tid];
+        if (!tile) continue;
+        const row = Math.floor(tid / GRID_SIZE);
+        const col = tid % GRID_SIZE;
+        if (row < minRow || row > maxRow || col < minCol || col > maxCol) continue;
+        const x = col * TILE_SIZE;
+        const y = row * TILE_SIZE;
+        const badgeR = Math.max(6, TILE_SIZE * 0.2);
+        // Bottom-right corner: 🎨 badge
+        ctx.font = `${Math.round(badgeR * 1.6)}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎨', x + TILE_SIZE - badgeR, y + TILE_SIZE - badgeR);
+      }
+    }
 
     // ── Connection lines (neighbor network) ──────────────────────────────
     const conns = connectionsRef.current;
