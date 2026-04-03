@@ -13,11 +13,12 @@ function categoryPillStyle(color) {
 }
 
 const catColors = {
-  trading: '#f59e0b', research: '#8b5cf6', coding: '#3b82f6',
-  creative: '#ec4899', gaming: '#10b981', social: '#06b6d4',
-  infrastructure: '#64748b', security: '#ef4444', data: '#14b8a6',
-  finance: '#f59e0b', health: '#22c55e', education: '#a78bfa',
-  entertainment: '#fb923c', productivity: '#6366f1', other: '#94a3b8',
+  coding: '#3b82f6',
+  trading: '#f59e0b',
+  research: '#8b5cf6',
+  social: '#06b6d4',
+  infrastructure: '#64748b',
+  other: '#94a3b8',
   uncategorized: '#374151',
 };
 
