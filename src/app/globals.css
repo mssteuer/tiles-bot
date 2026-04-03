@@ -171,7 +171,19 @@ body:not(:has(.app-shell)) { overflow: auto; }
   @apply w-[340px] overflow-y-auto;
 }
 
+/* Activity feed left panel */
+.activity-panel {
+  @apply flex w-10 shrink-0 flex-col overflow-hidden border-r border-border-dim bg-surface-alt;
+  transition: width 0.2s ease;
+}
+.activity-panel.open {
+  @apply w-[220px];
+}
+
 @media (max-width: 640px) {
+  .activity-panel {
+    @apply hidden;
+  }
   .side-panel {
     @apply absolute bottom-0 left-0 right-0 z-20 overflow-y-auto border-l-0 border-t-2 border-border;
     width: 100% !important;

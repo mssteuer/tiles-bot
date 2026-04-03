@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { heartbeat, TOTAL_TILES } from '@/lib/db';
+import { heartbeat, logEvent, TOTAL_TILES } from '@/lib/db';
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -17,6 +17,12 @@ export async function POST(request, { params }) {
   if (!tile) {
     return NextResponse.json({ error: 'Tile not found or not owned by wallet' }, { status: 404 });
   }
+
+  // Log heartbeat to events_log so it appears in the activity feed
+  logEvent('heartbeat', tileId, body.wallet, {
+    tileName: tile.name || `Tile #${tileId}`,
+    tileAvatar: tile.avatar || null,
+  });
 
   return NextResponse.json(tile);
 }
