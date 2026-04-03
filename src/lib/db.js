@@ -1782,30 +1782,30 @@ export function getHeartbeatStats() {
 export function computeRepScore(tileId) {
   const db = getDb();
   const tile = db.prepare('SELECT * FROM tiles WHERE id = ?').get(tileId);
-  if (!tile) return 0;
+  if (!tile) return { total: 0, breakdown: { heartbeat: 0, connections: 0, notes: 0, actions: 0, age: 0, identity: 0, profile: 0 } };
 
-  let score = 0;
+  const breakdown = { heartbeat: 0, connections: 0, notes: 0, actions: 0, age: 0, identity: 0, profile: 0 };
 
   // Heartbeat recency (max 20)
   if (tile.last_heartbeat) {
     const ageSec = (Date.now() - tile.last_heartbeat) / 1000;
-    if (ageSec < 300) score += 20;          // online now (within 5 min)
-    else if (ageSec < 86400) score += 15;   // last 24h
-    else if (ageSec < 604800) score += 8;   // last week
-    else if (ageSec < 2592000) score += 3;  // last month
+    if (ageSec < 300) breakdown.heartbeat = 20;          // online now (within 5 min)
+    else if (ageSec < 86400) breakdown.heartbeat = 15;   // last 24h
+    else if (ageSec < 604800) breakdown.heartbeat = 8;   // last week
+    else if (ageSec < 2592000) breakdown.heartbeat = 3;  // last month
   }
 
   // Connections (max 20)
   const connCount = db.prepare(
     'SELECT COUNT(*) as n FROM tile_connections WHERE from_id = ? OR to_id = ?'
   ).get(tileId, tileId).n;
-  score += Math.min(connCount, 20);
+  breakdown.connections = Math.min(connCount, 20);
 
   // Notes received (max 15)
   const noteCount = db.prepare(
     'SELECT COUNT(*) as n FROM tile_notes WHERE tile_id = ?'
   ).get(tileId).n;
-  score += Math.min(noteCount * 3, 15);
+  breakdown.notes = Math.min(noteCount * 3, 15);
 
   // Actions performed — emotes sent + actions from this tile (max 15)
   const actionCount = db.prepare(
@@ -1814,28 +1814,36 @@ export function computeRepScore(tileId) {
   const emoteCount = db.prepare(
     'SELECT COUNT(*) as n FROM tile_emotes WHERE from_tile = ?'
   ).get(tileId).n;
-  score += Math.min(actionCount + emoteCount, 15);
+  breakdown.actions = Math.min(actionCount + emoteCount, 15);
 
   // Age bonus (max 10)
   if (tile.claimed_at) {
     const ageMs = Date.now() - new Date(tile.claimed_at).getTime();
     const ageDays = ageMs / 86400000;
-    score += Math.min(Math.floor(ageDays / 3), 10); // 1 pt per 3 days, cap 10
+    breakdown.age = Math.min(Math.floor(ageDays / 3), 10); // 1 pt per 3 days, cap 10
   }
 
   // Verified identity (max 10)
-  if (tile.github_verified === 1) score += 5;
-  if (tile.x_verified === 1) score += 5;
+  if (tile.github_verified === 1) breakdown.identity += 5;
+  if (tile.x_verified === 1) breakdown.identity += 5;
 
   // Has profile data (max 10)
   const hasName = tile.name && !tile.name.startsWith('Tile #');
   const hasDesc = !!tile.description;
   const hasImage = !!tile.image_url;
-  if (hasName) score += Math.round(10 / 3);
-  if (hasDesc) score += Math.round(10 / 3);
-  if (hasImage) score += Math.round(10 / 3);
+  if (hasName) breakdown.profile += Math.round(10 / 3);
+  if (hasDesc) breakdown.profile += Math.round(10 / 3);
+  if (hasImage) breakdown.profile += Math.round(10 / 3);
 
-  return Math.min(Math.round(score), 100);
+  const total = Math.min(
+    Math.round(
+      breakdown.heartbeat + breakdown.connections + breakdown.notes +
+      breakdown.actions + breakdown.age + breakdown.identity + breakdown.profile
+    ),
+    100
+  );
+
+  return { total, breakdown };
 }
 
 /**
@@ -1849,7 +1857,7 @@ export function refreshAllRepScores() {
   const updateAll = db.transaction(() => {
     let updated = 0;
     for (const { id } of tiles) {
-      const score = computeRepScore(id);
+      const { total: score } = computeRepScore(id);
       updateStmt.run(score, id);
       updated++;
     }

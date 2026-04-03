@@ -19,8 +19,8 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Tile not found' }, { status: 404 });
   }
 
-  const repScore = computeRepScore(tileId);
-  return NextResponse.json({ tileId, repScore });
+  const { total: repScore, breakdown } = computeRepScore(tileId);
+  return NextResponse.json({ tileId, repScore, breakdown });
 }
 
 /**
@@ -39,6 +39,6 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Tile not found' }, { status: 404 });
   }
 
-  const repScore = computeRepScore(tileId);
-  return NextResponse.json({ tileId, repScore, refreshed: true });
+  const { total: repScore, breakdown } = computeRepScore(tileId);
+  return NextResponse.json({ tileId, repScore, breakdown, refreshed: true });
 }

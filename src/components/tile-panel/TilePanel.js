@@ -108,6 +108,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const [isOwner, setIsOwner] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [viewStats, setViewStats] = useState(null); // { totalViews, todayViews }
+  const [repBreakdown, setRepBreakdown] = useState(null); // { heartbeat, connections, notes, actions, age, identity, profile }
 
   useEffect(() => {
     if (!address || tile.id == null) { setIsOwner(false); return; }
@@ -164,6 +165,17 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
       .catch(() => {});
     return () => { cancelled = true; };
   }, [isClaimed, tile.id]);
+
+  // Fetch rep breakdown for claimed tiles that have a rep score
+  useEffect(() => {
+    if (!isClaimed || tile.id == null || !(tile.repScore > 0)) return;
+    let cancelled = false;
+    fetch(`/api/tiles/${tile.id}/rep`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.breakdown) setRepBreakdown(d.breakdown); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isClaimed, tile.id, tile.repScore]);
 
   function handleEditStart() {
     setFormData({
@@ -626,10 +638,27 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
             <div className="mt-auto flex flex-col gap-1 text-[11px] text-text-gray">
               {tile.repScore != null && tile.repScore > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <span title="Reputation score — earned through heartbeats, connections, notes, and profile completeness">
-                    {tile.repScore >= 80 ? '⭐' : tile.repScore >= 50 ? '✨' : '🔹'}
+                  <span>
+                    {tile.repScore >= 80 ? '⭐' : tile.repScore >= 50 ? '✨' : tile.repScore >= 20 ? '🔹' : '🌱'}
                   </span>
-                  <span title="Reputation score (0–100)">Rep {tile.repScore}/100</span>
+                  <span
+                    title={
+                      repBreakdown
+                        ? [
+                            `Reputation score: ${tile.repScore}/100`,
+                            `Heartbeat freshness: ${repBreakdown.heartbeat} pts`,
+                            `Connections: ${repBreakdown.connections} pts`,
+                            `Notes received: ${repBreakdown.notes} pts`,
+                            `Actions & emotes: ${repBreakdown.actions} pts`,
+                            `Age bonus: ${repBreakdown.age} pts`,
+                            `Verified identity: ${repBreakdown.identity} pts`,
+                            `Profile completeness: ${repBreakdown.profile} pts`,
+                          ].join('\n')
+                        : 'Reputation score (0–100)'
+                    }
+                  >
+                    Rep {tile.repScore}/100
+                  </span>
                 </div>
               )}
               {viewStats != null && viewStats.totalViews > 0 && (
