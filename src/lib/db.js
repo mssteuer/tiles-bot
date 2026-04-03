@@ -176,6 +176,7 @@ function rowToTile(row) {
     xHandleVerified: row.x_handle_verified || null,
     xTweetUrl: row.x_tweet_url || null,
     repScore: row.rep_score != null ? row.rep_score : 0,
+    hasTrophy: row.trophy_expires_at ? new Date(row.trophy_expires_at) > new Date() : false,
   };
 }
 
@@ -1868,3 +1869,170 @@ export function refreshAllRepScores() {
 }
 
 export { ALLOWED_EMOTES };
+
+// — Tile Challenges / Duels ————————————————————————————————————————————
+
+function ensureChallengesTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_challenges (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      challenger_id    INTEGER NOT NULL,
+      defender_id      INTEGER NOT NULL,
+      challenger_wallet TEXT NOT NULL,
+      defender_wallet  TEXT,
+      task_type        TEXT NOT NULL DEFAULT 'general',
+      message          TEXT,
+      status           TEXT NOT NULL DEFAULT 'pending',
+      challenger_score REAL,
+      defender_score   REAL,
+      winner_id        INTEGER,
+      expires_at       TEXT NOT NULL,
+      created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_challenges_challenger ON tile_challenges(challenger_id);
+    CREATE INDEX IF NOT EXISTS idx_challenges_defender ON tile_challenges(defender_id);
+    CREATE INDEX IF NOT EXISTS idx_challenges_status ON tile_challenges(status);
+    CREATE INDEX IF NOT EXISTS idx_challenges_created ON tile_challenges(created_at DESC);
+  `);
+  // Add trophy_expires_at column to tiles if not present
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN trophy_expires_at TEXT`); } catch {}
+}
+ensureChallengesTable();
+
+export const VALID_TASK_TYPES = ['general', 'code_quality', 'trivia', 'market_prediction', 'speed', 'creativity'];
+export const CHALLENGE_EXPIRE_HOURS = 24;
+
+export function issueChallenge(challengerId, defenderId, challengerWallet, taskType = 'general', message = null) {
+  if (!VALID_TASK_TYPES.includes(taskType)) throw new Error(`Invalid task type: ${taskType}`);
+  const db = getDb();
+
+  const challenger = db.prepare('SELECT id, name, owner FROM tiles WHERE id = ?').get(challengerId);
+  const defender = db.prepare('SELECT id, name, owner FROM tiles WHERE id = ?').get(defenderId);
+  if (!challenger) throw new Error('Challenger tile not found');
+  if (!defender) throw new Error('Defender tile not found');
+  if (!defender.owner) throw new Error('Defender tile is not claimed');
+  if (challengerId === defenderId) throw new Error('Cannot challenge yourself');
+  if (challenger.owner?.toLowerCase() !== challengerWallet?.toLowerCase()) throw new Error('Not the owner of challenger tile');
+
+  // Only one active challenge between the same pair at a time
+  const existing = db.prepare(
+    `SELECT id FROM tile_challenges WHERE status IN ('pending','active') AND ((challenger_id = ? AND defender_id = ?) OR (challenger_id = ? AND defender_id = ?)) LIMIT 1`
+  ).get(challengerId, defenderId, defenderId, challengerId);
+  if (existing) throw new Error('A challenge between these tiles is already active');
+
+  const expiresAt = new Date(Date.now() + CHALLENGE_EXPIRE_HOURS * 3600 * 1000).toISOString();
+  const r = db.prepare(
+    `INSERT INTO tile_challenges (challenger_id, defender_id, challenger_wallet, task_type, message, status, expires_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?)`
+  ).run(challengerId, defenderId, challengerWallet, taskType, message?.slice(0, 200) || null, expiresAt);
+  return r.lastInsertRowid;
+}
+
+export function acceptChallenge(challengeId, defenderWallet) {
+  const db = getDb();
+  const ch = db.prepare('SELECT * FROM tile_challenges WHERE id = ?').get(challengeId);
+  if (!ch) throw new Error('Challenge not found');
+  if (ch.status !== 'pending') throw new Error(`Challenge is ${ch.status}`);
+  if (new Date(ch.expires_at) < new Date()) throw new Error('Challenge has expired');
+
+  const defender = db.prepare('SELECT owner FROM tiles WHERE id = ?').get(ch.defender_id);
+  if (defender?.owner?.toLowerCase() !== defenderWallet?.toLowerCase()) throw new Error('Not the defender tile owner');
+
+  db.prepare(`UPDATE tile_challenges SET status = 'active', defender_wallet = ? WHERE id = ?`).run(defenderWallet, challengeId);
+  return db.prepare('SELECT * FROM tile_challenges WHERE id = ?').get(challengeId);
+}
+
+export function submitChallengeScore(challengeId, tileId, wallet, score) {
+  if (typeof score !== 'number' || score < 0 || score > 100) throw new Error('Score must be 0-100');
+  const db = getDb();
+  const ch = db.prepare('SELECT * FROM tile_challenges WHERE id = ?').get(challengeId);
+  if (!ch) throw new Error('Challenge not found');
+  if (ch.status !== 'active') throw new Error(`Challenge is not active (status: ${ch.status})`);
+  if (new Date(ch.expires_at) < new Date()) throw new Error('Challenge has expired');
+
+  const tile = db.prepare('SELECT owner FROM tiles WHERE id = ?').get(tileId);
+  if (tile?.owner?.toLowerCase() !== wallet?.toLowerCase()) throw new Error('Not the tile owner');
+
+  const isChallenger = tileId === ch.challenger_id;
+  const isDefender = tileId === ch.defender_id;
+  if (!isChallenger && !isDefender) throw new Error('Tile is not a participant in this challenge');
+
+  // Update score for this participant
+  if (isChallenger) {
+    db.prepare('UPDATE tile_challenges SET challenger_score = ? WHERE id = ?').run(score, challengeId);
+  } else {
+    db.prepare('UPDATE tile_challenges SET defender_score = ? WHERE id = ?').run(score, challengeId);
+  }
+
+  // Reload and check if both scores are in
+  const updated = db.prepare('SELECT * FROM tile_challenges WHERE id = ?').get(challengeId);
+  if (updated.challenger_score != null && updated.defender_score != null) {
+    // Determine winner
+    let winnerId = null;
+    if (updated.challenger_score > updated.defender_score) winnerId = updated.challenger_id;
+    else if (updated.defender_score > updated.challenger_score) winnerId = updated.defender_id;
+    // Tie = no winner
+    db.prepare('UPDATE tile_challenges SET status = ?, winner_id = ? WHERE id = ?').run('completed', winnerId, challengeId);
+    // Award trophy to winner for 24h
+    if (winnerId != null) {
+      const trophyExpires = new Date(Date.now() + CHALLENGE_EXPIRE_HOURS * 3600 * 1000).toISOString();
+      db.prepare('UPDATE tiles SET trophy_expires_at = ? WHERE id = ?').run(trophyExpires, winnerId);
+    }
+    return db.prepare('SELECT * FROM tile_challenges WHERE id = ?').get(challengeId);
+  }
+  return updated;
+}
+
+export function getTileChallenges(tileId, limit = 20) {
+  const db = getDb();
+  // Expire pending challenges
+  db.prepare(`UPDATE tile_challenges SET status = 'expired' WHERE status IN ('pending','active') AND expires_at < datetime('now')`).run();
+  return db.prepare(
+    `SELECT ch.*,
+       ct.name AS challenger_name, ct.avatar AS challenger_avatar,
+       dt.name AS defender_name, dt.avatar AS defender_avatar,
+       wt.name AS winner_name
+     FROM tile_challenges ch
+     LEFT JOIN tiles ct ON ct.id = ch.challenger_id
+     LEFT JOIN tiles dt ON dt.id = ch.defender_id
+     LEFT JOIN tiles wt ON wt.id = ch.winner_id
+     WHERE ch.challenger_id = ? OR ch.defender_id = ?
+     ORDER BY ch.created_at DESC LIMIT ?`
+  ).all(tileId, tileId, limit);
+}
+
+export function getChallenge(challengeId) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT ch.*,
+       ct.name AS challenger_name, ct.avatar AS challenger_avatar,
+       dt.name AS defender_name, dt.avatar AS defender_avatar,
+       wt.name AS winner_name
+     FROM tile_challenges ch
+     LEFT JOIN tiles ct ON ct.id = ch.challenger_id
+     LEFT JOIN tiles dt ON dt.id = ch.defender_id
+     LEFT JOIN tiles wt ON wt.id = ch.winner_id
+     WHERE ch.id = ?`
+  ).get(challengeId);
+}
+
+export function getChallengersLeaderboard(limit = 20) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT t.id, t.name, t.avatar, t.category, COUNT(ch.id) AS wins
+     FROM tiles t
+     JOIN tile_challenges ch ON ch.winner_id = t.id
+     WHERE ch.status = 'completed'
+     GROUP BY t.id
+     ORDER BY wins DESC
+     LIMIT ?`
+  ).all(limit);
+}
+
+export function hasTrophy(tileId) {
+  const db = getDb();
+  const tile = db.prepare('SELECT trophy_expires_at FROM tiles WHERE id = ?').get(tileId);
+  if (!tile?.trophy_expires_at) return false;
+  return new Date(tile.trophy_expires_at) > new Date();
+}
