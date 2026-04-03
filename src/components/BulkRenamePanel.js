@@ -19,7 +19,13 @@ export default function BulkRenamePanel({ tiles, ownerAddress }) {
   const { signMessageAsync } = useSignMessage();
 
   // Selection
-  const [selectedIds, setSelectedIds] = useState([]);
+  // Tiles with default auto-generated names (e.g. "Tile #1234") — exact match only to avoid
+  // misclassifying intentionally named tiles like "Tile #MyCustomBot".
+  const unnamedTiles = tiles.filter(t => !t.name || /^Tile #\d+$/.test(t.name));
+  const allIds = tiles.map(t => t.id);
+  const unnamedIds = unnamedTiles.map(t => t.id);
+
+  const [selectedIds, setSelectedIds] = useState(unnamedIds);
   const [selectMode, setSelectMode] = useState('unnamed'); // 'unnamed' | 'all' | 'custom'
 
   // Name strategy
@@ -35,11 +41,6 @@ export default function BulkRenamePanel({ tiles, ownerAddress }) {
   const [expanded, setExpanded] = useState(false);
 
   const isOwnerConnected = isConnected && address?.toLowerCase() === ownerAddress?.toLowerCase();
-
-  // Compute unnamed tiles
-  const unnamedTiles = tiles.filter(t => !t.name || t.name.startsWith('Tile #'));
-  const allIds = tiles.map(t => t.id);
-  const unnamedIds = unnamedTiles.map(t => t.id);
 
   function applySelectMode(mode) {
     setSelectMode(mode);
@@ -123,7 +124,7 @@ export default function BulkRenamePanel({ tiles, ownerAddress }) {
           message,
         };
 
-        if (strategy === 'template' && template.includes('{{id}}')) {
+        if (strategy === 'template') {
           payload.updates = sortedIds.map(tileId => {
             const tile = tiles.find(t => t.id === tileId);
             return {
@@ -258,7 +259,7 @@ export default function BulkRenamePanel({ tiles, ownerAddress }) {
                 />
                 {template && selectedIds.length > 0 && (
                   <p className="mt-1 text-[11px] text-text-dim">
-                    Preview: "{template.replace(/\{\{id\}\}/g, selectedIds[0] ?? '123')}"
+                    Preview: "{resolveNameForTile(tiles.find(t => t.id === selectedIds[0]) || { id: selectedIds[0] ?? 123 })}"
                   </p>
                 )}
               </div>
