@@ -7,6 +7,7 @@ import {
   getClaimedCount,
   getTopViewedTiles,
   getTopByReputation,
+  getChallengersLeaderboard,
   TOTAL_TILES,
   checkHeartbeats,
 } from '@/lib/db';
@@ -21,6 +22,7 @@ export async function GET() {
   const totalClaimed = getClaimedCount();
   const mostViewed = getTopViewedTiles(20);
   const topReputation = getTopByReputation(20);
+  const topChallengers = getChallengersLeaderboard(20);
 
   return NextResponse.json({
     topHolders,
@@ -31,5 +33,6 @@ export async function GET() {
     totalTiles: TOTAL_TILES,
     mostViewed,
     topReputation,
+    topChallengers,
   });
 }
