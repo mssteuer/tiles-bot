@@ -86,6 +86,7 @@ function HomeInner() {
   const [blocks, setBlocks] = useState([]);
   const [spans, setSpans] = useState([]);
   const [alliances, setAlliances] = useState({});
+  const [bountyTiles, setBountyTiles] = useState({});
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
   // Intro readiness:
@@ -146,6 +147,7 @@ function HomeInner() {
         if (grid.blocks) setBlocks(grid.blocks);
         if (grid.spans) setSpans(grid.spans);
         if (grid.alliances) setAlliances(grid.alliances);
+        if (grid.bounties) setBountyTiles(grid.bounties);
       }
 
       setBlocks(prev => blockList.length ? blockList : prev);
@@ -376,6 +378,7 @@ function HomeInner() {
           categoryFilter={filterCategory}
           heatmapMode={heatmapMode}
           alliances={alliances}
+          bountyTiles={bountyTiles}
         />
         <div className={`side-panel${panelOpen ? ' open' : ''}`}>
         {panelOpen ? (
