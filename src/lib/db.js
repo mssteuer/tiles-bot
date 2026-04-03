@@ -2198,3 +2198,162 @@ export function getAllAllianceTileMap() {
   }
   return map;
 }
+
+// — Bounty Board ——————————————————————————————————————————————————————
+
+function ensureBountyTables() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_bounties (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      tile_id         INTEGER NOT NULL,
+      title           TEXT NOT NULL,
+      description     TEXT,
+      reward_usdc     REAL NOT NULL DEFAULT 0,
+      status          TEXT NOT NULL DEFAULT 'open',
+      winner_tile_id  INTEGER,
+      expires_at      TEXT,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_tile_bounties_tile ON tile_bounties(tile_id);
+    CREATE INDEX IF NOT EXISTS idx_tile_bounties_status ON tile_bounties(status);
+
+    CREATE TABLE IF NOT EXISTS bounty_submissions (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      bounty_id         INTEGER NOT NULL REFERENCES tile_bounties(id) ON DELETE CASCADE,
+      submitter_tile_id INTEGER NOT NULL,
+      answer_text       TEXT,
+      url               TEXT,
+      created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_bounty_submissions_bounty ON bounty_submissions(bounty_id);
+  `);
+}
+ensureBountyTables();
+
+export function createBounty(tileId, { title, description, reward_usdc, expires_at, wallet }) {
+  const db = getDb();
+  const tile = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(tileId);
+  if (!tile) throw new Error('Tile not found');
+  if (!tile.owner) throw new Error('Tile is not claimed');
+  if (tile.owner.toLowerCase() !== wallet.toLowerCase()) throw new Error('Not the owner of this tile');
+  if (!title || title.length < 3 || title.length > 100) throw new Error('Title must be 3-100 characters');
+  const reward = parseFloat(reward_usdc) || 0;
+  if (reward < 0) throw new Error('Reward must be non-negative');
+
+  const result = db.prepare(
+    `INSERT INTO tile_bounties (tile_id, title, description, reward_usdc, expires_at)
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(tileId, title, description || null, reward, expires_at || null);
+  return getBounty(Number(result.lastInsertRowid));
+}
+
+export function getBounty(bountyId) {
+  const db = getDb();
+  const bounty = db.prepare('SELECT * FROM tile_bounties WHERE id = ?').get(bountyId);
+  if (!bounty) return null;
+  const submissions = db.prepare(
+    `SELECT bs.*, t.name as submitter_name, t.avatar as submitter_avatar
+     FROM bounty_submissions bs
+     LEFT JOIN tiles t ON t.id = bs.submitter_tile_id
+     WHERE bs.bounty_id = ? ORDER BY bs.created_at ASC`
+  ).all(bountyId);
+  return { ...bounty, submissions, submission_count: submissions.length };
+}
+
+export function getTileBounties(tileId, { status } = {}) {
+  const db = getDb();
+  // Auto-expire overdue bounties
+  db.prepare(
+    `UPDATE tile_bounties SET status = 'expired'
+     WHERE tile_id = ? AND status = 'open' AND expires_at IS NOT NULL AND expires_at < datetime('now')`
+  ).run(tileId);
+
+  let query = 'SELECT * FROM tile_bounties WHERE tile_id = ?';
+  const args = [tileId];
+  if (status) { query += ' AND status = ?'; args.push(status); }
+  query += ' ORDER BY created_at DESC';
+  const bounties = db.prepare(query).all(...args);
+  return bounties.map(b => ({
+    ...b,
+    submission_count: db.prepare('SELECT COUNT(*) as n FROM bounty_submissions WHERE bounty_id = ?').get(b.id).n,
+  }));
+}
+
+export function getGlobalBounties({ status = 'open', limit = 50 } = {}) {
+  const db = getDb();
+  // Auto-expire globally
+  db.prepare(
+    `UPDATE tile_bounties SET status = 'expired'
+     WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at < datetime('now')`
+  ).run();
+
+  return db.prepare(
+    `SELECT b.*, t.name as tile_name, t.avatar as tile_avatar, t.owner as tile_owner,
+            (SELECT COUNT(*) FROM bounty_submissions WHERE bounty_id = b.id) as submission_count
+     FROM tile_bounties b
+     LEFT JOIN tiles t ON t.id = b.tile_id
+     WHERE b.status = ?
+     ORDER BY b.reward_usdc DESC, b.created_at DESC
+     LIMIT ?`
+  ).all(status, limit);
+}
+
+export function claimBounty(bountyId, submitterTileId, wallet) {
+  // "claiming" = expressing intent + first submission placeholder
+  const db = getDb();
+  const bounty = db.prepare('SELECT * FROM tile_bounties WHERE id = ?').get(bountyId);
+  if (!bounty) throw new Error('Bounty not found');
+  if (bounty.status !== 'open') throw new Error(`Bounty is ${bounty.status}`);
+  const tile = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(submitterTileId);
+  if (!tile || !tile.owner) throw new Error('Submitter tile not claimed');
+  if (tile.owner.toLowerCase() !== wallet.toLowerCase()) throw new Error('Not the owner of this tile');
+  if (bounty.tile_id === submitterTileId) throw new Error('Cannot claim your own bounty');
+  const existing = db.prepare('SELECT id FROM bounty_submissions WHERE bounty_id = ? AND submitter_tile_id = ?').get(bountyId, submitterTileId);
+  if (existing) throw new Error('Already claimed/submitted');
+  db.prepare('INSERT INTO bounty_submissions (bounty_id, submitter_tile_id) VALUES (?, ?)').run(bountyId, submitterTileId);
+  return getBounty(bountyId);
+}
+
+export function submitBountyAnswer(bountyId, submitterTileId, { answer_text, url, wallet }) {
+  const db = getDb();
+  const bounty = db.prepare('SELECT * FROM tile_bounties WHERE id = ?').get(bountyId);
+  if (!bounty) throw new Error('Bounty not found');
+  if (bounty.status !== 'open') throw new Error(`Bounty is ${bounty.status}`);
+  const tile = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(submitterTileId);
+  if (!tile || !tile.owner) throw new Error('Submitter tile not claimed');
+  if (tile.owner.toLowerCase() !== wallet.toLowerCase()) throw new Error('Not the owner of this tile');
+  if (bounty.tile_id === submitterTileId) throw new Error('Cannot submit to your own bounty');
+
+  const existing = db.prepare('SELECT id FROM bounty_submissions WHERE bounty_id = ? AND submitter_tile_id = ?').get(bountyId, submitterTileId);
+  if (existing) {
+    db.prepare('UPDATE bounty_submissions SET answer_text = ?, url = ? WHERE id = ?').run(answer_text || null, url || null, existing.id);
+  } else {
+    db.prepare('INSERT INTO bounty_submissions (bounty_id, submitter_tile_id, answer_text, url) VALUES (?, ?, ?, ?)').run(bountyId, submitterTileId, answer_text || null, url || null);
+  }
+  return getBounty(bountyId);
+}
+
+export function awardBounty(bountyId, winnerTileId, wallet) {
+  const db = getDb();
+  const bounty = db.prepare('SELECT * FROM tile_bounties WHERE id = ?').get(bountyId);
+  if (!bounty) throw new Error('Bounty not found');
+  if (bounty.status !== 'open') throw new Error(`Bounty is ${bounty.status}`);
+  const ownerTile = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(bounty.tile_id);
+  if (!ownerTile || ownerTile.owner.toLowerCase() !== wallet.toLowerCase()) throw new Error('Only the tile owner can award');
+  const winnerExists = db.prepare('SELECT id FROM bounty_submissions WHERE bounty_id = ? AND submitter_tile_id = ?').get(bountyId, winnerTileId);
+  if (!winnerExists) throw new Error('Winner tile has no submission');
+
+  db.prepare('UPDATE tile_bounties SET status = ?, winner_tile_id = ? WHERE id = ?').run('awarded', winnerTileId, bountyId);
+  return getBounty(bountyId);
+}
+
+export function getTilesWithOpenBounties() {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT tile_id, COUNT(*) as count FROM tile_bounties WHERE status = 'open' GROUP BY tile_id`
+  ).all();
+  const map = {};
+  for (const r of rows) map[r.tile_id] = r.count;
+  return map;
+}

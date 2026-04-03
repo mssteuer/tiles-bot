@@ -526,7 +526,122 @@ const TABS = [
   { id: 'messages', label: 'DMs' },
   { id: 'challenges', label: '⚔️' },
   { id: 'alliance', label: '🤝' },
+  { id: 'bounties', label: '💰' },
 ];
+
+function BountiesTab({ tile, address, ownedTiles, isOwner }) {
+  const [bounties, setBounties] = useState([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', reward_usdc: '', expires_at: '' });
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const fetchBounties = useCallback(() => {
+    fetch(`/api/tiles/${tile.id}/bounties`).then(r => r.json()).then(d => setBounties(d.bounties || [])).catch(() => {});
+  }, [tile.id]);
+
+  useEffect(() => { fetchBounties(); }, [fetchBounties]);
+
+  async function handleCreate() {
+    if (!form.title.trim() || !address) return;
+    setLoading(true); setMsg('');
+    const res = await fetch(`/api/tiles/${tile.id}/bounties`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...form, wallet: address }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { setMsg(data.error || 'Failed'); return; }
+    setMsg('Bounty posted!');
+    setForm({ title: '', description: '', reward_usdc: '', expires_at: '' });
+    setShowCreate(false);
+    fetchBounties();
+  }
+
+  async function handleSubmit(bountyId) {
+    const answer = prompt('Your answer (text or URL):');
+    if (!answer || !address) return;
+    const fromTile = ownedTiles?.[0];
+    if (fromTile == null) { alert('You need to own a tile to submit'); return; }
+    const isUrl = answer.startsWith('http');
+    const res = await fetch(`/api/tiles/${tile.id}/bounties/${bountyId}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tile_id: fromTile,
+        [isUrl ? 'url' : 'answer_text']: answer,
+        wallet: address,
+      }),
+    });
+    if (res.ok) { fetchBounties(); } else { const d = await res.json(); alert(d.error || 'Failed'); }
+  }
+
+  function timeLeft(expiresAt) {
+    if (!expiresAt) return null;
+    const ms = new Date(expiresAt + 'Z').getTime() - Date.now();
+    if (ms <= 0) return 'expired';
+    const h = Math.floor(ms / 3600000);
+    return h < 24 ? `${h}h left` : `${Math.floor(h / 24)}d left`;
+  }
+
+  return (
+    <div className="space-y-3">
+      {isOwner && (
+        <div>
+          {!showCreate ? (
+            <button onClick={() => setShowCreate(true)} className="btn-retro btn-retro-primary px-3 py-1.5 text-[12px] w-full">
+              + Post Bounty
+            </button>
+          ) : (
+            <div className="rounded border border-border-bright bg-surface-2 p-3 space-y-2">
+              <div className="text-[11px] font-semibold text-text-dim uppercase tracking-wide">New Bounty</div>
+              <input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="What do you need?" maxLength={100} className="retro-input w-full text-[12px]" />
+              <textarea value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} placeholder="Details (optional)" maxLength={500} rows={2} className="retro-input w-full text-[12px]" />
+              <div className="flex gap-2">
+                <input value={form.reward_usdc} onChange={e => setForm(f => ({...f, reward_usdc: e.target.value}))} placeholder="Reward (USDC)" type="number" step="0.01" min="0" className="retro-input flex-1 text-[12px]" />
+                <input value={form.expires_at} onChange={e => setForm(f => ({...f, expires_at: e.target.value}))} type="datetime-local" className="retro-input flex-1 text-[12px]" />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleCreate} disabled={loading || !form.title.trim()} className="btn-retro btn-retro-primary px-3 py-1 text-[12px] flex-1">Post</button>
+                <button onClick={() => setShowCreate(false)} className="btn-retro px-3 py-1 text-[12px] flex-1">Cancel</button>
+              </div>
+              {msg && <div className="text-[11px] text-accent-blue">{msg}</div>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {bounties.length === 0 ? (
+        <div className="text-[12px] text-text-dim text-center py-3">No bounties posted yet.</div>
+      ) : (
+        <div className="space-y-2">
+          {bounties.map(b => (
+            <div key={b.id} className="rounded border border-border-bright bg-surface-2 p-2.5">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <span className="font-semibold text-[12px] text-text">{b.title}</span>
+                {b.reward_usdc > 0 && (
+                  <span className="text-[11px] font-bold text-accent-blue bg-accent-blue/10 px-1.5 py-0.5 rounded flex-shrink-0">${b.reward_usdc}</span>
+                )}
+              </div>
+              {b.description && <p className="text-[11px] text-text-dim mb-1.5 line-clamp-2">{b.description}</p>}
+              <div className="flex items-center gap-2 text-[10px] text-text-dim">
+                <span className={`px-1.5 py-0.5 rounded ${b.status === 'open' ? 'bg-green-500/15 text-green-400' : b.status === 'awarded' ? 'bg-purple-500/15 text-purple-400' : 'bg-gray-500/15 text-gray-400'}`}>{b.status}</span>
+                <span>{b.submission_count} sub{b.submission_count !== 1 ? 's' : ''}</span>
+                {b.expires_at && <span className="text-yellow-400">{timeLeft(b.expires_at)}</span>}
+                {b.status === 'open' && !isOwner && address && ownedTiles?.length > 0 && (
+                  <button onClick={() => handleSubmit(b.id)} className="ml-auto btn-retro px-2 py-0.5 text-[10px]">Submit</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <a href="/bounties" target="_blank" className="block text-center text-[11px] text-accent-blue hover:underline">View all bounties →</a>
+    </div>
+  );
+}
 
 function AllianceTab({ tile, address, ownedTiles }) {
   const [alliance, setAlliance] = useState(null);
@@ -693,6 +808,7 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
       {tab === 'messages' && <MessagesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
       {tab === 'challenges' && <ChallengesTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} />}
       {tab === 'alliance' && <AllianceTab tile={tile} address={address} ownedTiles={ownedTiles} />}
+      {tab === 'bounties' && <BountiesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
     </div>
   );
 }
