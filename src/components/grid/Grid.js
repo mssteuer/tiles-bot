@@ -11,7 +11,7 @@ import SelectionOverlay from './SelectionOverlay';
 import ToolToggle from './ToolToggle';
 import { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, imageCache, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile } from './utils';
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles, pixelWars = {} }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -252,6 +252,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   const bountyTilesRef = useRef(bountyTiles || {});
   useEffect(() => { bountyTilesRef.current = bountyTiles || {}; }, [bountyTiles]);
+
+  const pixelWarsRef = useRef(pixelWars || {});
+  useEffect(() => { pixelWarsRef.current = pixelWars || {}; }, [pixelWars]);
 
   // Block tiles feature removed
 
@@ -740,6 +743,26 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             }
           }
 
+          ctx.restore();
+        }
+
+        const pixelPaint = pixelWarsRef.current && pixelWarsRef.current[id];
+        if (!tile && pixelPaint) {
+          ctx.save();
+          ctx.fillStyle = `${pixelPaint.color}99`;
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          if (cam.zoom > 0.2) {
+            ctx.strokeStyle = pixelPaint.color;
+            ctx.lineWidth = 2 / cam.zoom;
+            ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+          }
+          if (cam.zoom > 0.6) {
+            ctx.fillStyle = '#fff';
+            ctx.font = `${Math.max(8, TILE_SIZE * 0.28)}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🎨', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+          }
           ctx.restore();
         }
 
