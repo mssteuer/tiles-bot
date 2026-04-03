@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { isUnnamedTile } from '@/lib/tileUtils';
@@ -13,13 +13,13 @@ function supportsPerTileNames(template) {
   return /#\{\s*id\s*\}/.test(template);
 }
 
-const BATCH_SIZE = 50; // API limit per request
+const BATCH_SIZE = 500; // Keep large bulk renames to one signature for typical owner batches
 
 export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles }) {
   const router = useRouter();
   const { address: connectedAddress, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const [tiles, setTiles] = useState(initialTiles || []);
+  const [tiles] = useState(initialTiles || []);
   const [selectedTileIds, setSelectedTileIds] = useState([]);
   const [nameInput, setNameInput] = useState('My Bot Fleet');
   const [submitting, setSubmitting] = useState(false);
@@ -60,14 +60,6 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
     setMessage('Selection cleared.');
   }
 
-  const refreshTiles = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/owner/${ownerAddress}`);
-      const data = await res.json().catch(() => null);
-      if (res.ok && data?.tiles) setTiles(data.tiles);
-    } catch { /* ignore */ }
-  }, [ownerAddress]);
-
   async function handleBulkRename(e) {
     e.preventDefault();
     if (!selectedTileIds.length) {
@@ -89,11 +81,6 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
       return;
     }
 
-    if (supportsPerTileNames(nameInput)) {
-      setMessage('Per-tile templates are not compatible with the signed batch endpoint. Use one shared name for the selected tiles.', true);
-      return;
-    }
-
     if (!isConnected || !connectedAddress) {
       setMessage('Connect the owner wallet to rename tiles.', true);
       return;
@@ -112,32 +99,33 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
     const allErrors = [];
 
     try {
-      // Batch in groups of BATCH_SIZE (API limit is 50)
+      // Batch in groups of BATCH_SIZE (endpoint limit is 1,000 tiles per request)
       for (let i = 0; i < updates.length; i += BATCH_SIZE) {
         const batch = updates.slice(i, i + BATCH_SIZE);
         const firstName = batch[0]?.name;
         const sameNameForBatch = batch.every(update => update.name === firstName);
-        if (!sameNameForBatch) {
-          allErrors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1} uses multiple names, which /api/tiles/batch-update does not support`);
-          setProgress({ done: Math.min(i + BATCH_SIZE, updates.length), total: updates.length });
-          continue;
-        }
-
         const tileIds = batch.map(update => update.id).sort((a, b) => a - b);
         const timestamp = Math.floor(Date.now() / 1000);
         const message = `tiles.bot:batch-update:${tileIds.join(',')}:${timestamp}`;
         const signature = await signMessageAsync({ message });
 
+        const requestBody = {
+          wallet: connectedAddress,
+          tileIds,
+          signature,
+          message,
+        };
+
+        if (sameNameForBatch) {
+          requestBody.metadata = { name: firstName };
+        } else {
+          requestBody.updates = batch.map(update => ({ id: update.id, metadata: { name: update.name } }));
+        }
+
         const res = await fetch('/api/tiles/batch-update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wallet: connectedAddress,
-            tileIds,
-            metadata: { name: firstName },
-            signature,
-            message,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         const data = await res.json().catch(() => null);
@@ -153,7 +141,6 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
         setProgress({ done: Math.min(i + BATCH_SIZE, updates.length), total: updates.length });
       }
 
-      await refreshTiles();
       router.refresh();
       setSelectedTileIds([]);
       setProgress(null);
@@ -188,7 +175,7 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
         <div>
           <h2 className="text-[18px] font-bold text-text">Bulk rename tiles</h2>
           <p className="mt-1 text-[13px] text-text-light">
-            Select unnamed tiles and apply the same name to all selected tiles in one signed batch request.
+            Select unnamed tiles and apply one shared name or a template like <span className="font-semibold text-text">Bot #{'{id}'}</span> in one signed batch request.
           </p>
         </div>
         <div className="text-right text-[12px] text-text-dim">
@@ -274,7 +261,7 @@ export default function OwnerDashboardBulkRename({ ownerAddress, initialTiles })
       )}
 
       <div className="rounded-xl border border-border-dim bg-surface-dark p-4 text-[13px] text-text-light">
-        Use <span className="font-semibold text-text">Select all unnamed tiles</span> to target default tile names automatically, then run one signed batch rename for the current selection.
+        Use <span className="font-semibold text-text">Select all unnamed tiles</span> to target default tile names automatically, then rename them with either one shared name or a per-tile template like <span className="font-semibold text-text">Bot #{'{id}'}</span>.
       </div>
     </div>
   );

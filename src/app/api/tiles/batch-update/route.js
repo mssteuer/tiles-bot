@@ -15,8 +15,8 @@ import { verifyWalletSignature } from '@/lib/verify-wallet-sig';
  * Body: {
  *   wallet: "0x...",
  *   tileIds: [1, 2, 3, ...],        // which tiles to update
- *   metadata: {                      // fields to apply to all tiles
- *     name?: string,                 // if omitted, each tile keeps its name
+ *   metadata: {                      // optional: fields to apply to all tiles
+ *     name?: string,
  *     avatar?: string,
  *     description?: string,
  *     category?: string,
@@ -25,6 +25,10 @@ import { verifyWalletSignature } from '@/lib/verify-wallet-sig';
  *     xHandle?: string,
  *     imageUrl?: string,
  *   },
+ *   updates: [                       // optional: per-tile metadata overrides
+ *     { id: 1, metadata: { name: "Bot #1" } },
+ *     { id: 2, metadata: { name: "Bot #2" } }
+ *   ],
  *   signature: "0x...",             // sign the message below
  *   message: "tiles.bot:batch-update:{sorted_ids}:{ts}", // message that was signed
  * }
@@ -42,12 +46,19 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { wallet, tileIds, metadata, signature, message } = body;
+  const { wallet, tileIds, metadata, updates, signature, message } = body;
 
   // Basic validation
-  if (!wallet || !Array.isArray(tileIds) || !tileIds.length || !metadata || !signature || !message) {
+  if (!wallet || !Array.isArray(tileIds) || !tileIds.length || !signature || !message) {
     return NextResponse.json(
-      { error: 'wallet, tileIds[], metadata, signature, and message are required' },
+      { error: 'wallet, tileIds[], signature, and message are required' },
+      { status: 400 }
+    );
+  }
+
+  if (!metadata && !Array.isArray(updates)) {
+    return NextResponse.json(
+      { error: 'Provide metadata for shared updates or updates[] for per-tile updates' },
       { status: 400 }
     );
   }
@@ -93,11 +104,35 @@ export async function POST(request) {
 
   // Only allow known metadata fields
   const ALLOWED = ['name', 'avatar', 'description', 'category', 'color', 'url', 'xHandle', 'imageUrl'];
-  const filteredMeta = {};
-  for (const key of ALLOWED) {
-    if (metadata[key] !== undefined) filteredMeta[key] = metadata[key];
+  const filterMetadata = (input) => {
+    const filtered = {};
+    if (!input || typeof input !== 'object') return filtered;
+    for (const key of ALLOWED) {
+      if (input[key] !== undefined) filtered[key] = input[key];
+    }
+    return filtered;
+  };
+
+  const filteredMeta = filterMetadata(metadata);
+  const updatesById = new Map();
+
+  if (Array.isArray(updates)) {
+    for (const update of updates) {
+      const id = Number(update?.id);
+      if (!Number.isInteger(id) || !validIds.includes(id)) {
+        return NextResponse.json({ error: `Invalid update id: ${update?.id}` }, { status: 400 });
+      }
+
+      const filteredUpdate = filterMetadata(update?.metadata);
+      if (Object.keys(filteredUpdate).length === 0) {
+        return NextResponse.json({ error: `No valid metadata fields for tile ${id}` }, { status: 400 });
+      }
+
+      updatesById.set(id, filteredUpdate);
+    }
   }
-  if (Object.keys(filteredMeta).length === 0) {
+
+  if (Object.keys(filteredMeta).length === 0 && updatesById.size === 0) {
     return NextResponse.json({ error: 'No valid metadata fields provided' }, { status: 400 });
   }
 
@@ -118,7 +153,9 @@ export async function POST(request) {
     }
 
     try {
-      updateTileMetadata(Number(tileId), filteredMeta);
+      const perTileMeta = updatesById.get(Number(tileId));
+      const nextMeta = perTileMeta || filteredMeta;
+      updateTileMetadata(Number(tileId), nextMeta);
       updated++;
     } catch (err) {
       errors.push({ tileId, error: String(err.message || err) });
@@ -129,7 +166,10 @@ export async function POST(request) {
   if (updated > 0) {
     logEvent('batch_metadata_updated', null, wallet, {
       count: updated,
-      fields: Object.keys(filteredMeta),
+      fields: Array.from(new Set([
+        ...Object.keys(filteredMeta),
+        ...Array.from(updatesById.values()).flatMap(Object.keys),
+      ])),
     });
   }
 
