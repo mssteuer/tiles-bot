@@ -2042,3 +2042,159 @@ export function hasTrophy(tileId) {
   if (!tile?.trophy_expires_at) return false;
   return new Date(tile.trophy_expires_at) > new Date();
 }
+
+// — Territory Alliances ————————————————————————————————————————————
+
+function ensureAllianceTables() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tile_alliances (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      name            TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      color           TEXT NOT NULL,
+      founder_tile_id INTEGER NOT NULL,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS alliance_members (
+      alliance_id INTEGER NOT NULL REFERENCES tile_alliances(id) ON DELETE CASCADE,
+      tile_id     INTEGER NOT NULL UNIQUE,
+      joined_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (alliance_id, tile_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_alliance_members_tile ON alliance_members(tile_id);
+    CREATE INDEX IF NOT EXISTS idx_alliance_members_alliance ON alliance_members(alliance_id);
+  `);
+}
+ensureAllianceTables();
+
+const GRID = 256;
+
+function areAdjacent(id1, id2) {
+  const x1 = id1 % GRID, y1 = Math.floor(id1 / GRID);
+  const x2 = id2 % GRID, y2 = Math.floor(id2 / GRID);
+  return Math.abs(x1 - x2) + Math.abs(y1 - y2) === 1;
+}
+
+export function createAlliance(name, color, founderTileId, wallet) {
+  const db = getDb();
+  const tile = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(founderTileId);
+  if (!tile) throw new Error('Tile not found');
+  if (!tile.owner) throw new Error('Tile is not claimed');
+  if (tile.owner.toLowerCase() !== wallet.toLowerCase()) throw new Error('Not the owner of this tile');
+
+  const existing = db.prepare('SELECT alliance_id FROM alliance_members WHERE tile_id = ?').get(founderTileId);
+  if (existing) throw new Error('Tile is already in an alliance');
+
+  if (!name || name.length < 2 || name.length > 32) throw new Error('Alliance name must be 2-32 characters');
+  if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) throw new Error('Color must be a hex color like #FF5500');
+
+  const tx = db.transaction(() => {
+    const result = db.prepare(
+      'INSERT INTO tile_alliances (name, color, founder_tile_id) VALUES (?, ?, ?)'
+    ).run(name, color, founderTileId);
+    const allianceId = Number(result.lastInsertRowid);
+    db.prepare(
+      'INSERT INTO alliance_members (alliance_id, tile_id) VALUES (?, ?)'
+    ).run(allianceId, founderTileId);
+    return allianceId;
+  });
+  const allianceId = tx();
+  return getAlliance(allianceId);
+}
+
+export function joinAlliance(allianceId, tileId, wallet) {
+  const db = getDb();
+  const tile = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(tileId);
+  if (!tile) throw new Error('Tile not found');
+  if (!tile.owner) throw new Error('Tile is not claimed');
+  if (tile.owner.toLowerCase() !== wallet.toLowerCase()) throw new Error('Not the owner of this tile');
+
+  const existing = db.prepare('SELECT alliance_id FROM alliance_members WHERE tile_id = ?').get(tileId);
+  if (existing) throw new Error('Tile is already in an alliance');
+
+  const alliance = db.prepare('SELECT id FROM tile_alliances WHERE id = ?').get(allianceId);
+  if (!alliance) throw new Error('Alliance not found');
+
+  const members = db.prepare('SELECT tile_id FROM alliance_members WHERE alliance_id = ?').all(allianceId);
+  const isAdjacentToAny = members.some(m => areAdjacent(m.tile_id, tileId));
+  if (!isAdjacentToAny) throw new Error('Tile must be adjacent to at least one alliance member');
+
+  db.prepare('INSERT INTO alliance_members (alliance_id, tile_id) VALUES (?, ?)').run(allianceId, tileId);
+  return getAlliance(allianceId);
+}
+
+export function leaveAlliance(allianceId, tileId, wallet) {
+  const db = getDb();
+  const tile = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(tileId);
+  if (!tile) throw new Error('Tile not found');
+  if (tile.owner.toLowerCase() !== wallet.toLowerCase()) throw new Error('Not the owner of this tile');
+
+  const result = db.prepare('DELETE FROM alliance_members WHERE alliance_id = ? AND tile_id = ?').run(allianceId, tileId);
+  if (result.changes === 0) throw new Error('Tile is not a member of this alliance');
+
+  const remaining = db.prepare('SELECT COUNT(*) as n FROM alliance_members WHERE alliance_id = ?').get(allianceId);
+  if (remaining.n === 0) {
+    db.prepare('DELETE FROM tile_alliances WHERE id = ?').run(allianceId);
+    return null;
+  }
+  return getAlliance(allianceId);
+}
+
+export function getAlliance(allianceId) {
+  const db = getDb();
+  const alliance = db.prepare('SELECT * FROM tile_alliances WHERE id = ?').get(allianceId);
+  if (!alliance) return null;
+  const members = db.prepare(
+    `SELECT am.tile_id, am.joined_at, t.name, t.avatar, t.owner
+     FROM alliance_members am
+     JOIN tiles t ON t.id = am.tile_id
+     WHERE am.alliance_id = ?
+     ORDER BY am.joined_at ASC`
+  ).all(allianceId);
+  return { ...alliance, members, member_count: members.length };
+}
+
+export function getAlliances(limit = 50) {
+  const db = getDb();
+  return db.prepare(
+    `SELECT a.id, a.name, a.color, a.founder_tile_id, a.created_at,
+            COUNT(m.tile_id) as member_count
+     FROM tile_alliances a
+     LEFT JOIN alliance_members m ON m.alliance_id = a.id
+     GROUP BY a.id
+     ORDER BY member_count DESC
+     LIMIT ?`
+  ).all(limit);
+}
+
+export function getTileAlliance(tileId) {
+  const db = getDb();
+  const membership = db.prepare(
+    `SELECT a.*, am.joined_at,
+            (SELECT COUNT(*) FROM alliance_members WHERE alliance_id = a.id) as member_count
+     FROM alliance_members am
+     JOIN tile_alliances a ON a.id = am.alliance_id
+     WHERE am.tile_id = ?`
+  ).get(tileId);
+  return membership || null;
+}
+
+export function getAllianceTileIds(allianceId) {
+  const db = getDb();
+  return db.prepare('SELECT tile_id FROM alliance_members WHERE alliance_id = ?')
+    .all(allianceId).map(r => r.tile_id);
+}
+
+export function getAllAllianceTileMap() {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT am.tile_id, a.id as alliance_id, a.color
+     FROM alliance_members am
+     JOIN tile_alliances a ON a.id = am.alliance_id`
+  ).all();
+  const map = {};
+  for (const r of rows) {
+    map[r.tile_id] = { alliance_id: r.alliance_id, color: r.color };
+  }
+  return map;
+}

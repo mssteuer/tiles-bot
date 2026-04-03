@@ -11,7 +11,7 @@ import SelectionOverlay from './SelectionOverlay';
 import ToolToggle from './ToolToggle';
 import { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, imageCache, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile } from './utils';
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -534,6 +534,22 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
           ctx.save();
           if (!tileMatches) ctx.globalAlpha = 0.25;
+
+          // ── Alliance border glow (below rep/heartbeat glow) ──
+          if (alliances && alliances[id]) {
+            const allianceColor = alliances[id].color || '#888888';
+            // Parse hex color to rgba
+            const r = parseInt(allianceColor.slice(1, 3), 16);
+            const g = parseInt(allianceColor.slice(3, 5), 16);
+            const b = parseInt(allianceColor.slice(5, 7), 16);
+            const a = 0.3 + 0.15 * pulse;
+            ctx.strokeStyle = `rgba(${r},${g},${b},${a.toFixed(3)})`;
+            ctx.lineWidth = 2 / cam.zoom;
+            ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+            // Subtle inner fill
+            ctx.fillStyle = `rgba(${r},${g},${b},0.06)`;
+            ctx.fillRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+          }
 
           // ── Reputation glow halo (subtle, below heartbeat glow) ──
           if (tile.repScore != null && tile.repScore > 0) {
