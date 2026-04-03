@@ -1367,13 +1367,18 @@ export function getRecentActivity(limit = 50) {
   return rows.map(row => {
     let meta = {};
     try { meta = JSON.parse(row.metadata || '{}'); } catch {}
+    // Normalize SQLite datetime ("YYYY-MM-DD HH:MM:SS") to ISO 8601 so JS Date comparison works correctly
+    const rawTs = row.created_at || '';
+    const timestamp = rawTs.includes('T') ? rawTs : rawTs.replace(' ', 'T') + 'Z';
+    // Map stored type aliases to canonical component type names
+    const type = row.type === 'emote' ? 'tile_emote' : row.type;
     return {
-      type: row.type,
+      type,
       tileId: row.tile_id,
       tileName: meta.tileName || row.tile_name || (row.tile_id ? `Tile #${row.tile_id}` : 'Grid'),
       tileAvatar: meta.tileAvatar || row.tile_avatar || null,
       owner: row.actor || row.tile_owner || '',
-      timestamp: row.created_at,
+      timestamp,
       meta,
     };
   });
