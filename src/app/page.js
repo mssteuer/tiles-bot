@@ -367,6 +367,7 @@ function HomeInner() {
             }}
             collapsed={!activityFeedOpen}
             onToggleCollapse={() => setActivityFeedOpen(v => !v)}
+            address={address}
           />
         </div>
         <Grid
