@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { paintPixelWarsTile, refreshPixelWarsChampionBadge, logEvent, TOTAL_TILES } from '@/lib/db';
 import { verifyWalletSignature, verifyTileOwnership } from '@/lib/verify-wallet-sig';
 
+function isValidPixelWarsColor(value) {
+  return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value.trim());
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -10,11 +14,12 @@ export async function POST(req) {
     const walletMsg = body.message || req.headers.get('x-wallet-message');
     const tileId = Number(body.tileId);
     const sourceTileId = Number(body.sourceTileId);
-    const color = body.color;
+    const color = typeof body.color === 'string' ? body.color.trim() : '';
 
     if (!Number.isInteger(tileId) || tileId < 0 || tileId >= TOTAL_TILES) return NextResponse.json({ error: 'Invalid tileId' }, { status: 400 });
     if (!Number.isInteger(sourceTileId) || sourceTileId < 0 || sourceTileId >= TOTAL_TILES) return NextResponse.json({ error: 'Invalid sourceTileId' }, { status: 400 });
     if (!wallet) return NextResponse.json({ error: 'Wallet is required' }, { status: 400 });
+    if (!isValidPixelWarsColor(color)) return NextResponse.json({ error: 'Color must be a hex value like #FF5500' }, { status: 400 });
     if (!walletSig || !walletMsg) {
       return NextResponse.json({ error: 'Auth required (message + signature)' }, { status: 401 });
     }
@@ -29,7 +34,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Auth signature expired (10-minute window)' }, { status: 401 });
     }
 
-    const sigValid = await verifyWalletSignature(walletMsg, walletSig, wallet);
+    const sigValid = await verifyWalletSignature(walletMsg, walletSig, wallet).catch(() => false);
     if (!sigValid) {
       return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
     }
