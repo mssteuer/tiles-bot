@@ -36,8 +36,6 @@ export default function PixelWarsPanel({ tile, address, isOwner, allTiles, onNav
     fetch('/api/games/pixel-wars').then(r => r.json()).then(setSummary).catch(() => {});
   }, [tile.id]);
 
-  if (!isOwner) return null;
-
   async function handlePaint() {
     if (selectedTarget == null || !address) return;
     setSaving(true);
@@ -55,6 +53,20 @@ export default function PixelWarsPanel({ tile, address, isOwner, allTiles, onNav
       if (!res.ok) throw new Error(data.error || 'Paint failed');
       setMessage(`Painted tile #${selectedTarget}. The color will expire in 1 hour.`);
       onPainted?.(data);
+      setSummary(prev => {
+        if (!prev) return prev;
+        const leaderboard = Array.isArray(prev.leaderboard) ? prev.leaderboard : [];
+        const currentLeader = data.champion?.tileId != null
+          ? leaderboard.find(entry => entry.sourceTileId === data.champion.tileId) || leaderboard[0]
+          : leaderboard[0];
+        if (!currentLeader) return prev;
+        return {
+          ...prev,
+          paintsThisHour: (prev.paintsThisHour || 0) + 1,
+          activePaintedTiles: prev.activePaintedTiles,
+          leaderboard: [currentLeader, ...leaderboard.filter(entry => entry.sourceTileId !== currentLeader.sourceTileId)],
+        };
+      });
       fetch('/api/games/pixel-wars').then(r => r.json()).then(setSummary).catch(() => {});
     } catch (err) {
       setMessage(err.message || 'Paint failed');

@@ -111,6 +111,15 @@ function HomeInner() {
   const [nextAvailableTileId, setNextAvailableTileId] = useState(null);
   const [activityFeedOpen, setActivityFeedOpen] = useState(true);
 
+  useEffect(() => {
+    function handlePixelWarsGridUpdated(event) {
+      setPixelWars(event.detail?.pixelWars || {});
+    }
+
+    window.addEventListener('pixelwars:grid-updated', handlePixelWarsGridUpdated);
+    return () => window.removeEventListener('pixelwars:grid-updated', handlePixelWarsGridUpdated);
+  }, []);
+
   // Sync ?tile= query param → selectedTile + flyTo (handles activity/tile links)
   useEffect(() => {
     const tileParam = searchParams ? searchParams.get('tile') : null;
