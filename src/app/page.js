@@ -88,6 +88,7 @@ function HomeInner() {
   const [alliances, setAlliances] = useState({});
   const [bountyTiles, setBountyTiles] = useState({});
   const [pixelWars, setPixelWars] = useState({});
+  const [ctfFlag, setCtfFlag] = useState(null);
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
   // Intro readiness:
@@ -159,6 +160,7 @@ function HomeInner() {
         if (grid.alliances) setAlliances(grid.alliances);
         if (grid.bounties) setBountyTiles(grid.bounties);
         if (grid.pixelWars) setPixelWars(grid.pixelWars);
+        if ('ctfFlag' in grid) setCtfFlag(grid.ctfFlag);
       }
 
       setBlocks(prev => blockList.length ? blockList : prev);
@@ -235,6 +237,10 @@ function HomeInner() {
             if (count <= 0) { const next = { ...prev }; delete next[event.toTileId]; return next; }
             return { ...prev, [event.toTileId]: count };
           });
+        } else if (event.type === 'ctf_flag_spawned') {
+          setCtfFlag(event.ctfFlag);
+        } else if (event.type === 'ctf_flag_captured') {
+          setCtfFlag(null);
         }
       } catch {
         // ignore parse errors
@@ -266,6 +272,7 @@ function HomeInner() {
       setSpans(data.spans || spanList0);
       setStats(prev => ({ ...prev, ...data.stats, ...(statsData || {}) }));
       if (data.pixelWars) setPixelWars(data.pixelWars);
+      if ('ctfFlag' in data) setCtfFlag(data.ctfFlag);
       const nextId = statsData?.nextAvailableTileId ?? data.stats?.nextAvailableTileId;
       if (nextId != null) setNextAvailableTileId(nextId);
     })();
@@ -392,6 +399,7 @@ function HomeInner() {
           alliances={alliances}
           bountyTiles={bountyTiles}
           pixelWars={pixelWars}
+          ctfFlag={ctfFlag}
         />
         <div className={`side-panel${panelOpen ? ' open' : ''}`}>
         {panelOpen ? (
@@ -412,6 +420,7 @@ function HomeInner() {
             onAlliancesChange={setAlliances}
             onAction={setActionAnimation}
             onClaim={(tileId) => { setSelectedTile(null); setClaimModalTile(tileId); }}
+            ctfFlag={ctfFlag}
           />
         ) : null}
         </div>

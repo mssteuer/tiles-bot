@@ -11,7 +11,7 @@ import SelectionOverlay from './SelectionOverlay';
 import ToolToggle from './ToolToggle';
 import { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, imageCache, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile } from './utils';
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles, pixelWars = {} }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles, pixelWars = {}, ctfFlag = null }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -255,6 +255,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   const pixelWarsRef = useRef(pixelWars || {});
   useEffect(() => { pixelWarsRef.current = pixelWars || {}; }, [pixelWars]);
+
+  const ctfFlagRef = useRef(ctfFlag);
+  useEffect(() => { ctfFlagRef.current = ctfFlag; }, [ctfFlag]);
 
   // Block tiles feature removed
 
@@ -762,6 +765,28 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('🎨', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+          }
+          ctx.restore();
+        }
+
+        // CTF flag pulsing overlay (active flag tile)
+        const activeFlagTileId = ctfFlagRef.current?.flagTileId;
+        if (activeFlagTileId === id) {
+          const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+          ctx.save();
+          ctx.fillStyle = `rgba(239, 68, 68, ${0.25 + pulse * 0.25})`;
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          if (cam.zoom > 0.15) {
+            ctx.strokeStyle = `rgba(239, 68, 68, ${0.7 + pulse * 0.3})`;
+            ctx.lineWidth = (2 + pulse * 2) / cam.zoom;
+            ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+          }
+          if (cam.zoom > 0.5) {
+            ctx.font = `${Math.max(10, TILE_SIZE * 0.4)}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#fff';
+            ctx.fillText('🚩', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
           }
           ctx.restore();
         }
