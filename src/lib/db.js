@@ -2718,3 +2718,88 @@ export function getCtfStats() {
   const active = getActiveCtfFlag();
   return { totalCaptures: total, weeklyCaptures: thisWeek, activeFlag: active };
 }
+
+// ─── Featured Tile Spotlight ──────────────────────────────────────────────────
+
+function ensureFeaturedTilesTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS featured_tiles (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      tile_id     INTEGER NOT NULL REFERENCES tiles(id) ON DELETE CASCADE,
+      owner       TEXT NOT NULL,
+      starts_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      ends_at     TEXT NOT NULL,
+      paid_amount REAL NOT NULL DEFAULT 5,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_featured_ends ON featured_tiles(ends_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_featured_tile ON featured_tiles(tile_id);
+  `);
+}
+
+export function createFeaturedSpot({ tileId, owner, durationHours = 24, paidAmount = 5 }) {
+  ensureFeaturedTilesTable();
+  const db = getDb();
+
+  const tile = db.prepare('SELECT id, name, avatar FROM tiles WHERE id = ?').get(tileId);
+  if (!tile) throw new Error('Tile not found');
+
+  const now = new Date();
+  const endsAt = new Date(now.getTime() + durationHours * 60 * 60 * 1000).toISOString();
+  const result = db.prepare(
+    `INSERT INTO featured_tiles (tile_id, owner, ends_at, paid_amount)
+     VALUES (?, ?, ?, ?)`
+  ).run(tileId, owner.toLowerCase(), endsAt, paidAmount);
+
+  logEvent('spotlight_purchased', tileId, owner, {
+    duration_hours: durationHours,
+    paid_amount: paidAmount,
+    ends_at: endsAt,
+  });
+
+  return { id: Number(result.lastInsertRowid), tile_id: tileId, owner: owner.toLowerCase(), ends_at: endsAt, paid_amount: paidAmount };
+}
+
+export function getActiveFeaturedTiles(limit = 8) {
+  ensureFeaturedTilesTable();
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT f.id, f.tile_id, f.owner, f.starts_at, f.ends_at, f.paid_amount,
+           t.name, t.avatar, t.description, t.category, t.status, t.url, t.x_handle, t.color, t.image_url
+    FROM featured_tiles f
+    JOIN tiles t ON t.id = f.tile_id
+    WHERE f.ends_at > datetime('now')
+    ORDER BY f.starts_at DESC
+    LIMIT ?
+  `).all(limit);
+  return rows.map(r => ({
+    featuredId: r.id,
+    tileId: r.tile_id,
+    owner: r.owner,
+    startsAt: r.starts_at,
+    endsAt: r.ends_at,
+    paidAmount: r.paid_amount,
+    tile: {
+      id: r.tile_id,
+      name: r.name,
+      avatar: r.avatar,
+      description: r.description,
+      category: r.category,
+      status: r.status,
+      url: r.url,
+      x_handle: r.x_handle,
+      color: r.color,
+      image_url: r.image_url,
+    },
+  }));
+}
+
+export function isTileFeatured(tileId) {
+  ensureFeaturedTilesTable();
+  const db = getDb();
+  const row = db.prepare(
+    `SELECT id FROM featured_tiles WHERE tile_id = ? AND ends_at > datetime('now') LIMIT 1`
+  ).get(tileId);
+  return !!row;
+}

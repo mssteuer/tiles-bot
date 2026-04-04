@@ -40,6 +40,7 @@ function eventIcon(type, meta) {
     case 'tile_emote': return meta?.emoji || '🎭';
     case 'tile_message': return '💌';
     case 'heartbeat': return '💓';
+    case 'spotlight_purchased': return '⭐';
     default: return '📡';
   }
 }
@@ -61,6 +62,7 @@ function eventDescription(type, meta, tileName) {
       return `${name} received ${meta?.emoji || 'an emote'}`;
     case 'tile_message': return `${name} got a message`;
     case 'heartbeat': return `${name} is online 🟢`;
+    case 'spotlight_purchased': return `${name} bought a ${meta?.duration_hours || 24}h spotlight!`;
     default: return `${name} had activity`;
   }
 }
