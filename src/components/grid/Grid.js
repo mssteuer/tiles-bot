@@ -221,6 +221,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   // Drag/pan state
   const isDragging = useRef(false);
+  const [isPanning, setIsPanning] = useState(false); // reactive state for cursor
   const dragMoved = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
 
@@ -1203,6 +1204,21 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Global mouseup — catches releases outside canvas/window
+  useEffect(() => {
+    const globalUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        isSelecting.current = false;
+        setIsPanning(false);
+        setSelectionRect(null);
+        dragSelectedTiles.current = new Set();
+      }
+    };
+    window.addEventListener('mouseup', globalUp);
+    return () => window.removeEventListener('mouseup', globalUp);
+  }, []);
+
   // Mouse handlers
   const handleWheel = useCallback((e) => {
     e.preventDefault();
@@ -1218,15 +1234,32 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const [tool, setTool] = useState('pan'); // default: pan
   const [spanRequest, setSpanRequest] = useState(null);
   const shiftHeld = useRef(false);
+  const [shiftDown, setShiftDown] = useState(false); // reactive state for cursor
   const effectiveTool = useCallback(() => shiftHeld.current ? 'select' : tool, [tool]);
 
-  // Track shift key globally
+  // Track shift key globally + reset on blur (prevents stuck shift)
   useEffect(() => {
-    const down = (e) => { if (e.key === 'Shift') shiftHeld.current = true; };
-    const up = (e) => { if (e.key === 'Shift') shiftHeld.current = false; };
+    const down = (e) => { if (e.key === 'Shift') { shiftHeld.current = true; setShiftDown(true); } };
+    const up = (e) => { if (e.key === 'Shift') { shiftHeld.current = false; setShiftDown(false); } };
+    const blur = () => {
+      shiftHeld.current = false;
+      setShiftDown(false);
+      if (isDragging.current) {
+        isDragging.current = false;
+        isSelecting.current = false;
+        setIsPanning(false);
+        setSelectionRect(null);
+        dragSelectedTiles.current = new Set();
+      }
+    };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+    window.addEventListener('blur', blur);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', blur);
+    };
   }, []);
 
   // ── Desktop mouse handlers ──────────────────────────────────────────────
@@ -1243,11 +1276,13 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       const px = screenToGridPx(e.clientX - rect.left, e.clientY - rect.top);
       if (!px) return;
       isSelecting.current = true;
+      setIsPanning(false);
       selectStart.current = { ...px, sx: e.clientX, sy: e.clientY };
       selectEnd.current = { ...px };
     } else {
       isSelecting.current = false;
       selectStart.current = null;
+      setIsPanning(true);
     }
   }, [screenToGridPx, effectiveTool]);
 
@@ -1303,6 +1338,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const handleMouseUp = useCallback((e) => {
     if (!isDragging.current) return;
     isDragging.current = false;
+    setIsPanning(false);
     setSelectionRect(null);
     dragSelectedTiles.current = new Set();
 
@@ -1541,14 +1577,14 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   // ─── Canvas grid view ────────────────────────────────────────────────────
   return (
     <>
-      <div ref={containerRef} className={tool === 'select' ? 'cursor-pixel-cross flex-1 overflow-hidden relative' : (isDragging.current ? 'cursor-pixel-grabbing flex-1 overflow-hidden relative' : 'cursor-pixel-grab flex-1 overflow-hidden relative')}>
+      <div ref={containerRef} className={`flex-1 overflow-hidden relative ${(tool === 'select' || shiftDown) ? 'cursor-pixel-cross' : isPanning ? 'cursor-pixel-grabbing' : 'cursor-pixel-grab'}`}>
         <canvas
           id="grid-canvas"
           ref={canvasRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={() => { isDragging.current = false; isSelecting.current = false; setHoveredTile(null); setSelectionRect(null); }}
+          onMouseLeave={() => { isDragging.current = false; isSelecting.current = false; setIsPanning(false); setHoveredTile(null); setSelectionRect(null); dragSelectedTiles.current = new Set(); }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => {
