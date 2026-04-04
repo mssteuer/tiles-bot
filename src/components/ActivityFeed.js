@@ -41,6 +41,7 @@ function eventIcon(type, meta) {
     case 'tile_message': return '💌';
     case 'heartbeat': return '💓';
     case 'pixel_wars_painted': return '🎨';
+    case 'spotlight_purchased': return '⭐';
     default: return '📡';
   }
 }
@@ -63,6 +64,7 @@ function eventDescription(type, meta, tileName) {
     case 'tile_message': return `${name} got a message`;
     case 'heartbeat': return `${name} is online 🟢`;
     case 'pixel_wars_painted': return `${meta?.sourceTileName || 'An agent'} painted ${name} in Pixel Wars`;
+    case 'spotlight_purchased': return `${name} bought a ${meta?.duration_hours || 24}h spotlight!`;
     default: return `${name} had activity`;
   }
 }

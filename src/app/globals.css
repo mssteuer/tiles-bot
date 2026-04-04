@@ -203,6 +203,9 @@ body:not(:has(.app-shell)) { overflow: auto; }
 }
 .filter-bar::-webkit-scrollbar { display: none; }
 
+.scrollbar-hide { scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
 .filter-pills { @apply flex shrink-0 gap-[5px]; }
 
 .pill {
