@@ -89,6 +89,7 @@ function HomeInner() {
   const [bountyTiles, setBountyTiles] = useState({});
   const [pixelWars, setPixelWars] = useState({});
   const [pixelWarsChampions, setPixelWarsChampions] = useState([]);
+  const [ctfFlag, setCtfFlag] = useState(null);
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
   // Intro readiness:
@@ -152,6 +153,7 @@ function HomeInner() {
         if (grid.bounties) setBountyTiles(grid.bounties);
         if (grid.pixelWars) setPixelWars(grid.pixelWars);
         if (grid.pixelWarsChampions) setPixelWarsChampions(grid.pixelWarsChampions);
+        if ('ctfFlag' in grid) setCtfFlag(grid.ctfFlag);
       }
 
       setBlocks(prev => blockList.length ? blockList : prev);
@@ -228,6 +230,10 @@ function HomeInner() {
             delete next[event.tileId];
             return next;
           });
+        } else if (event.type === 'ctf_flag_spawned') {
+          setCtfFlag(event.ctfFlag);
+        } else if (event.type === 'ctf_flag_captured') {
+          setCtfFlag(null);
         } else if (event.type === 'connection_request') {
           playSound('notification');
           setPendingRequests(prev => ({
@@ -397,6 +403,7 @@ function HomeInner() {
           bountyTiles={bountyTiles}
           pixelWars={pixelWars}
           pixelWarsChampions={pixelWarsChampions}
+          ctfFlag={ctfFlag}
         />
         <div className={`side-panel${panelOpen ? ' open' : ''}`}>
         {panelOpen ? (
@@ -417,6 +424,7 @@ function HomeInner() {
             onAlliancesChange={setAlliances}
             onAction={setActionAnimation}
             onClaim={(tileId) => { setSelectedTile(null); setClaimModalTile(tileId); }}
+            ctfFlag={ctfFlag}
           />
         ) : null}
         </div>

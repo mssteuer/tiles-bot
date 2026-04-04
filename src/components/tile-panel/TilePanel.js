@@ -9,6 +9,7 @@ import { VerificationBadge } from './VerificationBadge';
 import VerifyGithubButton from './VerifyGithubButton';
 import VerifyXButton from './VerifyXButton';
 import NeighborNetworkPanel from './NeighborNetworkPanel';
+import CaptureTheFlagPanel from './CaptureTheFlagPanel';
 import { getSizedImageUrl, truncateAddress, truncateTx, CONTRACT_ADDRESS, CHAIN_ID, CATEGORY_COLORS, X_ICON_STYLE } from './utils';
 
 const CATEGORIES = ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'];
@@ -71,7 +72,7 @@ function withAlpha(hex, alpha) {
   return `${normalized}${alpha}`;
 }
 
-export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange, onNavigateToTile, allTiles, onAction, onClaim }) {
+export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsChange, onNavigateToTile, allTiles, onAction, onClaim, ctfFlag = null }) {
   const isClaimed = !!tile.name;
   const row = Math.floor(tile.id / 256);
   const col = tile.id % 256;
@@ -883,6 +884,16 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 isOwner={isOwner}
                 onConnectionsChange={onConnectionsChange}
                 onNavigateToTile={onNavigateToTile}
+              />
+            )}
+
+            {tile.id != null && isOwner && (
+              <CaptureTheFlagPanel
+                tile={tile}
+                address={address}
+                isOwner={isOwner}
+                ctfFlag={ctfFlag}
+                onCaptured={() => {}}
               />
             )}
 
