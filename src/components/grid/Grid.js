@@ -527,6 +527,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     // Always draw claimed tiles first (fast: only iterate tiles with data)
     const tileBorders = []; // Collect borders to batch-stroke after tile loop
+    const deferredBadges = []; // Collect badges to render above all tiles
     const claimedIds = Object.keys(tiles);
     for (let ci = 0; ci < claimedIds.length; ci++) {
       const id = Number(claimedIds[ci]);
@@ -730,47 +731,13 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             ctx.fillText('🏆', tx, ty);
           }
 
-          // Pending connection request badge (orange dot with count)
+          // Collect badges for deferred rendering (above all tiles)
           const pendingCount = pendingRequestsRef.current[id];
           if (pendingCount > 0 && cam.zoom > 0.15) {
-            const badgeR = Math.max(6, TILE_SIZE * 0.22);
-            const bx = x + TILE_SIZE - badgeR * 0.5;
-            const by = y + badgeR * 0.5;
-            ctx.beginPath();
-            ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
-            ctx.fillStyle = '#f97316';
-            ctx.fill();
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1.5 / cam.zoom;
-            ctx.stroke();
-            if (cam.zoom > 0.4) {
-              ctx.fillStyle = '#fff';
-              ctx.font = `bold ${Math.round(badgeR * 1.1)}px system-ui`;
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(String(pendingCount), bx, by + 0.5);
-            }
+            deferredBadges.push({ type: 'pending', x, y, count: pendingCount });
           }
-
-          // Bounty badge (gold dot — tile has open bounties)
           if (bountyTilesRef.current && bountyTilesRef.current[id] && cam.zoom > 0.15) {
-            const badgeR = Math.max(5, TILE_SIZE * 0.18);
-            const bx = x + badgeR * 0.5;
-            const by = y + TILE_SIZE - badgeR * 0.5;
-            ctx.beginPath();
-            ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
-            ctx.fillStyle = '#f59e0b';
-            ctx.fill();
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1.5 / cam.zoom;
-            ctx.stroke();
-            if (cam.zoom > 0.5) {
-              ctx.fillStyle = '#000';
-              ctx.font = `bold ${Math.round(badgeR * 1.0)}px system-ui`;
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText('$', bx, by + 0.5);
-            }
+            deferredBadges.push({ type: 'bounty', x, y });
           }
 
           ctx.restore();
@@ -834,6 +801,47 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           ctx.rect(b.x, b.y, b.w, b.h);
         }
         ctx.stroke();
+      }
+    }
+
+    // Deferred badge rendering — drawn above all tiles so they're never clipped
+    for (const badge of deferredBadges) {
+      if (badge.type === 'pending') {
+        const badgeR = Math.max(6, TILE_SIZE * 0.22);
+        const bx = badge.x + TILE_SIZE - badgeR * 0.5;
+        const by = badge.y + badgeR * 0.5;
+        ctx.beginPath();
+        ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
+        ctx.fillStyle = '#f97316';
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5 / cam.zoom;
+        ctx.stroke();
+        if (cam.zoom > 0.4) {
+          ctx.fillStyle = '#fff';
+          ctx.font = `bold ${Math.round(badgeR * 1.1)}px system-ui`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(badge.count), bx, by + 0.5);
+        }
+      } else if (badge.type === 'bounty') {
+        const badgeR = Math.max(5, TILE_SIZE * 0.18);
+        const bx = badge.x + badgeR * 0.5;
+        const by = badge.y + TILE_SIZE - badgeR * 0.5;
+        ctx.beginPath();
+        ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5 / cam.zoom;
+        ctx.stroke();
+        if (cam.zoom > 0.5) {
+          ctx.fillStyle = '#000';
+          ctx.font = `bold ${Math.round(badgeR * 1.0)}px system-ui`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('$', bx, by + 0.5);
+        }
       }
     }
 

@@ -113,7 +113,30 @@ const POLL_INTERVAL_MS = 30_000;
  *   collapsed          — if true, render as collapsed icon-only strip
  *   onToggleCollapse   — callback to toggle collapsed state
  */
-export default function ActivityFeed({ onTileClick, collapsed = false, onToggleCollapse }) {
+export default function ActivityFeed({ onTileClick, collapsed = false, onToggleCollapse, address }) {
+  const [activeTab, setActiveTab] = useState('activity');
+  const [notifications, setNotifications] = useState([]);
+  const [notifsLoading, setNotifsLoading] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+
+  // Fetch notifications when tab opens or address changes
+  useEffect(() => {
+    if (!address) { setNotifications([]); setNotifCount(0); return; }
+    const fetchNotifs = () => {
+      setNotifsLoading(true);
+      fetch(`/api/notifications?wallet=${address}`)
+        .then(r => r.json())
+        .then(d => {
+          setNotifications(d.notifications || []);
+          setNotifCount(d.count || 0);
+          setNotifsLoading(false);
+        })
+        .catch(() => setNotifsLoading(false));
+    };
+    fetchNotifs();
+    const iv = setInterval(fetchNotifs, 30000);
+    return () => clearInterval(iv);
+  }, [address]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [feedError, setFeedError] = useState(false);
@@ -195,9 +218,9 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
         title="Show activity feed"
       >
         📡
-        {newCount > 0 && (
+        {(newCount + notifCount) > 0 && (
           <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-purple px-1 text-[9px] font-bold text-white">
-            {newCount > 9 ? '9+' : newCount}
+            {(newCount + notifCount) > 9 ? '9+' : (newCount + notifCount)}
           </span>
         )}
       </button>
@@ -207,22 +230,48 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
   // ─── Expanded mode: feed panel ───────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header with tabs */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-dim shrink-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[13px] font-semibold text-text">📡 Live Activity</span>
-          {!loading && events.length > 0 && (
-            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" title="Live" />
-          )}
+        <div className="flex items-center gap-0">
+          <button
+            onClick={() => setActiveTab('activity')}
+            className={`px-2 py-1 text-[12px] font-semibold rounded-l-md border border-border-dim transition-colors ${
+              activeTab === 'activity'
+                ? 'bg-[#1a1a3e] text-text border-accent-purple'
+                : 'bg-transparent text-text-dim hover:text-text'
+            }`}
+          >
+            📡 Activity
+            {!loading && events.length > 0 && activeTab === 'activity' && (
+              <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`relative px-2 py-1 text-[12px] font-semibold rounded-r-md border border-l-0 border-border-dim transition-colors ${
+              activeTab === 'notifications'
+                ? 'bg-[#1a1a3e] text-text border-accent-purple'
+                : 'bg-transparent text-text-dim hover:text-text'
+            }`}
+          >
+            🔔 Alerts
+            {notifCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[8px] font-bold text-white">
+                {notifCount > 9 ? '9+' : notifCount}
+              </span>
+            )}
+          </button>
         </div>
         <div className="flex items-center gap-1">
-          <Link
-            href="/activity"
-            className="text-[10px] text-text-dim no-underline hover:text-text"
-            title="Full activity page"
-          >
-            See all →
-          </Link>
+          {activeTab === 'activity' && (
+            <Link
+              href="/activity"
+              className="text-[10px] text-text-dim no-underline hover:text-text"
+              title="Full activity page"
+            >
+              See all →
+            </Link>
+          )}
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
@@ -235,8 +284,45 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
         </div>
       </div>
 
-      {/* Event list */}
+      {/* Content area */}
       <div className="flex-1 overflow-y-auto">
+
+      {/* Notifications tab */}
+      {activeTab === 'notifications' && (
+        <>
+          {!address && (
+            <div className="px-3 py-4 text-center text-[11px] text-text-dim">Connect wallet to see notifications</div>
+          )}
+          {address && notifsLoading && notifications.length === 0 && (
+            <div className="px-3 py-4 text-center text-[11px] text-text-dim">Loading…</div>
+          )}
+          {address && !notifsLoading && notifications.length === 0 && (
+            <div className="px-3 py-4 text-center text-[11px] text-text-dim">No notifications — all clear! ✨</div>
+          )}
+          {notifications.map((notif) => (
+            <button
+              key={notif.id}
+              onClick={() => onTileClick?.(notif.tileId)}
+              className="flex w-full items-center gap-2 border-b border-border-dim px-3 py-2.5 text-left transition-colors hover:bg-[#1a1a3e] cursor-pointer"
+            >
+              <span className="shrink-0 text-[16px]">🔗</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-medium text-text leading-tight">
+                  {notif.fromTile?.name || `Tile #${notif.fromTile?.id}`}
+                </div>
+                <div className="text-[10px] text-text-dim leading-tight">
+                  wants to connect with <strong>{notif.tileName}</strong>
+                </div>
+              </div>
+              <span className="shrink-0 text-[10px] text-text-dim">{relativeTime(notif.createdAt)}</span>
+            </button>
+          ))}
+        </>
+      )}
+
+      {/* Activity tab */}
+      {activeTab === 'activity' && (
+        <>
         {loading && (
           <div className="px-3 py-4 text-center text-[11px] text-text-dim">Loading…</div>
         )}
@@ -271,6 +357,9 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
             <span className="shrink-0 text-[10px] text-text-dim">{relativeTime(evt.timestamp)}</span>
           </button>
         ))}
+        </>
+      )}
+
       </div>
     </div>
   );
