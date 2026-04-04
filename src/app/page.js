@@ -14,6 +14,7 @@ import ClaimModal from '../components/ClaimModal';
 import MultiTileSpanModal from '../components/MultiTileSpanModal';
 import OnboardingModal from '../components/OnboardingModal';
 import ActivityFeed from '../components/ActivityFeed';
+import FeaturedSpotlight from '../components/FeaturedSpotlight';
 
 
 const GRID_PX = 256 * 32;
@@ -344,6 +345,12 @@ function HomeInner() {
         onViewModeChange={setViewMode}
         heatmapMode={heatmapMode}
         onHeatmapToggle={setHeatmapMode}
+      />
+      <FeaturedSpotlight
+        onTileSelect={(tileId) => {
+          setSelectedTile(tileId);
+          setFlyToTileId({ id: tileId, ts: Date.now() });
+        }}
       />
       <div className="main-content">
         {/* Activity Feed — collapsible left panel (single persistent instance) */}
