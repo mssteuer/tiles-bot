@@ -188,6 +188,28 @@ function rowToTile(row) {
 export const TOTAL_TILES = 65536;
 export const HEARTBEAT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+
+function normalizeTileEffects(effects) {
+  if (!effects || typeof effects !== 'object') return null;
+
+  const isHex = value => typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
+  const border = isHex(effects.border) ? effects.border : null;
+  const glow = effects.glow === true;
+  const glowColor = isHex(effects.glowColor)
+    ? effects.glowColor
+    : border;
+  const animated = effects.animated === true;
+
+  if (!border && !glow && !glowColor && !animated) return null;
+
+  return {
+    border,
+    glow,
+    glowColor: glowColor || null,
+    animated,
+  };
+}
+
 export function getTile(id) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM tiles WHERE id = ?').get(id);
@@ -334,12 +356,14 @@ export function updateTileMetadata(id, metadata) {
   for (const key of allowed) {
     if (metadata[key] !== undefined) {
       // Map camelCase to snake_case column names
-      const colMap = { xHandle: 'x_handle', imageUrl: 'image_url', effects: 'effects' };
+      const colMap = { xHandle: 'x_handle', imageUrl: 'image_url' };
       const col = colMap[key] || key;
-      // JSON-encode object fields
-      updates[col] = (key === 'effects' && metadata[key] !== null)
-        ? JSON.stringify(metadata[key])
-        : metadata[key];
+      if (key === 'effects') {
+        const normalizedEffects = normalizeTileEffects(metadata[key]);
+        updates[col] = normalizedEffects ? JSON.stringify(normalizedEffects) : null;
+      } else {
+        updates[col] = metadata[key];
+      }
     }
   }
 
