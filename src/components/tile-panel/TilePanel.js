@@ -228,7 +228,13 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setSaveMsg('Error: Please upload a PNG, JPG, or WebP image');
+      setSaveMsg('Error: Please upload a PNG, JPG, WebP, or GIF image');
+      return;
+    }
+
+    const isGif = file.type === 'image/gif';
+    if (isGif && file.size > 2 * 1024 * 1024) {
+      setSaveMsg('Error: Animated GIFs must be under 2MB');
       return;
     }
 
@@ -236,9 +242,12 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
     setSaveMsg('');
 
     try {
-      const compressed = file.size > 500 * 1024
-        ? await compressImage(file, 1024, 0.80)
-        : file;
+      // GIFs are stored as-is (compression would break animation)
+      const compressed = isGif
+        ? file
+        : file.size > 500 * 1024
+          ? await compressImage(file, 1024, 0.80)
+          : file;
 
       const formPayload = new FormData();
       formPayload.append('image', compressed, file.name);
@@ -480,13 +489,13 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                     {uploadingImage ? 'Uploading…' : imagePreview ? '📷 Change Image' : '📷 Upload Image'}
                     <input
                       type="file"
-                      accept="image/png,image/jpeg,image/webp"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
                       onChange={handleImageUpload}
                       disabled={uploadingImage}
                       className="hidden"
                     />
                   </label>
-                  <span className="text-[10px] text-text-gray">PNG, JPG, or WebP • Max 5MB • Auto-crops to square</span>
+                  <span className="text-[10px] text-text-gray">PNG, JPG, WebP • Max 5MB • GIF • Max 2MB • Auto-crops to square (non-GIF)</span>
                 </div>
               </div>
             </div>
