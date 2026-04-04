@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { captureCtfFlag, logEvent, TOTAL_TILES, getActiveCtfFlag } from '@/lib/db';
+import { captureCtfFlag, logEvent, TOTAL_TILES } from '@/lib/db';
 import { verifyWalletSignature, verifyTileOwnership } from '@/lib/verify-wallet-sig';
 import { broadcast } from '@/lib/sse-broadcast';
 

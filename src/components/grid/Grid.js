@@ -781,7 +781,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             ctx.lineWidth = (2 + pulse * 2) / cam.zoom;
             ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
           }
-          if (cam.zoom > 0.5) {
+          if (cam.zoom > 0.3) {
             ctx.font = `${Math.max(10, TILE_SIZE * 0.4)}px system-ui`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
