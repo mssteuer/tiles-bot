@@ -90,6 +90,11 @@ export default function PixelWarsPanel({ tile, address, isOwner, allTiles, onNav
               {candidates.slice(0, 4).map(id => (
                 <button key={id} onClick={() => setSelectedTarget(id)} className={`rounded-md border px-2.5 py-1.5 text-[12px] ${selectedTarget === id ? 'border-accent-blue bg-accent-blue/15 text-white' : 'border-border-bright bg-surface-dark text-text-dim'}`}>#{id}</button>
               ))}
+              {candidates.length > 4 && (
+                <div className="rounded-md border border-dashed border-border-bright px-2.5 py-1.5 text-[11px] text-text-gray">
+                  +{candidates.length - 4} more
+                </div>
+              )}
             </div>
           </div>
           <div>
