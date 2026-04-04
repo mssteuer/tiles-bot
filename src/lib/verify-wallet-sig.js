@@ -54,21 +54,40 @@ export async function verifyWalletSignature(message, signature, claimedAddress) 
 }
 
 /**
- * Check on-chain ownership of a tile.
+ * Check ownership of a tile — on-chain first, then DB fallback.
+ * Many tiles are claimed in the DB but not yet minted on-chain,
+ * so we accept DB ownership when the token doesn't exist on-chain.
  * @returns {Promise<boolean>}
  */
 export async function verifyTileOwnership(tileId, walletAddress) {
+  // 1) Try on-chain ownerOf
   try {
-    const publicClient = getPublicClient();
-    const OWNER_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
-    const onChainOwner = await publicClient.readContract({
-      address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
-      abi: OWNER_ABI,
-      functionName: 'ownerOf',
-      args: [BigInt(tileId)],
-    });
-    return onChainOwner.toLowerCase() === walletAddress.toLowerCase();
+    const contractAddr = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+    if (contractAddr) {
+      const publicClient = getPublicClient();
+      const OWNER_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
+      const onChainOwner = await publicClient.readContract({
+        address: contractAddr,
+        abi: OWNER_ABI,
+        functionName: 'ownerOf',
+        args: [BigInt(tileId)],
+      });
+      return onChainOwner.toLowerCase() === walletAddress.toLowerCase();
+    }
   } catch {
-    return false;
+    // ownerOf reverted — token likely not minted yet, fall through to DB check
   }
+
+  // 2) Fallback: check DB ownership
+  try {
+    const { getTile } = await import('@/lib/db');
+    const tile = getTile(tileId);
+    if (tile && tile.owner) {
+      return tile.owner.toLowerCase() === walletAddress.toLowerCase();
+    }
+  } catch {
+    // DB unavailable
+  }
+
+  return false;
 }

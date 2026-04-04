@@ -10,3 +10,4 @@ node_modules/
 # Binary native addons (too large for GitHub)
 *.node
 million-bot-homepage-worktrees/
+backups/
