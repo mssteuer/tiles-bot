@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createFeaturedSpot, isTileFeatured } from '@/lib/db';
+import { createFeaturedSpot, getTile, isTileFeatured } from '@/lib/db';
 import { verifyWalletSignature } from '@/lib/verify-wallet-sig';
 
 const SPOTLIGHT_PRICE_USDC = 5; // $5 USDC per 24h
@@ -34,6 +34,15 @@ export async function POST(request, { params }) {
     const isValid = await verifyWalletSignature(message, signature, wallet);
     if (!isValid) {
       return NextResponse.json({ error: 'Invalid wallet signature' }, { status: 401 });
+    }
+
+    const tile = getTile(tileId);
+    if (!tile) {
+      return NextResponse.json({ error: 'Tile not claimed' }, { status: 404 });
+    }
+
+    if (tile.owner.toLowerCase() !== wallet.toLowerCase()) {
+      return NextResponse.json({ error: 'Not tile owner' }, { status: 403 });
     }
 
     // Check if already featured
