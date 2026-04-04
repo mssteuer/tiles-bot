@@ -568,6 +568,36 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             }
           }
 
+          // ── Custom tile effects (border color + glow) ──
+          if (tile.effects) {
+            const fx = tile.effects;
+            const borderColor = fx.border || null;
+            const glowColor = fx.glowColor || borderColor || null;
+
+            if (glowColor && fx.glow && /^#[0-9a-fA-F]{6}$/.test(glowColor)) {
+              const gr = parseInt(glowColor.slice(1, 3), 16);
+              const gg = parseInt(glowColor.slice(3, 5), 16);
+              const gb = parseInt(glowColor.slice(5, 7), 16);
+              const glowPulse = fx.animated ? pulse : 0.5;
+              const ga = 0.18 + 0.10 * glowPulse;
+              ctx.fillStyle = `rgba(${gr},${gg},${gb},${ga.toFixed(3)})`;
+              ctx.fillRect(x - 4, y - 4, TILE_SIZE + 8, TILE_SIZE + 8);
+              ctx.fillStyle = `rgba(${gr},${gg},${gb},${(ga * 0.6).toFixed(3)})`;
+              ctx.fillRect(x - 2, y - 2, TILE_SIZE + 4, TILE_SIZE + 4);
+            }
+
+            if (borderColor && /^#[0-9a-fA-F]{6}$/.test(borderColor)) {
+              const br = parseInt(borderColor.slice(1, 3), 16);
+              const bg = parseInt(borderColor.slice(3, 5), 16);
+              const bb = parseInt(borderColor.slice(5, 7), 16);
+              const borderPulse = fx.animated ? pulse : 0.5;
+              const ba = 0.85 + 0.15 * borderPulse;
+              ctx.strokeStyle = `rgba(${br},${bg},${bb},${ba.toFixed(3)})`;
+              ctx.lineWidth = Math.max(1, 2 / cam.zoom);
+              ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+            }
+          }
+
           // ── Alliance border glow (below rep/heartbeat glow) ──
           if (alliances && alliances[id]) {
             const allianceColor = alliances[id].color || '#888888';

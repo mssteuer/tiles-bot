@@ -110,8 +110,10 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
   const [viewStats, setViewStats] = useState(null); // { totalViews, todayViews }
   const [repBreakdown, setRepBreakdown] = useState(null); // { heartbeat, connections, notes, actions, age, identity, profile }
   const [fxExpanded, setFxExpanded] = useState(false);
-  const [fxBorder, setFxBorder] = useState(tile.effects?.border || '#3b82f6');
+  const [fxBorder, setFxBorder] = useState(tile.effects?.border || '#ff6600');
+  const [fxGlowColor, setFxGlowColor] = useState(tile.effects?.glowColor || tile.effects?.border || '#ff6600');
   const [fxGlow, setFxGlow] = useState(tile.effects?.glow ?? false);
+  const [fxAnimated, setFxAnimated] = useState(tile.effects?.animated ?? false);
   const [savingFx, setSavingFx] = useState(false);
   const [fxMsg, setFxMsg] = useState('');
 
@@ -328,7 +330,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
         : formData.xHandle;
 
       const res = await fetch(`/api/tiles/${tile.id}/metadata`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-Wallet-Address': address,
@@ -370,9 +372,9 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
       const ts = Math.floor(Date.now() / 1000 / 300) * 300;
       const message = `tiles.bot:metadata:${tile.id}:${ts}`;
       const sig = await signMessageAsync({ message });
-      const effects = fxBorder ? { border: fxBorder, glow: fxGlow } : null;
+      const effects = fxBorder ? { border: fxBorder, glow: fxGlow, glowColor: fxGlowColor || fxBorder, animated: fxAnimated } : null;
       const res = await fetch(`/api/tiles/${tile.id}/metadata`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-Wallet-Address': address,
@@ -758,16 +760,16 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                   <div className="mt-3 flex flex-col gap-3">
                     <div className="grid grid-cols-3 gap-1.5">
                       {[
-                        { label: 'Fire', color: '#f97316', glow: true },
-                        { label: 'Ice', color: '#38bdf8', glow: true },
-                        { label: 'Gold', color: '#f59e0b', glow: true },
-                        { label: 'Neon', color: '#4ade80', glow: true },
-                        { label: 'Purple', color: '#a855f7', glow: true },
-                        { label: 'White', color: '#f8fafc', glow: false },
+                        { label: 'Fire', color: '#f97316', glowColor: '#f97316', glow: true, animated: true },
+                        { label: 'Ice', color: '#38bdf8', glowColor: '#38bdf8', glow: true, animated: true },
+                        { label: 'Gold', color: '#f59e0b', glowColor: '#f59e0b', glow: true, animated: false },
+                        { label: 'Neon', color: '#4ade80', glowColor: '#4ade80', glow: true, animated: true },
+                        { label: 'Purple', color: '#a855f7', glowColor: '#a855f7', glow: true, animated: false },
+                        { label: 'White', color: '#f8fafc', glowColor: '#f8fafc', glow: false, animated: false },
                       ].map(preset => (
                         <button
                           key={preset.label}
-                          onClick={() => { setFxBorder(preset.color); setFxGlow(preset.glow); }}
+                          onClick={() => { setFxBorder(preset.color); setFxGlowColor(preset.glowColor); setFxGlow(preset.glow); setFxAnimated(preset.animated); }}
                           className="rounded border border-border-dim px-2 py-1 text-[11px] text-text-dim hover:border-current"
                           style={{ borderColor: preset.color, color: preset.color }}
                         >
@@ -785,6 +787,16 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                       />
                       <span className="font-mono text-[11px] text-text-dim">{fxBorder}</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[11px] uppercase tracking-[0.8px] text-text-gray">Glow Color</label>
+                      <input
+                        type="color"
+                        value={fxGlowColor}
+                        onChange={e => setFxGlowColor(e.target.value)}
+                        className="h-6 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+                      />
+                      <span className="font-mono text-[11px] text-text-dim">{fxGlowColor}</span>
+                    </div>
                     <label className="flex cursor-pointer items-center gap-2 text-[12px] text-text-dim">
                       <input
                         type="checkbox"
@@ -793,6 +805,15 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                         className="accent-accent-blue"
                       />
                       Glow effect
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-[12px] text-text-dim">
+                      <input
+                        type="checkbox"
+                        checked={fxAnimated}
+                        onChange={e => setFxAnimated(e.target.checked)}
+                        className="accent-accent-blue"
+                      />
+                      Animated pulse
                     </label>
                     <div className="flex items-center gap-2">
                       <button
@@ -803,7 +824,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                         {savingFx ? 'Saving…' : 'Apply Effects'}
                       </button>
                       <button
-                        onClick={() => { setFxBorder('#3b82f6'); setFxGlow(false); }}
+                        onClick={() => { setFxBorder('#ff6600'); setFxGlowColor('#ff6600'); setFxGlow(true); setFxAnimated(false); }}
                         className="btn-retro px-3 py-1.5 text-[11px] text-text-gray"
                         title="Reset to defaults"
                       >

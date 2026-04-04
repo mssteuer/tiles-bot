@@ -33,7 +33,7 @@ export async function GET(request, { params }) {
   });
 }
 
-export async function PUT(request, { params }) {
+async function handleMetadataUpdate(request, { params }) {
   const { id } = await params;
   const tileId = parseInt(id, 10);
   if (isNaN(tileId) || tileId < 0 || tileId >= TOTAL_TILES) {
@@ -116,4 +116,12 @@ export async function PUT(request, { params }) {
   }
 
   return NextResponse.json({ ok: true, tile: updated });
+}
+
+export async function PUT(request, context) {
+  return handleMetadataUpdate(request, context);
+}
+
+export async function PATCH(request, context) {
+  return handleMetadataUpdate(request, context);
 }
