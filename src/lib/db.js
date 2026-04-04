@@ -2251,9 +2251,20 @@ function ensurePixelWarsTables() {
       painted_at     TEXT NOT NULL DEFAULT (datetime('now')),
       expires_at     TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS pixel_wars_paint_history (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      tile_id        INTEGER NOT NULL,
+      source_tile_id INTEGER NOT NULL,
+      owner          TEXT NOT NULL,
+      color          TEXT NOT NULL,
+      painted_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     CREATE INDEX IF NOT EXISTS idx_pixel_wars_tile ON pixel_wars_claims(tile_id, expires_at DESC);
     CREATE INDEX IF NOT EXISTS idx_pixel_wars_owner ON pixel_wars_claims(owner, painted_at DESC);
     CREATE INDEX IF NOT EXISTS idx_pixel_wars_round ON pixel_wars_claims(painted_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_pixel_wars_history_round ON pixel_wars_paint_history(painted_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_pixel_wars_history_owner ON pixel_wars_paint_history(owner, painted_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_pixel_wars_history_tile ON pixel_wars_paint_history(tile_id, painted_at DESC);
   `);
   try { db.exec(`ALTER TABLE tiles ADD COLUMN pixel_champion_expires_at TEXT`); } catch {}
 }
@@ -2322,6 +2333,10 @@ export function paintPixelWarsTile({ tileId, sourceTileId, wallet, color }) {
     INSERT INTO pixel_wars_claims (tile_id, source_tile_id, owner, color, painted_at, expires_at)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(tileId, sourceTileId, normalizedWallet, normalizedColor, paintedAt, expiresAt);
+  db.prepare(`
+    INSERT INTO pixel_wars_paint_history (tile_id, source_tile_id, owner, color, painted_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(tileId, sourceTileId, normalizedWallet, normalizedColor, paintedAt);
 
   return {
     id: Number(result.lastInsertRowid),
@@ -2380,7 +2395,7 @@ export function getPixelWarsLeaderboard(limit = 20) {
            COUNT(DISTINCT tile_id) AS unique_tiles,
            MIN(source_tile_id) AS sample_source_tile_id,
            MAX(painted_at) AS last_painted_at
-    FROM pixel_wars_claims
+    FROM pixel_wars_paint_history
     WHERE painted_at >= ? AND painted_at < ?
     GROUP BY lower(owner)
     ORDER BY unique_tiles DESC, total_paints DESC, last_painted_at ASC
