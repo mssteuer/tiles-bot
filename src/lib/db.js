@@ -2462,11 +2462,7 @@ export function refreshPixelWarsChampionBadge(options = {}) {
 
   const expiresAt = new Date(Date.now() + PIXEL_WARS_BADGE_TTL_HOURS * 3600 * 1000).toISOString();
   if (currentChampion?.id === winner.sourceTileId) {
-    if (currentChampion.pixel_champion_expires_at === expiresAt) {
-      return { tileId: winner.sourceTileId, owner: winner.owner, expiresAt };
-    }
-    db.prepare('UPDATE tiles SET pixel_champion_expires_at = ? WHERE id = ?').run(expiresAt, winner.sourceTileId);
-    return { tileId: winner.sourceTileId, owner: winner.owner, expiresAt };
+    return { tileId: winner.sourceTileId, owner: winner.owner, expiresAt: currentChampion.pixel_champion_expires_at };
   }
 
   if (currentChampion?.id != null) {
@@ -2481,7 +2477,7 @@ export function getPixelWarsSummary(options = {}) {
   if (options.cleanup !== false) cleanupExpiredPixelWarsClaims(db);
   const round = getPixelWarsRoundWindow();
   const activePaintedTiles = db.prepare(`SELECT COUNT(DISTINCT tile_id) as n FROM pixel_wars_claims WHERE expires_at > datetime('now')`).get()?.n || 0;
-  const paintsThisHour = db.prepare(`SELECT COUNT(*) as n FROM pixel_wars_claims WHERE painted_at >= datetime('now', '-1 hour')`).get()?.n || 0;
+  const paintsThisHour = db.prepare(`SELECT COUNT(*) as n FROM pixel_wars_paint_history WHERE painted_at >= datetime('now', '-1 hour')`).get()?.n || 0;
   return {
     round,
     activePaintedTiles,
