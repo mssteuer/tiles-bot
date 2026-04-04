@@ -774,7 +774,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
               />
             )}
 
-            {tile.id != null && (
+            {tile.id != null && isOwner && (
               <PixelWarsPanel
                 tile={tile}
                 address={address}
@@ -782,12 +782,15 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 allTiles={allTiles}
                 onNavigateToTile={onNavigateToTile}
                 onPainted={() => {
-                  if (onTileUpdated) {
-                    fetch('/api/grid')
-                      .then(r => r.json())
-                      .then(d => { if (d.tiles?.[tile.id]) onTileUpdated(tile.id, d.tiles[tile.id]); })
-                      .catch(() => {});
-                  }
+                  fetch('/api/grid')
+                    .then(r => r.json())
+                    .then(d => {
+                      if (onTileUpdated && d.tiles?.[tile.id]) onTileUpdated(tile.id, d.tiles[tile.id]);
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('pixelwars:grid-updated', { detail: { pixelWars: d.pixelWars || {} } }));
+                      }
+                    })
+                    .catch(() => {});
                 }}
               />
             )}

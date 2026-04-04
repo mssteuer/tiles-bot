@@ -2298,8 +2298,34 @@ function getTilesOwnedByWallet(wallet) {
   return db.prepare(`SELECT id, owner, name FROM tiles WHERE lower(owner) = ? ORDER BY claimed_at ASC`).all(normalizePixelWarsWallet(wallet));
 }
 
-export function paintPixelWarsTile({ tileId, sourceTileId, wallet, color }) {
-  const db = getDb();
+function getTileSummariesByOwners(owners, db = getDb()) {
+  const normalizedOwners = [...new Set((owners || []).map(normalizePixelWarsWallet).filter(Boolean))];
+  if (!normalizedOwners.length) return new Map();
+
+  const placeholders = normalizedOwners.map(() => '?').join(', ');
+  const rows = db.prepare(`
+    SELECT id, owner, name, pixel_champion_expires_at, claimed_at
+    FROM tiles
+    WHERE lower(owner) IN (${placeholders})
+    ORDER BY claimed_at ASC
+  `).all(...normalizedOwners);
+
+  const byOwner = new Map();
+  for (const row of rows) {
+    const owner = normalizePixelWarsWallet(row.owner);
+    if (!byOwner.has(owner)) byOwner.set(owner, []);
+    byOwner.get(owner).push(row);
+  }
+  return byOwner;
+}
+
+function selectPixelWarsSampleTile(tiles, preferredId) {
+  if (!Array.isArray(tiles) || !tiles.length) return null;
+  return tiles.find(t => t.id === preferredId) || tiles[0] || null;
+}
+
+export function paintPixelWarsTile({ tileId, sourceTileId, wallet, color }, options = {}) {
+  const db = options.db || getDb();
   cleanupExpiredPixelWarsClaims(db);
 
   const normalizedWallet = normalizePixelWarsWallet(wallet);
@@ -2350,9 +2376,9 @@ export function paintPixelWarsTile({ tileId, sourceTileId, wallet, color }) {
   };
 }
 
-export function getActivePixelWarsMap() {
-  const db = getDb();
-  cleanupExpiredPixelWarsClaims(db);
+export function getActivePixelWarsMap(options = {}) {
+  const db = options.db || getDb();
+  if (options.cleanup !== false) cleanupExpiredPixelWarsClaims(db);
   const rows = db.prepare(`
     SELECT pw.tile_id, pw.source_tile_id, pw.owner, pw.color, pw.painted_at, pw.expires_at
     FROM pixel_wars_claims pw
@@ -2385,9 +2411,9 @@ export function hasPixelChampionBadge(tileId) {
   return !!(row?.pixel_champion_expires_at && new Date(row.pixel_champion_expires_at) > new Date());
 }
 
-export function getPixelWarsLeaderboard(limit = 20) {
-  const db = getDb();
-  cleanupExpiredPixelWarsClaims(db);
+export function getPixelWarsLeaderboard(limit = 20, options = {}) {
+  const db = options.db || getDb();
+  if (options.cleanup !== false) cleanupExpiredPixelWarsClaims(db);
   const round = getPixelWarsRoundWindow();
   const rows = db.prepare(`
     SELECT lower(owner) AS owner,
@@ -2402,9 +2428,10 @@ export function getPixelWarsLeaderboard(limit = 20) {
     LIMIT ?
   `).all(round.startAt, round.endAt, limit);
 
+  const tilesByOwner = getTileSummariesByOwners(rows.map(row => row.owner), db);
   return rows.map((row, index) => {
-    const ownedTiles = getTilesOwnedByWallet(row.owner);
-    const sampleTile = ownedTiles.find(t => t.id === row.sample_source_tile_id) || ownedTiles[0] || null;
+    const ownedTiles = tilesByOwner.get(row.owner) || [];
+    const sampleTile = selectPixelWarsSampleTile(ownedTiles, row.sample_source_tile_id);
     return {
       rank: index + 1,
       owner: row.owner,
@@ -2413,28 +2440,45 @@ export function getPixelWarsLeaderboard(limit = 20) {
       sourceTileId: sampleTile?.id ?? row.sample_source_tile_id,
       sourceTileName: sampleTile?.name || `Tile #${row.sample_source_tile_id}`,
       ownedTileCount: ownedTiles.length,
-      badgeActive: !!(sampleTile && hasPixelChampionBadge(sampleTile.id)),
+      badgeActive: !!(sampleTile?.pixel_champion_expires_at && new Date(sampleTile.pixel_champion_expires_at) > new Date()),
       lastPaintedAt: row.last_painted_at,
     };
   });
 }
 
-export function refreshPixelWarsChampionBadge() {
-  const db = getDb();
-  cleanupExpiredPixelWarsClaims(db);
-  const winner = getPixelWarsLeaderboard(1)[0];
-  if (!winner || (winner.sourceTileId == null)) return null;
+export function refreshPixelWarsChampionBadge(options = {}) {
+  const db = options.db || getDb();
+  if (options.cleanup !== false) cleanupExpiredPixelWarsClaims(db);
+  const winner = getPixelWarsLeaderboard(1, { db, cleanup: false })[0];
+  if (!winner || winner.sourceTileId == null) return null;
 
-  // Assumption: badge follows the current round leader's source tile and refreshes on each paint event.
+  const currentChampion = db.prepare(`
+    SELECT id, owner, pixel_champion_expires_at
+    FROM tiles
+    WHERE pixel_champion_expires_at IS NOT NULL AND pixel_champion_expires_at > datetime('now')
+    ORDER BY pixel_champion_expires_at DESC
+    LIMIT 1
+  `).get();
+
   const expiresAt = new Date(Date.now() + PIXEL_WARS_BADGE_TTL_HOURS * 3600 * 1000).toISOString();
-  db.prepare('UPDATE tiles SET pixel_champion_expires_at = NULL').run();
+  if (currentChampion?.id === winner.sourceTileId) {
+    if (currentChampion.pixel_champion_expires_at === expiresAt) {
+      return { tileId: winner.sourceTileId, owner: winner.owner, expiresAt };
+    }
+    db.prepare('UPDATE tiles SET pixel_champion_expires_at = ? WHERE id = ?').run(expiresAt, winner.sourceTileId);
+    return { tileId: winner.sourceTileId, owner: winner.owner, expiresAt };
+  }
+
+  if (currentChampion?.id != null) {
+    db.prepare('UPDATE tiles SET pixel_champion_expires_at = NULL WHERE id = ?').run(currentChampion.id);
+  }
   db.prepare('UPDATE tiles SET pixel_champion_expires_at = ? WHERE id = ?').run(expiresAt, winner.sourceTileId);
   return { tileId: winner.sourceTileId, owner: winner.owner, expiresAt };
 }
 
-export function getPixelWarsSummary() {
-  const db = getDb();
-  cleanupExpiredPixelWarsClaims(db);
+export function getPixelWarsSummary(options = {}) {
+  const db = options.db || getDb();
+  if (options.cleanup !== false) cleanupExpiredPixelWarsClaims(db);
   const round = getPixelWarsRoundWindow();
   const activePaintedTiles = db.prepare(`SELECT COUNT(DISTINCT tile_id) as n FROM pixel_wars_claims WHERE expires_at > datetime('now')`).get()?.n || 0;
   const paintsThisHour = db.prepare(`SELECT COUNT(*) as n FROM pixel_wars_claims WHERE painted_at >= datetime('now', '-1 hour')`).get()?.n || 0;
@@ -2444,7 +2488,7 @@ export function getPixelWarsSummary() {
     paintsThisHour,
     maxPaintsPerHour: PIXEL_WARS_MAX_PAINTS_PER_HOUR,
     paintTtlHours: PIXEL_WARS_PAINT_TTL_HOURS,
-    leaderboard: getPixelWarsLeaderboard(10),
+    leaderboard: getPixelWarsLeaderboard(10, { db, cleanup: false }),
   };
 }
 
