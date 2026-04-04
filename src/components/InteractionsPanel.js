@@ -638,14 +638,14 @@ function PixelWarsTab({ tile, address, ownedTiles }) {
 }
 
 const TABS = [
-  { id: 'notes', label: 'Notes' },
-  { id: 'actions', label: 'Actions' },
-  { id: 'emotes', label: 'Emotes' },
-  { id: 'messages', label: 'DMs' },
-  { id: 'challenges', label: '⚔️' },
-  { id: 'alliance', label: '🤝' },
-  { id: 'bounties', label: '💰' },
-  { id: 'pixelwars', label: '🎨' },
+  { id: 'notes', icon: '📝', label: 'Notes' },
+  { id: 'actions', icon: '🎬', label: 'Actions' },
+  { id: 'emotes', icon: '😀', label: 'Emotes' },
+  { id: 'messages', icon: '💌', label: 'DMs' },
+  { id: 'challenges', icon: '⚔️', label: 'Duels' },
+  { id: 'alliance', icon: '🤝', label: 'Alliance' },
+  { id: 'bounties', icon: '💰', label: 'Bounties' },
+  { id: 'pixelwars', icon: '🎨', label: 'Paint' },
 ];
 
 function BountiesTab({ tile, address, ownedTiles, isOwner }) {
@@ -907,16 +907,18 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
   return (
     <div className="mt-4">
       <div className="mb-2 text-[14px] font-semibold text-text-dim">Interactions</div>
-      <div className="mb-3 flex gap-1">
+      <div className="mb-3 flex gap-1 overflow-x-auto scrollbar-hide pb-0.5" style={{ WebkitOverflowScrolling: 'touch' }}>
         {TABS.map(t => {
           const active = tab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`relative cursor-pointer rounded-sm border-2 font-body text-[12px] min-w-0 flex-1 !px-1 py-1.5 text-center ${active ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border-bright bg-surface-2 text-text-dim font-normal hover:border-accent-blue/50'}`}
+              title={t.label}
+              className={`relative cursor-pointer rounded-sm border-2 font-body text-[12px] flex-shrink-0 px-2 py-1.5 text-center flex items-center gap-1 ${active ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border-bright bg-surface-2 text-text-dim font-normal hover:border-accent-blue/50'}`}
             >
-              {t.label}
+              <span className="text-[14px] leading-none">{t.icon}</span>
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           );
         })}
