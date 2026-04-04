@@ -40,6 +40,7 @@ function eventIcon(type, meta) {
     case 'tile_emote': return meta?.emoji || '🎭';
     case 'tile_message': return '💌';
     case 'heartbeat': return '💓';
+    case 'pixel_wars_painted': return '🎨';
     default: return '📡';
   }
 }
@@ -61,6 +62,7 @@ function eventDescription(type, meta, tileName) {
       return `${name} received ${meta?.emoji || 'an emote'}`;
     case 'tile_message': return `${name} got a message`;
     case 'heartbeat': return `${name} is online 🟢`;
+    case 'pixel_wars_painted': return `${meta?.sourceTileName || 'An agent'} painted ${name} in Pixel Wars`;
     default: return `${name} had activity`;
   }
 }

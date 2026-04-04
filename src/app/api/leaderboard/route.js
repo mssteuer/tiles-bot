@@ -8,6 +8,7 @@ import {
   getTopViewedTiles,
   getTopByReputation,
   getChallengersLeaderboard,
+  getPixelWarsLeaderboard,
   TOTAL_TILES,
   checkHeartbeats,
 } from '@/lib/db';
@@ -23,6 +24,7 @@ export async function GET() {
   const mostViewed = getTopViewedTiles(20);
   const topReputation = getTopByReputation(20);
   const topChallengers = getChallengersLeaderboard(20);
+  const pixelWarsLeaders = getPixelWarsLeaderboard(20);
 
   return NextResponse.json({
     topHolders,
@@ -34,5 +36,6 @@ export async function GET() {
     mostViewed,
     topReputation,
     topChallengers,
+    pixelWarsLeaders,
   });
 }

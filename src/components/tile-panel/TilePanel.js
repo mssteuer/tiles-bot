@@ -9,6 +9,7 @@ import { VerificationBadge } from './VerificationBadge';
 import VerifyGithubButton from './VerifyGithubButton';
 import VerifyXButton from './VerifyXButton';
 import NeighborNetworkPanel from './NeighborNetworkPanel';
+import PixelWarsPanel from './PixelWarsPanel';
 import { getSizedImageUrl, truncateAddress, truncateTx, CONTRACT_ADDRESS, CHAIN_ID, CATEGORY_COLORS, X_ICON_STYLE } from './utils';
 
 const CATEGORIES = ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'];
@@ -770,6 +771,27 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                 isOwner={isOwner}
                 onConnectionsChange={onConnectionsChange}
                 onNavigateToTile={onNavigateToTile}
+              />
+            )}
+
+            {tile.id != null && isOwner && (
+              <PixelWarsPanel
+                tile={tile}
+                address={address}
+                isOwner={isOwner}
+                allTiles={allTiles}
+                onNavigateToTile={onNavigateToTile}
+                onPainted={() => {
+                  fetch('/api/grid')
+                    .then(r => r.json())
+                    .then(d => {
+                      if (onTileUpdated && d.tiles?.[tile.id]) onTileUpdated(tile.id, d.tiles[tile.id]);
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('pixelwars:grid-updated', { detail: { pixelWars: d.pixelWars || {} } }));
+                      }
+                    })
+                    .catch(() => {});
+                }}
               />
             )}
 

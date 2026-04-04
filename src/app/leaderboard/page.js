@@ -77,6 +77,7 @@ export default function LeaderboardPage() {
             { key: 'active', label: '⚡ Recently Active' },
             { key: 'reputation', label: '⭐ Top Rep' },
             { key: 'challengers', label: '⚔️ Challengers' },
+            { key: 'pixelwars', label: '🎨 Pixel Wars' },
             { key: 'viewed', label: '👁 Most Viewed' },
             { key: 'categories', label: '📊 Categories' },
           ].map(t => (
@@ -96,6 +97,7 @@ export default function LeaderboardPage() {
         {!loading && data && tab === 'reputation' && <ReputationTab tiles={data.topReputation || []} />}
         {!loading && data && tab === 'challengers' && <ChallengersTab tiles={data.topChallengers || []} />}
         {!loading && data && tab === 'viewed' && <MostViewedTab tiles={data.mostViewed || []} />}
+        {!loading && data && tab === 'pixelwars' && <PixelWarsTab leaders={data.pixelWarsLeaders || []} />}
         {!loading && data && tab === 'categories' && <CategoriesTab breakdown={data.categoryBreakdown} total={data.totalClaimed} />}
       </main>
     </div>
@@ -349,4 +351,31 @@ function ChallengersTab({ tiles }) {
 
 function Empty({ msg }) {
   return <div className="px-6 py-16 text-center text-[16px] text-text-gray">{msg}</div>;
+}
+
+
+function PixelWarsTab({ leaders }) {
+  if (!leaders || leaders.length === 0) return <Empty msg="No Pixel Wars paints yet this round." />;
+  return (
+    <div className="flex flex-col gap-2">
+      {leaders.map((leader, i) => (
+        <div key={`${leader.owner}-${leader.sourceTileId}`} className="flex items-center gap-4 rounded-xl border border-border-dim bg-surface-alt px-5 py-3">
+          <div className="w-7 shrink-0 text-center text-[15px] font-extrabold text-text-dim">{i < 3 ? MEDAL[i] : `#${i + 1}`}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[14px] font-bold">{leader.sourceTileName || shortAddress(leader.owner)}</div>
+            <div className="text-[11px] text-text-dim">{shortAddress(leader.owner)} · source tile #{leader.sourceTileId}</div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="text-[17px] font-extrabold text-accent-blue">{leader.uniqueTiles}</div>
+            <div className="text-[11px] text-text-dim">painted tiles</div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="text-[14px] font-semibold text-white">{leader.totalPaints}</div>
+            <div className="text-[11px] text-text-dim">total paints</div>
+          </div>
+          {leader.badgeActive && <div className="text-[20px]" title="Pixel Champion">👑</div>}
+        </div>
+      ))}
+    </div>
+  );
 }
