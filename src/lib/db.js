@@ -471,7 +471,7 @@ export function syncOnChainClaim(id, owner, claimedAt, pricePaid) {
  */
 export function getTilesByOwner(owner) {
   const db = getDb();
-  const rows = db.prepare('SELECT * FROM tiles WHERE owner = ?').all(owner);
+  const rows = db.prepare('SELECT * FROM tiles WHERE LOWER(owner) = LOWER(?)').all(owner);
   return rows.map(rowToTile);
 }
 
