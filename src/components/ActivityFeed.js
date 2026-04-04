@@ -231,24 +231,21 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
   return (
     <div className="flex flex-col h-full">
       {/* Header with tabs */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border-dim shrink-0">
-        <div className="flex items-center gap-0">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border-dim shrink-0 min-w-0">
+        <div className="flex items-center gap-0 shrink-0">
           <button
             onClick={() => setActiveTab('activity')}
-            className={`px-2 py-1 text-[12px] font-semibold rounded-l-md border border-border-dim transition-colors ${
+            className={`px-2 py-1 text-[12px] font-semibold rounded-l-md border border-border-dim transition-colors whitespace-nowrap ${
               activeTab === 'activity'
                 ? 'bg-[#1a1a3e] text-text border-accent-purple'
                 : 'bg-transparent text-text-dim hover:text-text'
             }`}
           >
             📡 Activity
-            {!loading && events.length > 0 && activeTab === 'activity' && (
-              <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-            )}
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`relative px-2 py-1 text-[12px] font-semibold rounded-r-md border border-l-0 border-border-dim transition-colors ${
+            className={`relative px-2 py-1 text-[12px] font-semibold rounded-r-md border border-l-0 border-border-dim transition-colors whitespace-nowrap ${
               activeTab === 'notifications'
                 ? 'bg-[#1a1a3e] text-text border-accent-purple'
                 : 'bg-transparent text-text-dim hover:text-text'
@@ -262,11 +259,11 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
             )}
           </button>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 ml-auto shrink-0">
           {activeTab === 'activity' && (
             <Link
               href="/activity"
-              className="text-[10px] text-text-dim no-underline hover:text-text"
+              className="text-[10px] text-text-dim no-underline hover:text-text whitespace-nowrap"
               title="Full activity page"
             >
               See all →
@@ -275,7 +272,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="ml-1 rounded p-0.5 text-[14px] text-text-dim hover:text-text"
+              className="rounded p-0.5 text-[14px] text-text-dim hover:text-text"
               title="Hide activity feed"
             >
               ✕
