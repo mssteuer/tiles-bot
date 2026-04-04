@@ -2614,3 +2614,136 @@ export function getTilesWithOpenBounties() {
   for (const r of rows) map[r.tile_id] = r.count;
   return map;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Capture the Flag mini-game
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ensureCtfTables() {
+  const db = getDb();
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS ctf_events (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      flag_tile_id      INTEGER NOT NULL,
+      captured_by_tile  INTEGER,
+      captured_by_wallet TEXT,
+      spawned_at        TEXT NOT NULL DEFAULT (datetime('now')),
+      captured_at       TEXT,
+      expires_at        TEXT NOT NULL
+    )
+  `).run();
+  db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_ctf_flag_tile ON ctf_events(flag_tile_id)
+  `).run();
+  db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_ctf_spawned ON ctf_events(spawned_at DESC)
+  `).run();
+  db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_ctf_wallet ON ctf_events(captured_by_wallet)
+  `).run();
+}
+
+ensureCtfTables();
+
+const CTF_FLAG_TTL_MINUTES = 30;
+const CTF_WEEKLY_LEADERBOARD_LIMIT = 20;
+
+export function getActiveCtfFlag() {
+  const db = getDb();
+  const flag = db.prepare(
+    `SELECT * FROM ctf_events WHERE captured_at IS NULL AND expires_at > datetime('now') ORDER BY spawned_at DESC LIMIT 1`
+  ).get();
+  if (!flag) return null;
+  return {
+    id: flag.id,
+    flagTileId: flag.flag_tile_id,
+    spawnedAt: flag.spawned_at,
+    expiresAt: flag.expires_at,
+  };
+}
+
+export function spawnCtfFlag() {
+  const db = getDb();
+  // Only spawn if no active flag
+  const active = getActiveCtfFlag();
+  if (active) return { alreadyActive: true, flag: active };
+
+  // Pick a random unclaimed tile (unclaimed tiles have no row in tiles table)
+  // Get all claimed tile IDs to exclude them
+  const claimedIds = new Set(
+    db.prepare(`SELECT id FROM tiles WHERE owner IS NOT NULL AND owner != '0x0000000000000000000000000000000000000000'`)
+      .all().map(r => r.id)
+  );
+  // Also exclude the current active-flag tile if any (already checked above, but belt-and-suspenders)
+  const totalTiles = TOTAL_TILES; // 65536
+  // Try up to 100 random picks to find an unclaimed tile
+  let flagTileId = null;
+  for (let i = 0; i < 100; i++) {
+    const candidate = Math.floor(Math.random() * totalTiles);
+    if (!claimedIds.has(candidate)) {
+      flagTileId = candidate;
+      break;
+    }
+  }
+  if (flagTileId === null) return { error: 'No unclaimed tiles available' };
+  const row = { id: flagTileId };
+
+  const expiresAt = new Date(Date.now() + CTF_FLAG_TTL_MINUTES * 60 * 1000).toISOString().replace('T', ' ').split('.')[0];
+  const result = db.prepare(
+    `INSERT INTO ctf_events (flag_tile_id, expires_at) VALUES (?, ?)`
+  ).run(row.id, expiresAt);
+
+  return {
+    spawned: true,
+    flag: {
+      id: result.lastInsertRowid,
+      flagTileId: row.id,
+      expiresAt,
+    },
+  };
+}
+
+export function captureCtfFlag(flagEventId, capturingTileId, wallet) {
+  const db = getDb();
+  const event = db.prepare(
+    `SELECT * FROM ctf_events WHERE id = ? AND captured_at IS NULL AND expires_at > datetime('now')`
+  ).get(flagEventId);
+  if (!event) throw new Error('No active flag with that ID');
+
+  // Verify adjacency
+  if (!areAdjacent(event.flag_tile_id, capturingTileId)) {
+    throw new Error('Your tile must be adjacent to the flag tile');
+  }
+
+  const now = new Date().toISOString().replace('T', ' ').split('.')[0];
+  db.prepare(
+    `UPDATE ctf_events SET captured_by_tile = ?, captured_by_wallet = ?, captured_at = ? WHERE id = ?`
+  ).run(capturingTileId, wallet.toLowerCase(), now, flagEventId);
+
+  return db.prepare('SELECT * FROM ctf_events WHERE id = ?').get(flagEventId);
+}
+
+export function getCtfWeeklyLeaderboard(limit = CTF_WEEKLY_LEADERBOARD_LIMIT) {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT captured_by_wallet as wallet, COUNT(*) as captures
+     FROM ctf_events
+     WHERE captured_at IS NOT NULL
+       AND captured_at >= datetime('now', '-7 days')
+     GROUP BY captured_by_wallet
+     ORDER BY captures DESC
+     LIMIT ?`
+  ).all(limit);
+  return rows.map(r => ({
+    wallet: r.wallet,
+    captures: r.captures,
+  }));
+}
+
+export function getCtfStats() {
+  const db = getDb();
+  const total = db.prepare(`SELECT COUNT(*) as n FROM ctf_events WHERE captured_at IS NOT NULL`).get()?.n || 0;
+  const thisWeek = db.prepare(`SELECT COUNT(*) as n FROM ctf_events WHERE captured_at IS NOT NULL AND captured_at >= datetime('now', '-7 days')`).get()?.n || 0;
+  const active = getActiveCtfFlag();
+  return { totalCaptures: total, weeklyCaptures: thisWeek, activeFlag: active };
+}
