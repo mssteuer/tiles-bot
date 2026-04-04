@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSignMessage } from 'wagmi';
 
 const DEFAULT_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'];
 const GRID = 256;
@@ -17,6 +18,7 @@ function getAdjacentUnclaimed(tileId, allTiles) {
 }
 
 export default function PixelWarsPanel({ tile, address, isOwner, allTiles, onNavigateToTile, onPainted }) {
+  const { signMessageAsync } = useSignMessage();
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [color, setColor] = useState(DEFAULT_COLORS[0]);
   const [saving, setSaving] = useState(false);
@@ -41,10 +43,13 @@ export default function PixelWarsPanel({ tile, address, isOwner, allTiles, onNav
     setSaving(true);
     setMessage('');
     try {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const authMessage = `tiles.bot:pixel-wars:${tile.id}:${selectedTarget}:${timestamp}`;
+      const signature = await signMessageAsync({ message: authMessage });
       const res = await fetch('/api/games/pixel-wars/paint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Wallet': address },
-        body: JSON.stringify({ tileId: selectedTarget, sourceTileId: tile.id, color, wallet: address }),
+        body: JSON.stringify({ tileId: selectedTarget, sourceTileId: tile.id, color, wallet: address, message: authMessage, signature }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Paint failed');
