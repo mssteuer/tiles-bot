@@ -1,38 +1,34 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSignMessage } from 'wagmi';
 
-export default function CaptureTheFlagPanel({ tile, address, isOwner, allTiles, onCaptured }) {
-  const [flagData, setFlagData] = useState(null);
+function areTilesManhattanAdjacent(tileId1, tileId2) {
+  const GRID = 256;
+  const col1 = tileId1 % GRID;
+  const row1 = Math.floor(tileId1 / GRID);
+  const col2 = tileId2 % GRID;
+  const row2 = Math.floor(tileId2 / GRID);
+  return Math.abs(col1 - col2) + Math.abs(row1 - row2) === 1;
+}
+
+export default function CaptureTheFlagPanel({ tile, address, isOwner, ctfFlag, onCaptured }) {
+  const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const { signMessageAsync } = useSignMessage();
 
-  const fetchFlag = useCallback(() => {
+  useEffect(() => {
     fetch('/api/games/capture-flag')
       .then(r => r.json())
-      .then(d => setFlagData(d))
+      .then(d => setLeaderboard(d.leaderboard || []))
       .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    fetchFlag();
-    const interval = setInterval(fetchFlag, 15000);
-    return () => clearInterval(interval);
-  }, [fetchFlag]);
+  }, [ctfFlag?.id]);
 
   if (!isOwner) return null;
-  if (!flagData) return null;
 
-  const { activeFlag, weeklyCaptures, leaderboard } = flagData;
-
-  const isAdjacentToFlag = activeFlag && (() => {
-    const GRID = 256;
-    const col1 = tile.id % GRID, row1 = Math.floor(tile.id / GRID);
-    const col2 = activeFlag.flagTileId % GRID, row2 = Math.floor(activeFlag.flagTileId / GRID);
-    return (Math.abs(col1 - col2) <= 1 && Math.abs(row1 - row2) <= 1 && !(col1 === col2 && row1 === row2));
-  })();
+  const activeFlag = ctfFlag;
+  const isAdjacentToFlag = activeFlag ? areTilesManhattanAdjacent(tile.id, activeFlag.flagTileId) : false;
 
   async function handleCapture() {
     if (!activeFlag) return;
@@ -56,8 +52,11 @@ export default function CaptureTheFlagPanel({ tile, address, isOwner, allTiles, 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Capture failed');
       setMsg('🚩 Flag captured!');
-      fetchFlag();
       if (onCaptured) onCaptured(data);
+      fetch('/api/games/capture-flag')
+        .then(r => r.json())
+        .then(d => setLeaderboard(d.leaderboard || []))
+        .catch(() => {});
     } catch (e) {
       setMsg(e.message || 'Capture failed');
     } finally {
