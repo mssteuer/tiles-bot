@@ -58,17 +58,9 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
 
   const tileIds = useMemo(() => getRectTileIds(topLeftId, width, height), [topLeftId, width, height]);
 
-  const [liveTiles, setLiveTiles] = useState(null);
-  useEffect(() => {
-    if (!tileIds || tileIds.length === 0) return;
-    Promise.all(tileIds.map(id => fetch(`/api/tiles/${id}`).then(r => r.ok ? r.json() : null).catch(() => null))).then(results => {
-      const map = {};
-      results.forEach((t, i) => { if (t) map[tileIds[i]] = t; });
-      setLiveTiles(map);
-    });
-  }, [tileIds]);
-
-  const tileSource = liveTiles || tiles;
+  // Use the grid tiles data passed from page.js — it has owner info.
+  // (The per-tile API returns OpenSea metadata which lacks owner.)
+  const tileSource = tiles;
 
   const availability = useMemo(() => {
     if (!tileIds) return { missing: [], foreign: [], ok: [] };

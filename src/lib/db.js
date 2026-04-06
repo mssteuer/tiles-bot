@@ -1362,7 +1362,8 @@ export function getRecentActivity(limit = 50) {
   // Return from events_log, joining tile metadata
   const rows = db.prepare(`
     SELECT e.id as event_id, e.type, e.tile_id, e.actor, e.metadata, e.created_at,
-           t.name as tile_name, t.avatar as tile_avatar, t.owner as tile_owner
+           t.name as tile_name, t.avatar as tile_avatar, t.owner as tile_owner,
+           t.image_url as tile_image_url
     FROM events_log e
     LEFT JOIN tiles t ON t.id = e.tile_id
     ORDER BY e.created_at DESC
@@ -1382,6 +1383,7 @@ export function getRecentActivity(limit = 50) {
       tileId: row.tile_id,
       tileName: meta.tileName || row.tile_name || (row.tile_id ? `Tile #${row.tile_id}` : 'Grid'),
       tileAvatar: meta.tileAvatar || row.tile_avatar || null,
+      tileImageUrl: row.tile_image_url || null,
       owner: row.actor || row.tile_owner || '',
       timestamp,
       meta,
@@ -2563,6 +2565,36 @@ export function getPixelWaintsByWallet(wallet) {
   ).get(wallet.toLowerCase());
 }
 
+/** Get eligible unclaimed neighbor tiles for pixel wars painting. */
+export function getPixelWarsTargets(wallet) {
+  const db = getDb();
+  const GRID = 256;
+  const owned = db.prepare(`SELECT id FROM tiles WHERE LOWER(owner) = LOWER(?)`).all(wallet);
+  if (!owned.length) return [];
+  const ownedSet = new Set(owned.map(r => r.id));
+  const targetMap = new Map();
+  for (const { id } of owned) {
+    const col = id % GRID;
+    const row = Math.floor(id / GRID);
+    const neighbors = [];
+    if (col > 0) neighbors.push(id - 1);
+    if (col < GRID - 1) neighbors.push(id + 1);
+    if (row > 0) neighbors.push(id - GRID);
+    if (row < GRID - 1) neighbors.push(id + GRID);
+    for (const nid of neighbors) {
+      if (ownedSet.has(nid)) continue;
+      const tile = db.prepare('SELECT id, owner FROM tiles WHERE id = ?').get(nid);
+      if (tile && tile.owner) continue; // claimed by someone else
+      if (!targetMap.has(nid)) {
+        targetMap.set(nid, { id: nid, row: Math.floor(nid / GRID), col: nid % GRID, adjacentTo: [id] });
+      } else {
+        targetMap.get(nid).adjacentTo.push(id);
+      }
+    }
+  }
+  return Array.from(targetMap.values()).sort((a, b) => a.id - b.id);
+}
+
 /** Check if a tile is currently painted. */
 export function getPixelWarsPaint(tileId) {
   const db = getDb();
@@ -2803,3 +2835,197 @@ export function isTileFeatured(tileId) {
   ).get(tileId);
   return !!row;
 }
+
+// ─── Tower Defense Mini-Game ───────────────────────────────────────────────────
+// NPC invaders target unclaimed/inactive tiles. Tile owners heartbeat to defend.
+// No effect on real on-chain ownership. Pure game layer.
+
+const TD_INVADER_DURATION_MS = 10 * 60 * 1000; // 10 min invasion window
+const TD_SPAWN_COOLDOWN_MS = 30 * 60 * 1000;   // 30 min between spawns
+const TD_HEARTBEAT_GRACE_MS = 30 * 60 * 1000;  // tile "vulnerable" if no heartbeat in 30 min
+const TD_MAX_ACTIVE_INVADERS = 5;               // max simultaneous invasions
+
+function ensureTowerDefenseTables() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS td_invasions (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      tile_id     INTEGER NOT NULL,
+      spawned_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at  TEXT NOT NULL,
+      repelled_at TEXT,
+      repelled_by TEXT,
+      repelled_by_tile INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_td_tile    ON td_invasions(tile_id);
+    CREATE INDEX IF NOT EXISTS idx_td_expires ON td_invasions(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_td_spawned ON td_invasions(spawned_at DESC);
+
+    CREATE TABLE IF NOT EXISTS td_defenses (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      tile_id     INTEGER NOT NULL,
+      defender_tile INTEGER NOT NULL,
+      wallet      TEXT NOT NULL,
+      defended_at TEXT NOT NULL DEFAULT (datetime('now')),
+      invasion_id INTEGER NOT NULL REFERENCES td_invasions(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_td_def_tile ON td_defenses(tile_id);
+    CREATE INDEX IF NOT EXISTS idx_td_def_wallet ON td_defenses(wallet);
+  `);
+}
+
+/**
+ * Spawn an NPC invader on a vulnerable tile (unclaimed or inactive).
+ * Vulnerable = claimed tile with no heartbeat in TD_HEARTBEAT_GRACE_MS, or unclaimed tile.
+ * Returns { spawned: bool, invasion: {...} | null, error?: string }
+ */
+export function spawnTdInvader() {
+  ensureTowerDefenseTables();
+  const db = getDb();
+
+  // Check spawn cooldown — don't spam invasions
+  const lastSpawn = db.prepare(
+    `SELECT spawned_at FROM td_invasions ORDER BY id DESC LIMIT 1`
+  ).get();
+  if (lastSpawn) {
+    const lastMs = new Date(lastSpawn.spawned_at + 'Z').getTime();
+    if (Date.now() - lastMs < TD_SPAWN_COOLDOWN_MS) {
+      return { spawned: false, reason: 'cooldown', nextSpawnMs: TD_SPAWN_COOLDOWN_MS - (Date.now() - lastMs) };
+    }
+  }
+
+  // Check max active invasions
+  const activeCount = db.prepare(
+    `SELECT COUNT(*) as n FROM td_invasions WHERE repelled_at IS NULL AND expires_at > datetime('now')`
+  ).get().n;
+  if (activeCount >= TD_MAX_ACTIVE_INVADERS) {
+    return { spawned: false, reason: 'max_active', activeCount };
+  }
+
+  // Find a vulnerable tile — claimed but inactive for TD_HEARTBEAT_GRACE_MS
+  // Exclude tiles already under active invasion
+  const graceTs = new Date(Date.now() - TD_HEARTBEAT_GRACE_MS).toISOString().replace('T', ' ').slice(0, 19);
+  const alreadyInvaded = db.prepare(
+    `SELECT tile_id FROM td_invasions WHERE repelled_at IS NULL AND expires_at > datetime('now')`
+  ).all().map(r => r.tile_id);
+
+  const excludeList = alreadyInvaded.length > 0
+    ? `AND t.id NOT IN (${alreadyInvaded.map(() => '?').join(',')})`
+    : '';
+
+  const query = `
+    SELECT t.id FROM tiles t
+    WHERE (t.last_heartbeat IS NULL OR t.last_heartbeat < ?)
+    ${excludeList}
+    ORDER BY RANDOM()
+    LIMIT 1
+  `;
+
+  const params = alreadyInvaded.length > 0 ? [graceTs, ...alreadyInvaded] : [graceTs];
+  const target = db.prepare(query).get(...params);
+
+  if (!target) {
+    return { spawned: false, reason: 'no_vulnerable_tiles' };
+  }
+
+  const expiresAt = new Date(Date.now() + TD_INVADER_DURATION_MS).toISOString().replace('T', ' ').slice(0, 19);
+  const result = db.prepare(
+    `INSERT INTO td_invasions (tile_id, expires_at) VALUES (?, ?)`
+  ).run(target.id, expiresAt);
+
+  const invasion = db.prepare('SELECT * FROM td_invasions WHERE id = ?').get(result.lastInsertRowid);
+
+  // Log as activity event
+  logEvent('td_invaded', target.id, '0x0000000000000000000000000000000000000000', {
+    invasionId: invasion.id,
+    expiresAt,
+    summary: `NPC invader attacked Tile #${target.id}! 👾`,
+  });
+
+  return { spawned: true, invasion };
+}
+
+/**
+ * Get all active invasions (for grid rendering).
+ * Returns array of { id, tile_id, spawned_at, expires_at }
+ */
+export function getActiveTdInvasions() {
+  ensureTowerDefenseTables();
+  const db = getDb();
+  return db.prepare(
+    `SELECT id, tile_id, spawned_at, expires_at FROM td_invasions
+     WHERE repelled_at IS NULL AND expires_at > datetime('now')
+     ORDER BY spawned_at DESC`
+  ).all();
+}
+
+/**
+ * Repel an invasion — tile owner heartbeats to drive off the invader.
+ * wallet = defender wallet, defenderTileId = which tile they own.
+ * Returns the updated invasion row.
+ */
+export function repelTdInvader(invasionId, defenderTileId, wallet) {
+  ensureTowerDefenseTables();
+  const db = getDb();
+
+  const invasion = db.prepare(
+    `SELECT * FROM td_invasions WHERE id = ? AND repelled_at IS NULL AND expires_at > datetime('now')`
+  ).get(invasionId);
+  if (!invasion) throw new Error('Invasion not found or already resolved');
+
+  // Defender must own a tile
+  const defenderTile = db.prepare('SELECT id, name, owner FROM tiles WHERE id = ?').get(defenderTileId);
+  if (!defenderTile || defenderTile.owner?.toLowerCase() !== wallet.toLowerCase()) {
+    throw new Error('Not tile owner or tile not found');
+  }
+
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  db.prepare(
+    `UPDATE td_invasions SET repelled_at = ?, repelled_by = ?, repelled_by_tile = ? WHERE id = ?`
+  ).run(now, wallet.toLowerCase(), defenderTileId, invasionId);
+
+  db.prepare(
+    `INSERT INTO td_defenses (tile_id, defender_tile, wallet, invasion_id) VALUES (?, ?, ?, ?)`
+  ).run(invasion.tile_id, defenderTileId, wallet.toLowerCase(), invasionId);
+
+  logEvent('td_repelled', invasion.tile_id, wallet, {
+    invasionId,
+    defenderTileId,
+    defenderName: defenderTile.name || `Tile #${defenderTileId}`,
+    summary: `[Tile #${defenderTileId}] repelled the invader on Tile #${invasion.tile_id}! 🛡️`,
+  });
+
+  return db.prepare('SELECT * FROM td_invasions WHERE id = ?').get(invasionId);
+}
+
+/**
+ * Get Tower Defense leaderboard — top defenders by repelled invasions.
+ */
+export function getTdLeaderboard(limit = 20) {
+  ensureTowerDefenseTables();
+  const db = getDb();
+  return db.prepare(`
+    SELECT d.defender_tile as tileId, t.name, t.avatar, COUNT(*) as defenses
+    FROM td_defenses d
+    LEFT JOIN tiles t ON t.id = d.defender_tile
+    WHERE d.defended_at >= datetime('now', '-30 days')
+    GROUP BY d.defender_tile
+    ORDER BY defenses DESC
+    LIMIT ?
+  `).all(limit);
+}
+
+/**
+ * Get Tower Defense stats.
+ */
+export function getTdStats() {
+  ensureTowerDefenseTables();
+  const db = getDb();
+  const total = db.prepare(`SELECT COUNT(*) as n FROM td_invasions`).get()?.n || 0;
+  const active = db.prepare(`SELECT COUNT(*) as n FROM td_invasions WHERE repelled_at IS NULL AND expires_at > datetime('now')`).get()?.n || 0;
+  const repelled = db.prepare(`SELECT COUNT(*) as n FROM td_invasions WHERE repelled_at IS NOT NULL`).get()?.n || 0;
+  const expired = total - active - repelled;
+  return { total, active, repelled, expired };
+}
+
+// ─── End Tower Defense ─────────────────────────────────────────────────────────

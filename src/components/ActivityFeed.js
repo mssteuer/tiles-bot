@@ -41,6 +41,8 @@ function eventIcon(type, meta) {
     case 'tile_message': return '💌';
     case 'heartbeat': return '💓';
     case 'spotlight_purchased': return '⭐';
+    case 'td_invaded': return '👾';
+    case 'td_repelled': return '🛡️';
     default: return '📡';
   }
 }
@@ -63,6 +65,11 @@ function eventDescription(type, meta, tileName) {
     case 'tile_message': return `${name} got a message`;
     case 'heartbeat': return `${name} is online 🟢`;
     case 'spotlight_purchased': return `${name} bought a ${meta?.duration_hours || 24}h spotlight!`;
+    case 'td_invaded': return `👾 NPC invader attacked ${name}!`;
+    case 'td_repelled': {
+      const defender = meta?.defenderName || (meta?.defenderTileId != null ? `Tile #${meta.defenderTileId}` : 'A defender');
+      return `🛡️ ${defender} repelled the invader on ${name}!`;
+    }
     default: return `${name} had activity`;
   }
 }
@@ -72,30 +79,38 @@ function eventDescription(type, meta, tileName) {
 function normalizeSSEEvent(data) {
   const now = data.timestamp || new Date().toISOString();
   const base = { timestamp: now };
+  // Carry tile image URL through for profile pics in feed
+  const imgUrl = data.tileImageUrl || data.imageUrl || data.image_url || null;
 
   if (data.type === 'tile_claimed') {
-    return { ...base, type: 'claimed', tileId: data.tileId ?? data.id, tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`, tileAvatar: data.avatar || null, owner: data.owner };
+    return { ...base, type: 'claimed', tileId: data.tileId ?? data.id, tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`, tileAvatar: data.avatar || null, tileImageUrl: imgUrl, owner: data.owner };
   }
   if (data.type === 'tile_image_updated') {
-    return { ...base, type: 'tile_image_updated', tileId: data.tileId ?? data.id, tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`, tileAvatar: data.avatar || null, owner: data.owner || '' };
+    return { ...base, type: 'tile_image_updated', tileId: data.tileId ?? data.id, tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`, tileAvatar: data.avatar || null, tileImageUrl: imgUrl, owner: data.owner || '' };
   }
   if (data.type === 'connection_accepted') {
-    return { ...base, type: 'connection_accepted', tileId: data.fromTileId ?? data.tileId, tileName: `Tiles #${data.fromTileId} ↔ #${data.toTileId}`, tileAvatar: null, owner: '' };
+    return { ...base, type: 'connection_accepted', tileId: data.fromTileId ?? data.tileId, tileName: `Tiles #${data.fromTileId} ↔ #${data.toTileId}`, tileAvatar: null, tileImageUrl: null, owner: '' };
   }
   if (data.type === 'tile_metadata_updated' || data.type === 'metadata_updated') {
-    return { ...base, type: 'metadata_updated', tileId: data.tileId ?? data.id, tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`, tileAvatar: data.avatar || null, owner: data.owner || '' };
+    return { ...base, type: 'metadata_updated', tileId: data.tileId ?? data.id, tileName: data.tileName ?? data.name ?? `Tile #${data.tileId ?? data.id}`, tileAvatar: data.avatar || null, tileImageUrl: imgUrl, owner: data.owner || '' };
   }
   if (data.type === 'note_added') {
-    return { ...base, type: 'note_added', tileId: data.tileId, tileName: data.tileName ?? `Tile #${data.tileId}`, tileAvatar: null, owner: data.author || '', meta: { noteId: data.noteId, authorTile: data.authorTile } };
+    return { ...base, type: 'note_added', tileId: data.tileId, tileName: data.tileName ?? `Tile #${data.tileId}`, tileAvatar: null, tileImageUrl: imgUrl, owner: data.author || '', meta: { noteId: data.noteId, authorTile: data.authorTile } };
   }
   if (data.type === 'tile_action') {
-    return { ...base, type: 'tile_action', tileId: data.toTile, tileName: data.toName ?? `Tile #${data.toTile}`, tileAvatar: null, owner: data.actor || '', meta: { fromTile: data.fromTile, fromName: data.fromName, actionType: data.actionType } };
+    return { ...base, type: 'tile_action', tileId: data.toTile, tileName: data.toName ?? `Tile #${data.toTile}`, tileAvatar: null, tileImageUrl: imgUrl, owner: data.actor || '', meta: { fromTile: data.fromTile, fromName: data.fromName, actionType: data.actionType } };
   }
   if (data.type === 'tile_emote') {
-    return { ...base, type: 'tile_emote', tileId: data.toTile, tileName: data.toName ?? `Tile #${data.toTile}`, tileAvatar: null, owner: data.actor || '', meta: { emoji: data.emoji, fromTile: data.fromTile, fromName: data.fromName } };
+    return { ...base, type: 'tile_emote', tileId: data.toTile, tileName: data.toName ?? `Tile #${data.toTile}`, tileAvatar: null, tileImageUrl: imgUrl, owner: data.actor || '', meta: { emoji: data.emoji, fromTile: data.fromTile, fromName: data.fromName } };
   }
   if (data.type === 'heartbeat') {
-    return { ...base, type: 'heartbeat', tileId: data.tileId, tileName: data.tileName ?? `Tile #${data.tileId}`, tileAvatar: data.tileAvatar || null, owner: data.wallet || '' };
+    return { ...base, type: 'heartbeat', tileId: data.tileId, tileName: data.tileName ?? `Tile #${data.tileId}`, tileAvatar: data.tileAvatar || null, tileImageUrl: imgUrl, owner: data.wallet || '' };
+  }
+  if (data.type === 'td_invaded') {
+    return { ...base, type: 'td_invaded', tileId: data.tileId, tileName: `Tile #${data.tileId}`, tileAvatar: null, tileImageUrl: null, owner: '', meta: { invasionId: data.invasionId, expiresAt: data.expiresAt } };
+  }
+  if (data.type === 'td_repelled') {
+    return { ...base, type: 'td_repelled', tileId: data.tileId, tileName: `Tile #${data.tileId}`, tileAvatar: null, tileImageUrl: null, owner: data.repelledBy || '', meta: { invasionId: data.invasionId, defenderTileId: data.defenderTileId } };
   }
   return null;
 }
@@ -231,11 +246,11 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
   return (
     <div className="flex flex-col h-full">
       {/* Header with tabs */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border-dim shrink-0 min-w-0">
-        <div className="flex items-center gap-0 shrink-0">
+      <div className="flex items-center px-2 py-2 border-b border-border-dim shrink-0">
+        <div className="flex items-center gap-0 min-w-0 flex-1">
           <button
             onClick={() => setActiveTab('activity')}
-            className={`px-2 py-1 text-[12px] font-semibold rounded-l-md border border-border-dim transition-colors whitespace-nowrap ${
+            className={`px-2 py-1 text-[11px] font-semibold rounded-l-md border border-border-dim transition-colors whitespace-nowrap ${
               activeTab === 'activity'
                 ? 'bg-[#1a1a3e] text-text border-accent-purple'
                 : 'bg-transparent text-text-dim hover:text-text'
@@ -245,7 +260,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`relative px-2 py-1 text-[12px] font-semibold rounded-r-md border border-l-0 border-border-dim transition-colors whitespace-nowrap ${
+            className={`relative px-2 py-1 text-[11px] font-semibold rounded-r-md border border-l-0 border-border-dim transition-colors whitespace-nowrap ${
               activeTab === 'notifications'
                 ? 'bg-[#1a1a3e] text-text border-accent-purple'
                 : 'bg-transparent text-text-dim hover:text-text'
@@ -259,20 +274,18 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
             )}
           </button>
         </div>
-        <div className="flex items-center gap-1 ml-auto shrink-0">
-          {activeTab === 'activity' && (
-            <Link
-              href="/activity"
-              className="text-[10px] text-text-dim no-underline hover:text-text whitespace-nowrap"
-              title="Full activity page"
-            >
-              See all →
-            </Link>
-          )}
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
+          <Link
+            href="/activity"
+            className="text-[10px] text-text-dim no-underline hover:text-text"
+            title={activeTab === 'activity' ? 'Full activity page' : 'All alerts'}
+          >
+            All
+          </Link>
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="rounded p-0.5 text-[14px] text-text-dim hover:text-text"
+              className="flex items-center justify-center w-5 h-5 rounded text-[12px] text-text-dim hover:text-text hover:bg-white/10 shrink-0"
               title="Hide activity feed"
             >
               ✕
@@ -335,9 +348,26 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
             onClick={() => onTileClick?.(evt.tileId)}
             className="flex w-full items-center gap-2 border-b border-border-dim px-3 py-2 text-left transition-colors hover:bg-[#1a1a3e] cursor-pointer"
           >
-            {/* Icon */}
-            <span className="shrink-0 text-[16px]">
-              {evt.type !== 'tile_action' && evt.tileAvatar ? evt.tileAvatar : eventIcon(evt.type, evt.meta)}
+            {/* Profile pic or fallback icon */}
+            <span className="shrink-0 flex items-center justify-center w-7 h-7">
+              {evt.tileImageUrl || (evt.tileId != null && evt.type !== 'tile_action') ? (
+                <img
+                  src={evt.tileImageUrl || `/tile-images/thumb/${evt.tileId}.webp`}
+                  alt=""
+                  className="w-7 h-7 rounded-full object-cover bg-surface-2"
+                  onError={(e) => {
+                    // Fall back to emoji/icon on error
+                    e.target.style.display = 'none';
+                    e.target.nextSibling && (e.target.nextSibling.style.display = '');
+                  }}
+                />
+              ) : null}
+              <span
+                className="text-[16px]"
+                style={evt.tileImageUrl || (evt.tileId != null && evt.type !== 'tile_action') ? { display: 'none' } : {}}
+              >
+                {evt.tileAvatar || eventIcon(evt.type, evt.meta)}
+              </span>
             </span>
 
             {/* Content */}

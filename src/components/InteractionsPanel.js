@@ -527,20 +527,45 @@ function PixelWarsTab({ tile, address, ownedTiles }) {
   const [targetTileId, setTargetTileId] = useState('');
   const [msg, setMsg] = useState('');
   const [painting, setPainting] = useState(false);
+  const [targets, setTargets] = useState([]);
+  const [loadingTargets, setLoadingTargets] = useState(false);
 
   useEffect(() => {
     fetch('/api/games/pixel-wars/leaderboard').then(r => r.json()).then(setLeaderboard).catch(() => {});
   }, [tile.id]);
 
+  // Fetch eligible target tiles when wallet is available
+  const fetchTargets = useCallback(() => {
+    if (!address) return;
+    setLoadingTargets(true);
+    fetch(`/api/games/pixel-wars/targets?wallet=${encodeURIComponent(address)}`)
+      .then(r => r.json())
+      .then(d => {
+        setTargets(d.targets || []);
+        // Auto-select first target if none selected
+        if (d.targets?.length && !targetTileId) setTargetTileId(String(d.targets[0].id));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingTargets(false));
+  }, [address]);
+
+  useEffect(() => { fetchTargets(); }, [fetchTargets]);
+
   // Owned tile IDs for painting from
   const myOwnedIds = ownedTiles ? ownedTiles.map(t => t.id || t) : [];
   const [fromTileId, setFromTileId] = useState('');
+
+  // Auto-select first owned tile
+  useEffect(() => {
+    if (!fromTileId && myOwnedIds.length > 0) setFromTileId(String(myOwnedIds[0]));
+  }, [myOwnedIds.length]);
 
   async function handlePaint(e) {
     e.preventDefault();
     const fId = parseInt(fromTileId, 10);
     const tId = parseInt(targetTileId, 10);
-    if (isNaN(fId) || isNaN(tId)) { setMsg('Enter valid tile IDs'); return; }
+    if (isNaN(fId)) { setMsg('Select your tile first'); return; }
+    if (isNaN(tId)) { setMsg('Select a target tile'); return; }
     if (!address) { setMsg('Connect wallet first'); return; }
     setPainting(true);
     setMsg('');
@@ -554,6 +579,8 @@ function PixelWarsTab({ tile, address, ownedTiles }) {
       if (res.ok) {
         setMsg(`🎨 Painted tile #${tId}! Expires in 1h.`);
         fetch('/api/games/pixel-wars/leaderboard').then(r => r.json()).then(setLeaderboard).catch(() => {});
+        // Refresh targets (painted tile is no longer eligible)
+        fetchTargets();
       } else {
         setMsg(data.error || 'Failed to paint');
       }
@@ -575,14 +602,23 @@ function PixelWarsTab({ tile, address, ownedTiles }) {
             <label className="text-[11px] text-text-dim w-20">From tile</label>
             <select value={fromTileId} onChange={e => setFromTileId(e.target.value)}
               className="retro-input flex-1 text-[12px]">
-              <option value="">Pick your tile</option>
               {myOwnedIds.map(id => <option key={id} value={id}>#{id}</option>)}
             </select>
           </div>
           <div className="flex gap-2 items-center">
             <label className="text-[11px] text-text-dim w-20">Target tile</label>
-            <input value={targetTileId} onChange={e => setTargetTileId(e.target.value)}
-              placeholder="Unclaimed adjacent #" className="retro-input flex-1 text-[12px]" />
+            <select value={targetTileId} onChange={e => setTargetTileId(e.target.value)}
+              className="retro-input flex-1 text-[12px]">
+              {loadingTargets ? (
+                <option value="">Loading...</option>
+              ) : targets.length === 0 ? (
+                <option value="">No eligible tiles nearby</option>
+              ) : (
+                targets.map(t => (
+                  <option key={t.id} value={t.id}>#{t.id} (row {t.row}, col {t.col})</option>
+                ))
+              )}
+            </select>
           </div>
           <div className="flex gap-2 items-center">
             <label className="text-[11px] text-text-dim w-20">Color</label>
@@ -590,8 +626,8 @@ function PixelWarsTab({ tile, address, ownedTiles }) {
               className="h-7 w-10 cursor-pointer rounded border border-border-bright bg-surface-2" />
             <span className="text-[11px] text-text-dim font-mono">{paintColor}</span>
           </div>
-          <button type="submit" disabled={painting} className="btn-retro btn-retro-primary px-3 py-1 text-[12px] w-full">
-            {painting ? 'Painting...' : '🎨 Paint'}
+          <button type="submit" disabled={painting || !targets.length} className="btn-retro btn-retro-primary px-3 py-1 text-[12px] w-full">
+            {painting ? 'Painting...' : `🎨 Paint${targetTileId ? ` #${targetTileId}` : ''}`}
           </button>
           {msg && <div className="text-[11px] text-accent-blue">{msg}</div>}
         </form>
@@ -757,7 +793,7 @@ function BountiesTab({ tile, address, ownedTiles, isOwner }) {
         </div>
       )}
 
-      <a href="/bounties" target="_blank" className="block text-center text-[11px] text-accent-blue hover:underline">View all bounties →</a>
+      <a href="/bounties" className="block text-center text-[11px] text-accent-blue hover:underline">View all bounties →</a>
     </div>
   );
 }
@@ -772,7 +808,11 @@ function AllianceTab({ tile, address, ownedTiles }) {
   const [msg, setMsg] = useState('');
 
   const isOwnerOfTile = address && tile.owner && address.toLowerCase() === tile.owner.toLowerCase();
-  const fromTile = isOwnerOfTile ? tile.id : ownedTiles?.[0];
+  const hasOwnedTiles = ownedTiles && ownedTiles.length > 0;
+  const canInteract = !!address && hasOwnedTiles;
+  // Use current tile if owned, otherwise first owned tile
+  const fromTile = isOwnerOfTile ? tile.id : ownedTiles?.[0]?.id ?? ownedTiles?.[0];
+  const [selectedTile, setSelectedTile] = useState(fromTile ?? '');
 
   const fetchAlliance = useCallback(() => {
     fetch(`/api/tiles/${tile.id}/alliance`).then(r => r.json()).then(d => setAlliance(d.alliance || null)).catch(() => {});
@@ -784,13 +824,15 @@ function AllianceTab({ tile, address, ownedTiles }) {
 
   useEffect(() => { fetchAlliance(); fetchAlliances(); }, [fetchAlliance, fetchAlliances]);
 
+  const activeTileId = parseInt(selectedTile, 10) || fromTile;
+
   async function handleCreate() {
-    if (!newName.trim() || !isOwnerOfTile) return;
+    if (!newName.trim() || !canInteract || !activeTileId) return;
     setLoading(true); setMsg('');
     const res = await fetch('/api/alliances', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName.trim(), color: newColor, founder_tile_id: tile.id, wallet: address }),
+      body: JSON.stringify({ name: newName.trim(), color: newColor, founder_tile_id: activeTileId, wallet: address }),
     });
     const data = await res.json();
     setLoading(false);
@@ -800,14 +842,14 @@ function AllianceTab({ tile, address, ownedTiles }) {
     fetchAlliance(); fetchAlliances();
   }
 
-  async function handleJoin() {
-    const id = parseInt(joinId, 10);
-    if (isNaN(id) || !isOwnerOfTile) return;
+  async function handleJoin(allianceId) {
+    const id = allianceId != null ? allianceId : parseInt(joinId, 10);
+    if (isNaN(id) || !canInteract || !activeTileId) return;
     setLoading(true); setMsg('');
     const res = await fetch(`/api/alliances/${id}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tile_id: tile.id, wallet: address }),
+      body: JSON.stringify({ tile_id: activeTileId, wallet: address }),
     });
     const data = await res.json();
     setLoading(false);
@@ -818,12 +860,12 @@ function AllianceTab({ tile, address, ownedTiles }) {
   }
 
   async function handleLeave() {
-    if (!alliance || !isOwnerOfTile) return;
+    if (!alliance || !canInteract || !activeTileId) return;
     setLoading(true); setMsg('');
     const res = await fetch(`/api/alliances/${alliance.id}/leave`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tile_id: tile.id, wallet: address }),
+      body: JSON.stringify({ tile_id: activeTileId, wallet: address }),
     });
     const data = await res.json();
     setLoading(false);
@@ -834,6 +876,20 @@ function AllianceTab({ tile, address, ownedTiles }) {
 
   return (
     <div className="space-y-3">
+      {/* Tile selector — if user owns multiple tiles */}
+      {canInteract && hasOwnedTiles && ownedTiles.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-text-dim">Acting as</span>
+          <select value={selectedTile} onChange={e => setSelectedTile(e.target.value)}
+            className="retro-input flex-1 text-[12px]">
+            {ownedTiles.map(t => {
+              const tid = t.id ?? t;
+              return <option key={tid} value={tid}>Tile #{tid}</option>;
+            })}
+          </select>
+        </div>
+      )}
+
       {/* Current alliance status */}
       {alliance ? (
         <div className="rounded border border-border-bright bg-surface-2 p-3">
@@ -843,45 +899,39 @@ function AllianceTab({ tile, address, ownedTiles }) {
             <span className="text-[11px] text-text-dim ml-auto">{alliance.member_count} tile{alliance.member_count !== 1 ? 's' : ''}</span>
           </div>
           <div className="text-[11px] text-text-dim mb-2">Tile #{tile.id} is in this alliance.</div>
-          {isOwnerOfTile && (
+          {canInteract && (
             <button onClick={handleLeave} disabled={loading} className="btn-retro px-3 py-1 text-[12px] opacity-70 hover:opacity-100">
               Leave
             </button>
           )}
         </div>
-      ) : (
-        isOwnerOfTile && (
-          <div className="space-y-2">
-            <div className="text-[12px] text-text-dim">This tile is not in any alliance.</div>
-            {/* Create */}
-            <div className="rounded border border-border-bright bg-surface-2 p-2 space-y-1.5">
-              <div className="text-[11px] font-semibold text-text-dim uppercase tracking-wide">Create Alliance</div>
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Alliance name" maxLength={32} className="retro-input w-full text-[12px]" />
-              <div className="flex gap-2 items-center">
-                <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} className="h-7 w-10 cursor-pointer rounded border border-border-bright bg-surface-2" />
-                <span className="text-[11px] text-text-dim">Color</span>
-              </div>
-              <button onClick={handleCreate} disabled={loading || !newName.trim()} className="btn-retro btn-retro-primary px-3 py-1 text-[12px] w-full">
-                Create
-              </button>
-            </div>
-            {/* Join */}
-            <div className="rounded border border-border-bright bg-surface-2 p-2 space-y-1.5">
-              <div className="text-[11px] font-semibold text-text-dim uppercase tracking-wide">Join Alliance</div>
-              <div className="flex gap-1.5">
-                <input value={joinId} onChange={e => setJoinId(e.target.value)} placeholder="Alliance ID" className="retro-input flex-1 text-[12px]" />
-                <button onClick={handleJoin} disabled={loading || !joinId} className="btn-retro btn-retro-primary px-3 py-1 text-[12px]">Join</button>
-              </div>
-            </div>
+      ) : canInteract ? (
+        <div className="space-y-2">
+          <div className="text-[12px] text-text-dim">
+            {isOwnerOfTile ? 'This tile is not in any alliance.' : 'Join or create an alliance with your tiles.'}
           </div>
-        )
+          {/* Create */}
+          <div className="rounded border border-border-bright bg-surface-2 p-2 space-y-1.5">
+            <div className="text-[11px] font-semibold text-text-dim uppercase tracking-wide">Create Alliance</div>
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Alliance name" maxLength={32} className="retro-input w-full text-[12px]" />
+            <div className="flex gap-2 items-center">
+              <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} className="h-7 w-10 cursor-pointer rounded border border-border-bright bg-surface-2" />
+              <span className="text-[11px] text-text-dim">Color</span>
+            </div>
+            <button onClick={handleCreate} disabled={loading || !newName.trim()} className="btn-retro btn-retro-primary px-3 py-1 text-[12px] w-full">
+              Create
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-[12px] text-text-dim">Connect wallet &amp; claim a tile to create or join alliances.</div>
       )}
       {msg && <div className="text-[11px] text-accent-blue">{msg}</div>}
-      {/* Leaderboard */}
+      {/* Alliance list with join buttons */}
       <div>
         <div className="mb-1 text-[11px] font-semibold text-text-dim uppercase tracking-wide">Top Alliances</div>
         {alliances.length === 0 ? (
-          <div className="text-[12px] text-text-dim">No alliances yet.</div>
+          <div className="text-[12px] text-text-dim">No alliances yet. Be the first!</div>
         ) : (
           <div className="space-y-1">
             {alliances.map((a, i) => (
@@ -890,6 +940,12 @@ function AllianceTab({ tile, address, ownedTiles }) {
                 <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: a.color }} />
                 <span className="text-[12px] text-text flex-1 truncate">{a.name}</span>
                 <span className="text-[11px] text-text-dim">{a.member_count}T</span>
+                {canInteract && !alliance && (
+                  <button onClick={() => handleJoin(a.id)} disabled={loading}
+                    className="btn-retro px-2 py-0.5 text-[10px] text-accent-blue border-accent-blue/30">
+                    Join
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -899,6 +955,77 @@ function AllianceTab({ tile, address, ownedTiles }) {
   );
 }
 
+// ── Sub-tab bar renderer ─────────────────────────────────────────────────────
+
+function SubTabBar({ tabs, active, onChange }) {
+  return (
+    <div className="mb-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+      {tabs.map(t => {
+        const isActive = active === t.id;
+        return (
+          <button
+            key={t.id}
+            onClick={() => onChange(t.id)}
+            title={t.label}
+            className={`relative cursor-pointer rounded-sm border-2 font-body text-[11px] px-1 py-1.5 text-center flex flex-col items-center justify-center gap-0.5 min-w-0 ${isActive ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border-bright bg-surface-2 text-text-dim font-normal hover:border-accent-blue/50'}`}
+          >
+            <span className="text-[15px] leading-none">{t.icon}</span>
+            <span>{t.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Social panel (notes, actions, emotes, DMs) ──────────────────────────────
+
+const SOCIAL_TABS = [
+  { id: 'notes', icon: '📝', label: 'Notes' },
+  { id: 'actions', icon: '🎬', label: 'Actions' },
+  { id: 'emotes', icon: '😀', label: 'Emotes' },
+  { id: 'messages', icon: '💌', label: 'DMs' },
+];
+
+export function SocialPanel({ tile, address, ownedTiles, isOwner, allTiles, onAction }) {
+  const [tab, setTab] = useState('notes');
+  if (!tile) return null;
+  return (
+    <div>
+      <SubTabBar tabs={SOCIAL_TABS} active={tab} onChange={setTab} />
+      {tab === 'notes' && <NotesTab tile={tile} address={address} ownedTiles={ownedTiles} />}
+      {tab === 'actions' && <ActionsTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} onAction={onAction} />}
+      {tab === 'emotes' && <EmotesTab tile={tile} address={address} ownedTiles={ownedTiles} onAction={onAction} />}
+      {tab === 'messages' && <MessagesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
+    </div>
+  );
+}
+
+// ── Games panel (duels, alliance, bounties, paint) ──────────────────────────
+
+const GAME_TABS = [
+  { id: 'challenges', icon: '⚔️', label: 'Duels' },
+  { id: 'alliance', icon: '🤝', label: 'Alliance' },
+  { id: 'bounties', icon: '💰', label: 'Bounties' },
+  { id: 'pixelwars', icon: '🎨', label: 'Paint' },
+];
+
+export function GamesPanel({ tile, address, ownedTiles, isOwner, allTiles }) {
+  const [tab, setTab] = useState('challenges');
+  if (!tile) return null;
+  return (
+    <div>
+      <SubTabBar tabs={GAME_TABS} active={tab} onChange={setTab} />
+      {tab === 'challenges' && <ChallengesTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} />}
+      {tab === 'alliance' && <AllianceTab tile={tile} address={address} ownedTiles={ownedTiles} />}
+      {tab === 'bounties' && <BountiesTab tile={tile} address={address} ownedTiles={ownedTiles} isOwner={isOwner} />}
+      {tab === 'pixelwars' && <PixelWarsTab tile={tile} address={address} ownedTiles={ownedTiles} />}
+    </div>
+  );
+}
+
+// ── Legacy combined panel (default export kept for backwards compat) ────────
+
 export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, allTiles, onAction }) {
   const [tab, setTab] = useState('notes');
 
@@ -907,22 +1034,7 @@ export default function InteractionsPanel({ tile, address, ownedTiles, isOwner, 
   return (
     <div className="mt-4">
       <div className="mb-2 text-[14px] font-semibold text-text-dim">Interactions</div>
-      <div className="mb-3 flex gap-1 overflow-x-auto scrollbar-hide pb-0.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-        {TABS.map(t => {
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              title={t.label}
-              className={`relative cursor-pointer rounded-sm border-2 font-body text-[12px] flex-shrink-0 px-2 py-1.5 text-center flex items-center gap-1 ${active ? 'border-accent-blue bg-accent-blue/15 font-semibold text-text' : 'border-border-bright bg-surface-2 text-text-dim font-normal hover:border-accent-blue/50'}`}
-            >
-              <span className="text-[14px] leading-none">{t.icon}</span>
-              <span className="hidden sm:inline">{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      <SubTabBar tabs={TABS} active={tab} onChange={setTab} />
       {tab === 'notes' && <NotesTab tile={tile} address={address} ownedTiles={ownedTiles} />}
       {tab === 'actions' && <ActionsTab tile={tile} address={address} ownedTiles={ownedTiles} allTiles={allTiles} onAction={onAction} />}
       {tab === 'emotes' && <EmotesTab tile={tile} address={address} ownedTiles={ownedTiles} onAction={onAction} />}
