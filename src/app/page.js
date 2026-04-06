@@ -72,9 +72,15 @@ async function fetchSpans() {
 function HomeInner() {
   const searchParams = useSearchParams();
   const { address } = useAccount();
-  const [tiles, setTiles] = useState({});
-  const [pendingRequests, setPendingRequests] = useState({});
-  const [connections, setConnections] = useState([]);
+  const [tiles, setTiles] = useState(() =>
+    (typeof window !== 'undefined' && window.__tiles_grid_cache?.tiles) || {}
+  );
+  const [pendingRequests, setPendingRequests] = useState(() =>
+    (typeof window !== 'undefined' && window.__tiles_grid_cache?.pendingRequests) || {}
+  );
+  const [connections, setConnections] = useState(() =>
+    (typeof window !== 'undefined' && window.__tiles_grid_cache?.connections) || []
+  );
   // Pre-select tile from ?tile=<id> query param (used by /tiles/:id redirect)
   const [selectedTile, setSelectedTile] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -91,6 +97,7 @@ function HomeInner() {
   const [pixelWars, setPixelWars] = useState({});
   const [pixelWarsChampions, setPixelWarsChampions] = useState([]);
   const [ctfFlag, setCtfFlag] = useState(null);
+  const [tdInvasions, setTdInvasions] = useState([]);  // Tower Defense active invasions
   const [flyToTileId, setFlyToTileId] = useState(null);
   const [actionAnimation, setActionAnimation] = useState(null);
   // Intro readiness:
@@ -99,13 +106,16 @@ function HomeInner() {
   // - Already onboarded: intro plays immediately (no wait for modal)
   // - First visit: intro waits for onboarding modal to complete
   const hasDeepLink = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tile');
-  const isReturnNav = typeof window !== 'undefined' && !!window.__tiles_camera;
+  const savedCamera = typeof window !== 'undefined'
+    ? window.__tiles_camera || (() => { try { const s = sessionStorage.getItem('tiles_camera'); return s ? JSON.parse(s) : null; } catch { return null; } })()
+    : null;
+  const isReturnNav = !!savedCamera;
   const alreadyOnboarded = typeof window !== 'undefined' && !!localStorage.getItem('tiles_onboarded');
   const [introReady, setIntroReady] = useState(hasDeepLink || isReturnNav || alreadyOnboarded);
   // blockClaimTopLeft removed — block tiles feature killed
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
-  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [zoom, setZoom] = useState(() => savedCamera?.zoom ?? DEFAULT_ZOOM);
   const [filterCategory, setFilterCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
@@ -128,7 +138,8 @@ function HomeInner() {
 
   // SSE: real-time tile updates — re-sync on (re)connect and patch local grid on claim events
   // Delay SSE connection until intro animation finishes to prevent React DOM thrash during canvas animation
-  const [introComplete, setIntroComplete] = useState(false);
+  // Skip delay entirely on return navigation (intro is skipped, data is cached)
+  const [introComplete, setIntroComplete] = useState(isReturnNav);
   const onIntroFinished = useCallback(() => setIntroComplete(true), []);
 
   // Safety: connect SSE after 6s even if intro never fires
@@ -155,11 +166,21 @@ function HomeInner() {
         if (grid.pixelWars) setPixelWars(grid.pixelWars);
         if (grid.pixelWarsChampions) setPixelWarsChampions(grid.pixelWarsChampions);
         if ('ctfFlag' in grid) setCtfFlag(grid.ctfFlag);
+        if (grid.tdInvasions) setTdInvasions(grid.tdInvasions);
       }
 
       setBlocks(prev => blockList.length ? blockList : prev);
       setSpans(prev => spanList.length ? spanList : prev);
       setConnections(conns);
+
+      // Cache grid data on window for instant restore on SPA return navigation
+      if (typeof window !== 'undefined') {
+        window.__tiles_grid_cache = {
+          tiles: grid?.tiles || {},
+          connections: conns || [],
+          pendingRequests: grid?.pendingRequests || {},
+        };
+      }
 
       const nextStats = statsSnapshot || grid?.stats;
       if (nextStats) {
@@ -235,6 +256,10 @@ function HomeInner() {
           setCtfFlag(event.ctfFlag);
         } else if (event.type === 'ctf_flag_captured') {
           setCtfFlag(null);
+        } else if (event.type === 'td_invaded') {
+          setTdInvasions(prev => [...prev.filter(i => i.tile_id !== event.tileId), { id: event.invasionId, tile_id: event.tileId, expires_at: event.expiresAt }]);
+        } else if (event.type === 'td_repelled') {
+          setTdInvasions(prev => prev.filter(i => i.id !== event.invasionId));
         } else if (event.type === 'connection_request') {
           playSound('notification');
           setPendingRequests(prev => ({
@@ -242,11 +267,8 @@ function HomeInner() {
             [event.toTileId]: (prev[event.toTileId] || 0) + 1,
           }));
         } else if (event.type === 'connection_accepted' || event.type === 'connection_rejected') {
-          setPendingRequests(prev => {
-            const count = (prev[event.toTileId] || 1) - 1;
-            if (count <= 0) { const next = { ...prev }; delete next[event.toTileId]; return next; }
-            return { ...prev, [event.toTileId]: count };
-          });
+          // Badge decrement handled directly by onPendingRequestsChange callback
+          // from NeighborNetworkPanel — no SSE decrement needed (avoids double-subtract).
         }
       } catch {
         // ignore parse errors
@@ -394,7 +416,7 @@ function HomeInner() {
           actionAnimation={actionAnimation}
           introReady={introReady}
           onIntroFinished={onIntroFinished}
-          initialCamera={isReturnNav ? window.__tiles_camera : null}
+          initialCamera={savedCamera}
           selectedTile={selectedTile}
           zoom={zoom}
           onZoomChange={setZoom}
@@ -407,6 +429,7 @@ function HomeInner() {
           pixelWars={pixelWars}
           pixelWarsChampions={pixelWarsChampions}
           ctfFlag={ctfFlag}
+          tdInvasions={tdInvasions}
         />
         <div className={`side-panel${panelOpen ? ' open' : ''}`}>
         {panelOpen ? (
@@ -417,8 +440,14 @@ function HomeInner() {
               setTiles(prev => ({ ...prev, [id]: { ...prev[id], ...updatedTile } }));
             }}
             onConnectionsChange={setConnections}
+            onPendingRequestsChange={(tileId, delta) => {
+              setPendingRequests(prev => {
+                const count = (prev[tileId] || 0) + delta;
+                if (count <= 0) { const next = { ...prev }; delete next[tileId]; return next; }
+                return { ...prev, [tileId]: count };
+              });
+            }}
             onNavigateToTile={(tileId) => {
-              playSound('whoosh');
               setFlyToTileId({ id: tileId, ts: Date.now() });
               setSelectedTile(tileId);
             }}
@@ -428,6 +457,7 @@ function HomeInner() {
             onAction={setActionAnimation}
             onClaim={(tileId) => { setSelectedTile(null); setClaimModalTile(tileId); }}
             ctfFlag={ctfFlag}
+            tdInvasions={tdInvasions}
           />
         ) : null}
         </div>

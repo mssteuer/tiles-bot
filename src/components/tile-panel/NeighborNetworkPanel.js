@@ -10,7 +10,7 @@ const NEIGHBOR_STATUS_DOT_CLASS = {
   offline: 'bg-accent-red',
 };
 
-function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onNavigateToTile }) {
+function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onPendingRequestsChange, onNavigateToTile }) {
   const { signMessageAsync } = useSignMessage();
   const [neighbors, setNeighbors] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -118,6 +118,8 @@ function NeighborNetworkPanel({ tile, address, isOwner, onConnectionsChange, onN
         throw new Error(err.error || `Action failed (${res.status})`);
       }
       await Promise.all([loadNeighbors(), loadPendingRequests()]);
+      // Clear the pending-request badge on the tile canvas
+      if (onPendingRequestsChange) onPendingRequestsChange(tile.id, -1);
       if (action === 'accept' && onConnectionsChange) {
         fetch('/api/connections').then(r => r.json()).then(d => onConnectionsChange(d.connections || [])).catch(() => {});
       }

@@ -11,13 +11,26 @@ import SelectionOverlay from './SelectionOverlay';
 import ToolToggle from './ToolToggle';
 import { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, imageCache, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile } from './utils';
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles, pixelWars, pixelWarsChampions, ctfFlag = null }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles, pixelWars, pixelWarsChampions, ctfFlag = null, tdInvasions = [] }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
   const starfieldRef = useRef(null);
   const activeAnimationsRef = useRef([]);
-  const [camera, setCamera] = useState(() => initialCamera || { x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.008 });
+  const [camera, setCamera] = useState(() => {
+    if (initialCamera) return initialCamera;
+    // Fallback: restore from sessionStorage (survives SPA nav even if window prop is lost)
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('tiles_camera');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed.x === 'number' && typeof parsed.zoom === 'number') return parsed;
+        }
+      } catch {}
+    }
+    return { x: GRID_PX / 2, y: GRID_PX / 2, zoom: 0.008 };
+  });
 
   // Generate starfield once (off-screen canvas)
   useEffect(() => {
@@ -76,10 +89,14 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     }
 
     // Skip intro if returning from SPA navigation (camera restored) or deep link
-    if (initialCamera || flyToTileId) {
+    const hasSavedCamera = initialCamera || (typeof window !== 'undefined' && !!sessionStorage.getItem('tiles_camera'));
+    if (hasSavedCamera || flyToTileId) {
       introPlayed.current = true;
       introFinished.current = true;
-      if (typeof window !== 'undefined') window.__tiles_camera = cameraRef.current;
+      if (typeof window !== 'undefined') {
+        window.__tiles_camera = cameraRef.current;
+        try { sessionStorage.setItem('tiles_camera', JSON.stringify(cameraRef.current)); } catch {}
+      }
       if (onIntroFinished) onIntroFinished();
       return;
     }
@@ -187,6 +204,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       midZoom, dist, duration, startTime: null, // lazy init on first frame
       ease: easeInOutQuart,
     };
+
+    // Centralised sound: small delay so it syncs with visible camera movement
+    setTimeout(() => playSound('whoosh'), 150);
   }, [flyToTileId]);
 
   // Action animation trigger
@@ -239,9 +259,12 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   const cameraRef = useRef(camera);
   useEffect(() => {
     cameraRef.current = camera;
-    // Persist camera on window — survives SPA navigation but NOT page refresh
-    // Only save AFTER intro finishes to prevent re-render from seeing it and skipping intro
-    if (typeof window !== 'undefined' && introFinished.current) window.__tiles_camera = camera;
+    // Persist camera state — survives SPA navigation
+    // Only save AFTER intro finishes to prevent seeing saved state and skipping intro on first visit
+    if (typeof window !== 'undefined' && introFinished.current) {
+      window.__tiles_camera = camera;
+      try { sessionStorage.setItem('tiles_camera', JSON.stringify(camera)); } catch {}
+    }
   }, [camera]);
 
   // Connections ref (kept in sync with prop for draw callback)
@@ -262,6 +285,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   const ctfFlagRef = useRef(ctfFlag);
   useEffect(() => { ctfFlagRef.current = ctfFlag; }, [ctfFlag]);
+  const tdInvasionsRef = useRef(tdInvasions);
+  useEffect(() => { tdInvasionsRef.current = tdInvasions; }, [tdInvasions]);
 
   // Block tiles feature removed
 
@@ -474,10 +499,31 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
           }
         }
       }
-      // Outer span border
-      ctx.strokeStyle = '#0ea5e9';
-      ctx.lineWidth = 2 / cam.zoom;
-      ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+      // ── Span-level custom effects (use first tile's effects for entire span) ──
+      const spanFirstTile = tiles[tileIds[0]];
+      const spanFx = spanFirstTile?.effects;
+      const spanFxColor = spanFx?.border || null;
+      if (spanFxColor && /^#[0-9a-fA-F]{6}$/.test(spanFxColor)) {
+        const sfr = parseInt(spanFxColor.slice(1, 3), 16);
+        const sfg = parseInt(spanFxColor.slice(3, 5), 16);
+        const sfb = parseInt(spanFxColor.slice(5, 7), 16);
+        if (spanFx.glow) {
+          const ga = 0.18 + 0.10 * pulse;
+          ctx.fillStyle = `rgba(${sfr},${sfg},${sfb},${ga.toFixed(3)})`;
+          ctx.fillRect(sx - 6, sy - 6, sw + 12, sh + 12);
+          ctx.fillStyle = `rgba(${sfr},${sfg},${sfb},${(ga * 0.6).toFixed(3)})`;
+          ctx.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
+        }
+        const ba = 0.85 + 0.15 * pulse;
+        ctx.strokeStyle = `rgba(${sfr},${sfg},${sfb},${ba.toFixed(3)})`;
+        ctx.lineWidth = Math.max(2, 3 / cam.zoom);
+        ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+      } else {
+        // Default outer span border
+        ctx.strokeStyle = '#0ea5e9';
+        ctx.lineWidth = 2 / cam.zoom;
+        ctx.strokeRect(sx + 1, sy + 1, sw - 2, sh - 2);
+      }
 
       // Grid lines over span (tile boundaries)
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -493,12 +539,14 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
       }
       ctx.stroke();
 
-      // Hover + selected + fly-to highlights on individual span tiles
+      // Per-tile effects + hover/selected/fly-to highlights on individual span tiles
       for (const tid of tileIds) {
         const tc = tid % GRID_SIZE;
         const tr = Math.floor(tid / GRID_SIZE);
         const tx = tc * TILE_SIZE;
         const ty = tr * TILE_SIZE;
+
+        // (Span-level effects now rendered on the whole span rectangle above)
 
         if (hoveredTile === tid) {
           ctx.fillStyle = 'rgba(255,255,255,0.15)';
@@ -741,6 +789,29 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             deferredBadges.push({ type: 'bounty', x, y });
           }
 
+          ctx.restore();
+        }
+
+        // Tower Defense — invaded tile red glow
+        const tdInvasions = tdInvasionsRef.current;
+        const isInvaded = Array.isArray(tdInvasions) && tdInvasions.some(inv => inv.tile_id === id);
+        if (isInvaded) {
+          const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 400);
+          ctx.save();
+          ctx.fillStyle = `rgba(220, 38, 38, ${0.20 + pulse * 0.20})`;
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          if (cam.zoom > 0.15) {
+            ctx.strokeStyle = `rgba(220, 38, 38, ${0.6 + pulse * 0.4})`;
+            ctx.lineWidth = (2 + pulse * 2) / cam.zoom;
+            ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+          }
+          if (cam.zoom > 0.3) {
+            ctx.font = `${Math.max(10, TILE_SIZE * 0.38)}px system-ui`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#fff';
+            ctx.fillText('👾', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+          }
           ctx.restore();
         }
 
