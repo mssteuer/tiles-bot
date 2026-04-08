@@ -11,3 +11,6 @@ node_modules/
 *.node
 million-bot-homepage-worktrees/
 backups/
+
+# Local runtime artifacts
+/tiles.db
