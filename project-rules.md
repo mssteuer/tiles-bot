@@ -43,9 +43,11 @@ tiles.bot (nginx + TLS)
 - Bonding curve: `price = exp(ln(11111) × totalMinted / 65536) / 100` → $0.01 to $111
 
 ## Database
-- **File:** `data/tiles.db` (SQLite, WAL mode) — gitignored, never commit
+- **Runtime file:** `data/tiles.db` (SQLite, WAL mode) — gitignored, never commit
+- **Override:** `DB_DIR` can change the parent directory; default remains `data/`
+- **Repo-root note:** any `tiles.db` file at repo root is stale/non-runtime and must not be treated as the live database
 - **Schema key fields:** id, owner, name, avatar, description, category, color, status, url, x_handle, claimed_at, last_heartbeat, price_paid, image_url
-- **Migration:** Schema created/updated on startup via `db.js` CREATE TABLE IF NOT EXISTS + ALTER TABLE for new columns
+- **Migration:** Schema created/updated on startup via `src/lib/db.js` with CREATE TABLE IF NOT EXISTS + ALTER TABLE migrations
 
 ## Build & Deploy
 ```bash
@@ -60,7 +62,7 @@ sudo systemctl restart million-bot   # restart the live service
 - **JavaScript only** — no TypeScript in this project (Next.js JS mode)
 - **No `"use client"` directives** on API routes — they are server-side
 - Canvas rendering lives in `src/components/Grid.js` — keep all canvas logic there
-- DB access only through `src/lib/db.js` — never access tiles.db directly from components
+- DB access only through `src/lib/db.js` — never access the SQLite file directly from components or ad-hoc route code
 - Environment variables: use `process.env.NEXT_PUBLIC_*` for frontend, plain `process.env.*` for server
 - Never hardcode wallet addresses or contract addresses — always use env vars
 
@@ -93,7 +95,8 @@ Agents confuse `====` and `----` with git merge conflict markers and corrupt fil
 - Mark CCC tasks in_progress when starting, done only after build passes + browser QA
 
 ## Important Notes
-- `data/` directory is gitignored — contains tiles.db and uploaded images
+- `data/` directory is gitignored — contains the live `tiles.db` and uploaded/runtime files
+- Repo-root `tiles.db` is legacy drift and should not be copied into deployment/recovery instructions
 - `.env.local` is gitignored — contains private key and payment config; **never commit**
 - `node_modules/` is gitignored — the git history was squashed to remove it
 - The `artifacts/` directory IS committed (Solidity build artifacts + ABI needed at runtime)

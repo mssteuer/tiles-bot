@@ -42,25 +42,25 @@ function buildTileAttributes(tileId, tile) {
   const { row, col } = getTileCoordinates(tileId);
   const attributes = [
     { display_type: 'number', trait_type: 'Tile Number', value: tileId },
-    { display_type: 'number', trait_type: 'X Coordinate', value: col },
-    { display_type: 'number', trait_type: 'Y Coordinate', value: row },
+    { display_type: 'number', trait_type: 'Row', value: row },
+    { display_type: 'number', trait_type: 'Column', value: col },
   ];
 
-  if (!tile) return attributes;
-
-  if (tile.category) attributes.push({ trait_type: 'Category', value: String(tile.category) });
-  if (tile.url) attributes.push({ trait_type: 'Website', value: String(tile.url) });
-
-  // Verified X account
-  if (tile.xVerified && tile.xHandleVerified) {
-    attributes.push({ trait_type: 'X Account', value: `@${String(tile.xHandleVerified).replace(/^@/, '')}` });
-    attributes.push({ trait_type: 'X Verified', value: 'Yes' });
-  } else if (tile.xHandle) {
-    attributes.push({ trait_type: 'X Account', value: `@${String(tile.xHandle).replace(/^@/, '')}` });
-    attributes.push({ trait_type: 'X Verified', value: 'No' });
+  if (!tile) {
+    attributes.push({ trait_type: 'Claimed', value: 'No' });
+    return attributes;
   }
 
-  // Verified GitHub account
+  attributes.push({ trait_type: 'Claimed', value: 'Yes' });
+  if (tile.category) attributes.push({ trait_type: 'Category', value: String(tile.category) });
+  if (tile.status) attributes.push({ trait_type: 'Status', value: String(tile.status) });
+  if (tile.url) attributes.push({ trait_type: 'Website', value: String(tile.url) });
+
+  const xHandle = tile.xHandle || tile.x_handle || tile.xHandleVerified;
+  if (xHandle) {
+    attributes.push({ trait_type: 'X Handle', value: `@${String(xHandle).replace(/^@/, '')}` });
+  }
+
   if (tile.githubVerified && tile.githubUsername) {
     attributes.push({ trait_type: 'GitHub', value: String(tile.githubUsername) });
     attributes.push({ trait_type: 'GitHub Verified', value: 'Yes' });
@@ -75,7 +75,9 @@ function buildTileAttributes(tileId, tile) {
 
 function buildTileTokenMetadata({ siteUrl, tileId, tile }) {
   const baseUrl = normalizeBaseUrl(siteUrl);
-  const displayName = tile?.name || `Tile #${tileId}`;
+  const displayName = tile?.name
+    ? `Million Bot Tile #${tileId} — ${tile.name}`
+    : `Million Bot Tile #${tileId}`;
 
   return {
     name: displayName,
