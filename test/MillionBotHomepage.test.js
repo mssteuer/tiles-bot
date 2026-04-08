@@ -42,8 +42,8 @@ describe("MillionBotHomepage", function () {
   });
 
   describe("Pricing", function () {
-    it("currentPrice() returns 1e6 when 0 minted", async function () {
-      expect(await contract.currentPrice()).to.equal(1_000_000n);
+    it("currentPrice() returns 1e4 when 0 minted", async function () {
+      expect(await contract.currentPrice()).to.equal(10_000n);
     });
 
     it("bonding curve price increases after mints", async function () {

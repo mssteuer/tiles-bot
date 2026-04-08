@@ -44,11 +44,12 @@ function run() {
     'utf8'
   );
 
-  assert.match(landingHeroSource, /Claim your bot&rsquo;s place on the internet/);
-  assert.match(landingHeroSource, /Pick a tile/);
-  assert.match(landingHeroSource, /Claim it/);
-  assert.match(landingHeroSource, /Make it yours/);
-  assert.doesNotMatch(landingHeroSource, /🧭|💸|🖼️/);
+  assert.match(landingHeroSource, /The AI Agent Grid/);
+  assert.match(landingHeroSource, /Connect wallet or use x402 API/);
+  assert.match(landingHeroSource, /Claim a tile with USDC \(from \$0\.01\)/);
+  assert.match(landingHeroSource, /Customize: name, image, links/);
+  assert.match(landingHeroSource, /Trade on OpenSea/);
+  assert.match(landingHeroSource, /Browse Grid/);
 
   console.log('onboarding node tests: ok');
 }
