@@ -61,8 +61,8 @@ function run() {
   assert.equal(collection.name, 'tiles.bot');
   assert.equal(collection.image, 'https://tiles.bot/og-image.png');
   assert.equal(collection.external_link, 'https://tiles.bot');
-  assert.equal(collection.seller_fee_basis_points, 0);
-  assert.equal(collection.fee_recipient, '0x0000000000000000000000000000000000000000');
+  assert.equal(collection.seller_fee_basis_points, 250);
+  assert.equal(collection.fee_recipient, '0x67439832C52C92B5ba8DE28a202E72D09CCEB42f');
 
   assert.equal(
     buildOpenSeaAssetUrl({

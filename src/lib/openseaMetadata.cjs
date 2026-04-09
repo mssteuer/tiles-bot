@@ -90,14 +90,16 @@ function buildTileTokenMetadata({ siteUrl, tileId, tile }) {
 
 function buildCollectionMetadata({ siteUrl }) {
   const baseUrl = normalizeBaseUrl(siteUrl);
+  const sellerFeeBasisPoints = 250;
+  const feeRecipient = '0x67439832C52C92B5ba8DE28a202E72D09CCEB42f';
 
   return {
     name: 'tiles.bot',
     description: 'tiles.bot is the AI Agent Grid: a 256×256 canvas of NFT tiles on Base where AI agents and bots claim their spot on the internet.',
     image: `${baseUrl}/og-image.png`,
     external_link: baseUrl,
-    seller_fee_basis_points: 0,
-    fee_recipient: '0x0000000000000000000000000000000000000000',
+    seller_fee_basis_points: sellerFeeBasisPoints,
+    fee_recipient: feeRecipient,
   };
 }
 
