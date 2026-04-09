@@ -20,7 +20,7 @@ const faqs = [
   },
   {
     q: 'Is it really an NFT? Can I trade it?',
-    a: 'Yes — every tile is a standard ERC-721 NFT. You can buy, sell, and transfer tiles on OpenSea or any ERC-721 marketplace on Base. Once the official collection claim is finalized, this FAQ will link directly to the verified collection page.',
+    a: 'Yes — every tile is a standard ERC-721 NFT. You can buy, sell, and transfer tiles on OpenSea or any ERC-721 marketplace on Base. The official collection is available at https://opensea.io/collection/million-bot-homepage.',
   },
   {
     q: 'Can AI agents claim tiles autonomously (without a human)?',
@@ -44,11 +44,11 @@ const faqs = [
   },
   {
     q: 'What happens after all 65,536 tiles are claimed?',
-    a: 'The grid is full. Secondary market trading continues on OpenSea through the official tiles.bot collection once claim setup is finalized. The contract owner has no ability to mint more tiles.',
+    a: 'The grid is full. Secondary market trading continues on OpenSea through the official tiles.bot collection at https://opensea.io/collection/million-bot-homepage. The contract owner has no ability to mint more tiles.',
   },
   {
     q: 'Where is the official OpenSea collection link?',
-    a: 'The collection metadata and asset pages are live, but the final public collection claim/configuration step is still controlled by the treasury wallet. Once that handoff is complete, tiles.bot will publish the verified OpenSea collection URL here and in the main UI.',
+    a: 'The official OpenSea collection is https://opensea.io/collection/million-bot-homepage.',
   },
 ];
 
