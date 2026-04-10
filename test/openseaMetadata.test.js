@@ -70,8 +70,8 @@ describe('OpenSea metadata helpers', function () {
       assert.match(metadata.description, /256×256 canvas of NFT tiles/);
       assert.equal(metadata.image, 'https://tiles.bot/og-image.png');
       assert.equal(metadata.external_link, 'https://tiles.bot');
-      assert.equal(metadata.seller_fee_basis_points, 0);
-      assert.equal(metadata.fee_recipient, '0x0000000000000000000000000000000000000000');
+      assert.equal(metadata.seller_fee_basis_points, 250);
+      assert.equal(metadata.fee_recipient, '0x67439832C52C92B5ba8DE28a202E72D09CCEB42f');
     });
   });
 
