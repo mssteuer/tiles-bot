@@ -144,6 +144,36 @@ These systems increase product depth, but they also increase the need for:
 - `docs/architecture.md` — this file; current-state architecture reference.
 - `project-rules.md` — operational rules, deployment expectations, and coding guardrails.
 
+## Environment Variables
+
+Required for deployment. Set in `.env.local` (not committed):
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_CHAIN_ID` | Base chain ID (e.g. `8453` for mainnet) |
+| `NEXT_PUBLIC_CONTRACT_ADDRESS` | ERC-721 tiles contract address on Base |
+| `NEXT_PUBLIC_USDC_ADDRESS` | USDC token address on Base |
+| `NEXT_PUBLIC_SITE_URL` | Public site URL (e.g. `https://tiles.bot`) |
+| `SITE_URL` | Server-side site URL (same value) |
+| `INTERNAL_API_URL` | Internal API base URL for server-side calls |
+| `ADMIN_SECRET` | Secret for protected admin/operator endpoints |
+| `SERVER_WALLET_PRIVATE_KEY` | Server wallet key for x402 relay / claim operations |
+| `DB_DIR` | Path to directory containing `tiles.db` (defaults to `data/`) |
+| `IMAGES_DIR` | Path to tile image storage directory |
+| `FILEBASE_KEY` | Filebase S3-compatible API key (image storage) |
+| `FILEBASE_SECRET` | Filebase S3-compatible API secret |
+| `FILEBASE_BUCKET` | Filebase bucket name for tile images |
+| `X` | X/Twitter API credentials for social features |
+
+**Deployment checklist for bare-metal rebuild:**
+1. Copy `.env.local` with all values above
+2. `npm install`
+3. `npm run build`
+4. Configure systemd user service to run `npm start`
+5. Point nginx vhost to Next.js port (default 3000)
+6. Confirm `data/tiles.db` is on a persistent volume (not repo-root `tiles.db`)
+7. Confirm `IMAGES_DIR` path is writable and persisted across deploys
+
 ## Current Constraints / Follow-up Areas
 
 1. **Database clarity:** runtime is `data/tiles.db`; stale root-level `tiles.db` should not confuse operators.
