@@ -354,11 +354,15 @@ function ChallengesTab({ tile, address, ownedTiles, allTiles }) {
   const [sending, setSending] = useState(false);
   const [submitScore, setSubmitScore] = useState({}); // {[challengeId]: score}
   const [submitting, setSubmitting] = useState(null);
+  const [voting, setVoting] = useState(null); // challengeId being voted on
+  const [voteTallies, setVoteTallies] = useState({}); // {[challengeId]: {challengerVotes, defenderVotes}}
 
   const fromTileId = ownedTiles?.[0] ?? null;
 
   const fetchChallenges = useCallback(() => {
-    fetch(`/api/tiles/${tile.id}/challenges`).then(r => r.json()).then(d => setChallenges(d.challenges || [])).catch(() => {});
+    fetch(`/api/tiles/${tile.id}/challenges`).then(r => r.json()).then(d => {
+      setChallenges(d.challenges || []);
+    }).catch(() => {});
   }, [tile.id]);
 
   useEffect(() => { fetchChallenges(); }, [fetchChallenges]);
@@ -411,6 +415,27 @@ function ChallengesTab({ tile, address, ownedTiles, allTiles }) {
       else alert(data.error || 'Failed to submit score');
     } finally {
       setSubmitting(null);
+    }
+  }
+
+  async function handleVote(challengeId, votedForTileId) {
+    if (!address) return;
+    setVoting(challengeId);
+    try {
+      const res = await fetch(`/api/tiles/${tile.id}/challenges/${challengeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'vote', wallet: address, votedForId: votedForTileId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setVoteTallies(t => ({ ...t, [challengeId]: data.tally }));
+        fetchChallenges();
+      } else {
+        alert(data.error || 'Vote failed');
+      }
+    } finally {
+      setVoting(null);
     }
   }
 
@@ -479,7 +504,42 @@ function ChallengesTab({ tile, address, ownedTiles, allTiles }) {
                 {ch.winner_id ? (
                   <span style={{ color: '#f59e0b' }}>🏆 Winner: {ch.winner_name || `Tile #${ch.winner_id}`} ({ch.challenger_score ?? '?'} vs {ch.defender_score ?? '?'})</span>
                 ) : (
-                  <span className="text-text-dim">Tie! ({ch.challenger_score} vs {ch.defender_score})</span>
+                  <div>
+                    <span className="text-text-dim">🤝 Tie! ({ch.challenger_score} vs {ch.defender_score}) — community vote to decide</span>
+                    {(() => {
+                      const tally = voteTallies[ch.id];
+                      const cv = tally?.challengerVotes ?? 0;
+                      const dv = tally?.defenderVotes ?? 0;
+                      const total = cv + dv;
+                      return (
+                        <div className="mt-1.5">
+                          {total > 0 && (
+                            <div className="mb-1 text-[11px] text-text-dim">
+                              {ch.challenger_name || `#${ch.challenger_id}`}: {cv} · {ch.defender_name || `#${ch.defender_id}`}: {dv}
+                            </div>
+                          )}
+                          {address && (
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => handleVote(ch.id, ch.challenger_id)}
+                                disabled={voting === ch.id}
+                                className="btn-retro btn-retro-primary px-2 py-0.5 text-[10px]"
+                              >
+                                👍 {ch.challenger_name || `Tile #${ch.challenger_id}`}
+                              </button>
+                              <button
+                                onClick={() => handleVote(ch.id, ch.defender_id)}
+                                disabled={voting === ch.id}
+                                className="btn-retro btn-retro-primary px-2 py-0.5 text-[10px]"
+                              >
+                                👍 {ch.defender_name || `Tile #${ch.defender_id}`}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 )}
               </div>
             )}
