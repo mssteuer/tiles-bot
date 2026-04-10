@@ -179,6 +179,7 @@ function rowToTile(row) {
     xTweetUrl: row.x_tweet_url || null,
     repScore: row.rep_score != null ? row.rep_score : 0,
     hasTrophy: row.trophy_expires_at ? new Date(row.trophy_expires_at) > new Date() : false,
+    hasCrack: row.crack_expires_at ? new Date(row.crack_expires_at) > new Date() : false,
     effects: row.effects ? JSON.parse(row.effects) : null,
   };
 }
@@ -1907,9 +1908,20 @@ function ensureChallengesTable() {
     CREATE INDEX IF NOT EXISTS idx_challenges_defender ON tile_challenges(defender_id);
     CREATE INDEX IF NOT EXISTS idx_challenges_status ON tile_challenges(status);
     CREATE INDEX IF NOT EXISTS idx_challenges_created ON tile_challenges(created_at DESC);
+    CREATE TABLE IF NOT EXISTS tile_challenge_votes (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      challenge_id INTEGER NOT NULL REFERENCES tile_challenges(id) ON DELETE CASCADE,
+      voter_wallet TEXT NOT NULL,
+      voted_for_id INTEGER NOT NULL,
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(challenge_id, voter_wallet)
+    );
+    CREATE INDEX IF NOT EXISTS idx_challenge_votes_challenge ON tile_challenge_votes(challenge_id);
   `);
   // Add trophy_expires_at column to tiles if not present
   try { db.exec(`ALTER TABLE tiles ADD COLUMN trophy_expires_at TEXT`); } catch {}
+  // Add crack_expires_at column to tiles if not present
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN crack_expires_at TEXT`); } catch {}
 }
 ensureChallengesTable();
 
@@ -1987,10 +1999,13 @@ export function submitChallengeScore(challengeId, tileId, wallet, score) {
     else if (updated.defender_score > updated.challenger_score) winnerId = updated.defender_id;
     // Tie = no winner
     db.prepare('UPDATE tile_challenges SET status = ?, winner_id = ? WHERE id = ?').run('completed', winnerId, challengeId);
-    // Award trophy to winner for 24h
+    // Award trophy to winner for 24h; crack animation to loser for 1h
     if (winnerId != null) {
       const trophyExpires = new Date(Date.now() + CHALLENGE_EXPIRE_HOURS * 3600 * 1000).toISOString();
       db.prepare('UPDATE tiles SET trophy_expires_at = ? WHERE id = ?').run(trophyExpires, winnerId);
+      const loserId = winnerId === updated.challenger_id ? updated.defender_id : updated.challenger_id;
+      const crackExpires = new Date(Date.now() + 1 * 3600 * 1000).toISOString();
+      db.prepare('UPDATE tiles SET crack_expires_at = ? WHERE id = ?').run(crackExpires, loserId);
     }
     return db.prepare('SELECT * FROM tile_challenges WHERE id = ?').get(challengeId);
   }
@@ -2048,6 +2063,72 @@ export function hasTrophy(tileId) {
   const tile = db.prepare('SELECT trophy_expires_at FROM tiles WHERE id = ?').get(tileId);
   if (!tile?.trophy_expires_at) return false;
   return new Date(tile.trophy_expires_at) > new Date();
+}
+
+export function hasCrack(tileId) {
+  const db = getDb();
+  const tile = db.prepare('SELECT crack_expires_at FROM tiles WHERE id = ?').get(tileId);
+  if (!tile?.crack_expires_at) return false;
+  return new Date(tile.crack_expires_at) > new Date();
+}
+
+/**
+ * Cast a community upvote on a tied challenge.
+ * Returns updated vote tallies.
+ */
+export function voteChallengeWinner(challengeId, voterWallet, votedForTileId) {
+  const db = getDb();
+  const ch = db.prepare('SELECT * FROM tile_challenges WHERE id = ?').get(challengeId);
+  if (!ch) throw new Error('Challenge not found');
+  if (ch.status !== 'completed') throw new Error('Voting is only available for completed challenges');
+  if (ch.winner_id !== null) throw new Error('Challenge already has a decided winner — no vote needed');
+  if (votedForTileId !== ch.challenger_id && votedForTileId !== ch.defender_id) {
+    throw new Error('votedForTileId must be challenger or defender');
+  }
+
+  try {
+    db.prepare(
+      'INSERT INTO tile_challenge_votes (challenge_id, voter_wallet, voted_for_id) VALUES (?, ?, ?)'
+    ).run(challengeId, voterWallet.toLowerCase(), votedForTileId);
+  } catch (e) {
+    if (e.message?.includes('UNIQUE')) throw new Error('You already voted on this challenge');
+    throw e;
+  }
+
+  const tally = db.prepare(
+    `SELECT voted_for_id, COUNT(*) AS votes FROM tile_challenge_votes WHERE challenge_id = ? GROUP BY voted_for_id`
+  ).all(challengeId);
+
+  const challengerVotes = tally.find(r => r.voted_for_id === ch.challenger_id)?.votes ?? 0;
+  const defenderVotes = tally.find(r => r.voted_for_id === ch.defender_id)?.votes ?? 0;
+  const totalVotes = challengerVotes + defenderVotes;
+
+  // Resolve winner when ≥5 votes and one side has >60% of votes
+  if (totalVotes >= 5) {
+    const threshold = totalVotes * 0.6;
+    let resolvedWinnerId = null;
+    if (challengerVotes > threshold) resolvedWinnerId = ch.challenger_id;
+    else if (defenderVotes > threshold) resolvedWinnerId = ch.defender_id;
+
+    if (resolvedWinnerId !== null) {
+      db.prepare('UPDATE tile_challenges SET winner_id = ? WHERE id = ?').run(resolvedWinnerId, challengeId);
+      const trophyExpires = new Date(Date.now() + CHALLENGE_EXPIRE_HOURS * 3600 * 1000).toISOString();
+      db.prepare('UPDATE tiles SET trophy_expires_at = ? WHERE id = ?').run(trophyExpires, resolvedWinnerId);
+      const loserId = resolvedWinnerId === ch.challenger_id ? ch.defender_id : ch.challenger_id;
+      const crackExpires = new Date(Date.now() + 1 * 3600 * 1000).toISOString();
+      db.prepare('UPDATE tiles SET crack_expires_at = ? WHERE id = ?').run(crackExpires, loserId);
+    }
+  }
+
+  return { challengerVotes, defenderVotes, totalVotes };
+}
+
+export function getChallengeVotes(challengeId) {
+  const db = getDb();
+  const tally = db.prepare(
+    `SELECT voted_for_id, COUNT(*) AS votes FROM tile_challenge_votes WHERE challenge_id = ? GROUP BY voted_for_id`
+  ).all(challengeId);
+  return tally;
 }
 
 // — Territory Alliances ————————————————————————————————————————————

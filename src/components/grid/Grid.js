@@ -780,6 +780,31 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             ctx.fillText('🏆', tx, ty);
           }
 
+          // — Crack animation for challenge losers (1h) —
+          if (tile?.hasCrack && cam.zoom > 0.08) {
+            const cx = x, cy = y, cw = TILE_SIZE, ch = TILE_SIZE;
+            const crackAlpha = 0.55 + 0.15 * Math.sin(Date.now() / 600);
+            ctx.save();
+            ctx.globalAlpha = crackAlpha;
+            ctx.strokeStyle = '#ff4444';
+            ctx.lineWidth = Math.max(0.5, 1.5 / cam.zoom);
+            ctx.beginPath();
+            // Main crack line — diagonal
+            ctx.moveTo(cx + cw * 0.25, cy + ch * 0.1);
+            ctx.lineTo(cx + cw * 0.55, cy + ch * 0.45);
+            ctx.lineTo(cx + cw * 0.4, cy + ch * 0.65);
+            ctx.lineTo(cx + cw * 0.7, cy + ch * 0.9);
+            // Branch crack
+            ctx.moveTo(cx + cw * 0.55, cy + ch * 0.45);
+            ctx.lineTo(cx + cw * 0.8, cy + ch * 0.35);
+            ctx.stroke();
+            // Red tint overlay
+            ctx.globalAlpha = 0.08 + 0.04 * Math.sin(Date.now() / 400);
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(cx, cy, cw, ch);
+            ctx.restore();
+          }
+
           // Collect badges for deferred rendering (above all tiles)
           const pendingCount = pendingRequestsRef.current[id];
           if (pendingCount > 0 && cam.zoom > 0.15) {

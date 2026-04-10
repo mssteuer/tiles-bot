@@ -3,6 +3,8 @@ import {
   acceptChallenge,
   submitChallengeScore,
   getChallenge,
+  getChallengeVotes,
+  voteChallengeWinner,
   TOTAL_TILES,
   logEvent,
 } from '@/lib/db';
@@ -12,7 +14,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/tiles/:id/challenges/:challengeId
- * Returns a single challenge with full details.
+ * Returns a single challenge with full details and community vote tallies.
  */
 export async function GET(request, { params }) {
   const { id, challengeId } = await params;
@@ -31,13 +33,14 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Tile is not a participant in this challenge' }, { status: 403 });
   }
 
-  return NextResponse.json({ challenge });
+  const votes = getChallengeVotes(chId);
+  return NextResponse.json({ challenge, votes });
 }
 
 /**
- * POST /api/tiles/:id/challenges/:challengeId/accept
- * Accept a challenge directed at tile :id.
- * Body: { wallet }
+ * PATCH /api/tiles/:id/challenges/:challengeId
+ * Actions: accept | submit | vote
+ * Body: { action, wallet, score?, votedForId? }
  */
 export async function PATCH(request, { params }) {
   const { id, challengeId } = await params;
@@ -53,7 +56,7 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { action, wallet, score } = body;
+  const { action, wallet, score, votedForId } = body;
 
   if (!wallet) {
     return NextResponse.json({ error: 'wallet address required' }, { status: 401 });
@@ -104,5 +107,22 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  return NextResponse.json({ error: 'Invalid action. Use: accept | submit' }, { status: 400 });
+  if (action === 'vote') {
+    const votedForTileId = parseInt(votedForId, 10);
+    if (isNaN(votedForTileId)) {
+      return NextResponse.json({ error: 'votedForId (tile ID) is required for vote action' }, { status: 400 });
+    }
+    try {
+      const tally = voteChallengeWinner(chId, wallet, votedForTileId);
+      logEvent('challenge_vote_cast', tileId, wallet, { challengeId: chId, votedForId: votedForTileId });
+      try {
+        broadcast({ type: 'challenge_vote_cast', challengeId: chId, votedForId: votedForTileId, tally });
+      } catch {}
+      return NextResponse.json({ ok: true, tally });
+    } catch (err) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+  }
+
+  return NextResponse.json({ error: 'Invalid action. Use: accept | submit | vote' }, { status: 400 });
 }
