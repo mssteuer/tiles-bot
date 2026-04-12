@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { captureCtfFlag, logEvent, TOTAL_TILES } from '@/lib/db';
 import { verifyWalletSignature, verifyTileOwnership } from '@/lib/verify-wallet-sig';
 import { broadcast } from '@/lib/sse-broadcast';
 
 export async function POST(req) {
+  const disabled = featureDisabled(FEATURES.CTF, 'CTF');
+  if (disabled) return disabled;
+
   try {
     const body = await req.json();
     const wallet = body.wallet || req.headers.get('x-wallet') || req.headers.get('x-wallet-address');
