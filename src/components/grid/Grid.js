@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { FEATURES } from '@/lib/features';
 import { playSound } from '@/lib/sound';
 import BatchClaimModal from '../BatchClaimModal';
 import MultiTileSpanModal from '../MultiTileSpanModal';
@@ -819,7 +820,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
         // Tower Defense — invaded tile red glow
         const tdInvasions = tdInvasionsRef.current;
-        const isInvaded = Array.isArray(tdInvasions) && tdInvasions.some(inv => inv.tile_id === id);
+        const isInvaded = FEATURES.TOWER_DEFENSE && Array.isArray(tdInvasions) && tdInvasions.some(inv => inv.tile_id === id);
         if (isInvaded) {
           const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 400);
           ctx.save();
@@ -841,7 +842,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         }
 
         // CTF flag pulsing overlay (active flag tile)
-        const activeFlagTileId = ctfFlagRef.current?.flagTileId;
+        const activeFlagTileId = FEATURES.CTF ? ctfFlagRef.current?.flagTileId : null;
         if (activeFlagTileId === id) {
           const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
           ctx.save();
@@ -978,7 +979,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
     // ── Pixel Wars paint overlay ──────────────────────────────────────────
     // Render color wash on unclaimed tiles that have been pixel-war painted
-    const pwMap = pixelWarsRef.current;
+    const pwMap = FEATURES.PIXEL_WARS ? pixelWarsRef.current : {};
     const pwChampions = pixelWarsChampionsRef.current;
     if (pwMap && Object.keys(pwMap).length > 0) {
       for (const [tileIdStr, paint] of Object.entries(pwMap)) {

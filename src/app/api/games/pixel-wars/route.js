@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { pixelWarsPaint, pixelWarsErase, getPixelWarsMap, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 import { logEvent } from '@/lib/db';
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
  * Returns the active pixel-wars paint map: { [tileId]: { color, owner, ownerTile, expiresAt } }
  */
 export async function GET() {
+  const disabled = featureDisabled(FEATURES.PIXEL_WARS, 'Pixel Wars');
+  if (disabled) return disabled;
+
   const paintMap = getPixelWarsMap();
   return NextResponse.json({ paints: paintMap, count: Object.keys(paintMap).length });
 }
@@ -20,6 +24,9 @@ export async function GET() {
  * Body: { ownerTileId: number, targetTileId: number, color: string, wallet: string }
  */
 export async function POST(request) {
+  const disabled = featureDisabled(FEATURES.PIXEL_WARS, 'Pixel Wars');
+  if (disabled) return disabled;
+
   let body;
   try {
     body = await request.json();
@@ -75,6 +82,9 @@ export async function POST(request) {
  * Body: { targetTileId: number, wallet: string }
  */
 export async function DELETE(request) {
+  const disabled = featureDisabled(FEATURES.PIXEL_WARS, 'Pixel Wars');
+  if (disabled) return disabled;
+
   let body;
   try {
     body = await request.json();

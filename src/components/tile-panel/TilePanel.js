@@ -7,6 +7,7 @@ import NeighborNetworkPanel from './NeighborNetworkPanel';
 import CaptureTheFlagPanel from './CaptureTheFlagPanel';
 import TowerDefensePanel from './TowerDefensePanel';
 import EditTileForm from './EditTileForm';
+import { FEATURES } from '@/lib/features';
 import AboutTab from './AboutTab';
 import CustomizeTab from './CustomizeTab';
 
@@ -185,7 +186,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
 
             {panelTab === 'games' && tile.id != null && (
               <div className="flex flex-col gap-4">
-                {isOwner && (
+                {isOwner && FEATURES.CTF && (
                   <CaptureTheFlagPanel
                     tile={tile}
                     address={address}
@@ -194,7 +195,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
                     onCaptured={() => {}}
                   />
                 )}
-                {isOwner && (
+                {isOwner && FEATURES.TOWER_DEFENSE && (
                   <TowerDefensePanel
                     tile={tile}
                     address={address}
