@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { initSounds, playSound } from '@/lib/sound';
 import { useAccount } from 'wagmi';
 import Grid from '../components/Grid';
+import { FEATURES } from '@/lib/features';
 import TilePanel from '../components/TilePanel';
 import Header from '../components/Header';
 import FilterBar from '../components/FilterBar';
@@ -252,9 +253,9 @@ function HomeInner() {
             delete next[event.tileId];
             return next;
           });
-        } else if (event.type === 'ctf_flag_spawned') {
+        } else if (FEATURES.CTF && event.type === 'ctf_flag_spawned') {
           setCtfFlag(event.ctfFlag);
-        } else if (event.type === 'ctf_flag_captured') {
+        } else if (FEATURES.CTF && event.type === 'ctf_flag_captured') {
           setCtfFlag(null);
         } else if (event.type === 'td_invaded') {
           setTdInvasions(prev => [...prev.filter(i => i.tile_id !== event.tileId), { id: event.invasionId, tile_id: event.tileId, expires_at: event.expiresAt }]);

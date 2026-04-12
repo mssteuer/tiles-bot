@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { repelTdInvader, logEvent, TOTAL_TILES } from '@/lib/db';
 import { verifyWalletSignature, verifyTileOwnership } from '@/lib/verify-wallet-sig';
 import { broadcast } from '@/lib/sse-broadcast';
 
 export async function POST(req) {
+  const disabled = featureDisabled(FEATURES.TOWER_DEFENSE, 'Tower Defense');
+  if (disabled) return disabled;
+
   try {
     const body = await req.json();
     const wallet = body.wallet || req.headers.get('x-wallet') || req.headers.get('x-wallet-address');
