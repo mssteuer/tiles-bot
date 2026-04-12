@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import {
   issueChallenge,
   getTileChallenges,
@@ -15,6 +16,9 @@ export const dynamic = 'force-dynamic';
  * Returns active and recent challenges for a tile (as challenger or defender).
  */
 export async function GET(request, { params }) {
+  const disabled = featureDisabled(FEATURES.TILE_CHALLENGES, 'Tile Challenges');
+  if (disabled) return disabled;
+
   const { id } = await params;
   const tileId = parseInt(id, 10);
   if (isNaN(tileId) || tileId < 0 || tileId >= TOTAL_TILES) {
@@ -31,6 +35,9 @@ export async function GET(request, { params }) {
  * Body: { targetId, taskType?, message?, wallet }
  */
 export async function POST(request, { params }) {
+  const disabled = featureDisabled(FEATURES.TILE_CHALLENGES, 'Tile Challenges');
+  if (disabled) return disabled;
+
   const { id } = await params;
   const challengerId = parseInt(id, 10);
   if (isNaN(challengerId) || challengerId < 0 || challengerId >= TOTAL_TILES) {
