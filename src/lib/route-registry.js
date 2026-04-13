@@ -1093,7 +1093,7 @@ export const ROUTE_REGISTRY = [
   },
   {
     path: '/api/owner/{address}/bulk-update',
-    method: 'POST',
+    method: 'PATCH',
     operationId: 'bulkUpdateOwnerTiles',
     summary: 'Bulk update all tiles owned by a wallet',
     tags: ['tiles'],
@@ -1152,7 +1152,7 @@ export const ROUTE_REGISTRY = [
   },
   {
     path: '/api/games/capture-flag/spawn',
-    method: 'GET',
+    method: 'POST',
     operationId: 'spawnCtfFlag',
     summary: '(Admin) Spawn a new CTF flag',
     tags: ['games', 'admin'],
