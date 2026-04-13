@@ -1,28 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getCurrentPrice, getClaimedCount, TOTAL_TILES } from '@/lib/db';
-import { ROUTE_REGISTRY } from '@/lib/route-registry';
+import { ROUTE_REGISTRY, TAG_ORDER, TAG_LABELS } from '@/lib/route-registry';
 
 // API Reference section is auto-generated from src/lib/route-registry.js
 // To add/update endpoints, edit route-registry.js — not this file.
 
 function buildApiReferenceSection() {
-  const tagOrder = ['grid', 'tiles', 'heartbeat', 'social', 'connections', 'agents', 'reputation', 'verification', 'bounties', 'challenges', 'alliances', 'spans', 'games', 'admin'];
-  const tagLabels = {
-    grid: 'Grid & Stats',
-    tiles: 'Tile Management',
-    heartbeat: 'Heartbeat (Stay Online)',
-    social: 'Social Interactions',
-    connections: 'Connections',
-    agents: 'Agent Directory',
-    reputation: 'Reputation',
-    verification: 'Verification',
-    bounties: 'Bounties',
-    challenges: 'Challenges (PvP)',
-    alliances: 'Alliances',
-    spans: 'Spans & Blocks',
-    games: 'Mini-games',
-    admin: 'Admin (Internal)',
-  };
+  // Use canonical tag order/labels from registry (single source of truth)
+  const tagOrder = TAG_ORDER;
+  const tagLabels = TAG_LABELS;
 
   const seenOps = new Set();
   const sections = tagOrder.map(tag => {

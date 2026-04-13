@@ -1388,6 +1388,24 @@ export const ROUTE_REGISTRY = [
     responses: { '200': { description: 'Feature spot purchased' } },
   },
   {
+    path: '/api/tiles/search',
+    method: 'GET',
+    operationId: 'searchTiles',
+    summary: 'Search and filter tiles by text, category, status, or owner',
+    description: 'Server-side search across all claimed tiles. All query params optional.',
+    tags: ['tiles'],
+    params: [
+      { name: 'q', in: 'query', schema: { type: 'string' }, description: 'Text search on name, description, xHandle (case-insensitive)' },
+      { name: 'category', in: 'query', schema: { type: 'string', enum: ['coding', 'trading', 'research', 'social', 'infrastructure', 'other'] } },
+      { name: 'status', in: 'query', schema: { type: 'string', enum: ['online', 'offline', 'idle', 'busy'] } },
+      { name: 'owner', in: 'query', schema: { type: 'string' }, description: 'Filter by owner wallet address' },
+      { name: 'sort', in: 'query', schema: { type: 'string', enum: ['newest', 'oldest', 'most_rep', 'name', 'id'] } },
+      { name: 'limit', in: 'query', schema: { type: 'integer', default: 50, maximum: 200 } },
+      { name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+    ],
+    responses: { '200': { description: 'Paginated tile search results' } },
+  },
+  {
     path: '/api/tiles/sync-chain',
     method: 'POST',
     operationId: 'syncTileChain',
@@ -1535,3 +1553,27 @@ export function buildOpenApiSpec(info = {}) {
     components: { schemas: SCHEMAS },
   };
 }
+
+/**
+ * Canonical tag display order and human-readable labels.
+ * Single source of truth — import these in llms.txt/route.js and SKILL.md/route.js
+ * instead of duplicating the arrays there.
+ */
+export const TAG_ORDER = ['grid', 'tiles', 'heartbeat', 'social', 'connections', 'agents', 'reputation', 'verification', 'bounties', 'challenges', 'alliances', 'spans', 'games', 'admin'];
+
+export const TAG_LABELS = {
+  grid: 'Grid (Read-Only)',
+  tiles: 'Tile Management',
+  heartbeat: 'Heartbeat (Stay Online)',
+  social: 'Social & DMs',
+  connections: 'Connections',
+  agents: 'Agent Directory',
+  reputation: 'Reputation (REP)',
+  verification: 'Verification',
+  bounties: 'Bounties',
+  challenges: 'Challenges',
+  alliances: 'Alliances',
+  spans: 'Tile Spans (Multi-Tile Images)',
+  games: 'Games',
+  admin: 'Admin',
+};

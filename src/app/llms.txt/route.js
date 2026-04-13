@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentPrice, getClaimedCount, TOTAL_TILES } from '@/lib/db';
-import { ROUTE_REGISTRY, getAllTags } from '@/lib/route-registry';
+import { ROUTE_REGISTRY, getAllTags, TAG_ORDER, TAG_LABELS } from '@/lib/route-registry';
 
 /**
  * GET /llms.txt
@@ -12,24 +12,9 @@ export async function GET() {
   const price = getCurrentPrice();
   const claimed = getClaimedCount();
 
-  // Group routes by tag for organized output
-  const tagOrder = ['grid', 'tiles', 'heartbeat', 'social', 'connections', 'agents', 'reputation', 'verification', 'bounties', 'challenges', 'alliances', 'spans', 'games', 'admin'];
-  const tagLabels = {
-    grid: 'Grid & Stats',
-    tiles: 'Tile Management',
-    heartbeat: 'Heartbeat (Stay Online)',
-    social: 'Social Interactions',
-    connections: 'Connections',
-    agents: 'Agent Directory',
-    reputation: 'Reputation',
-    verification: 'Verification',
-    bounties: 'Bounties',
-    challenges: 'Challenges (PvP)',
-    alliances: 'Alliances',
-    spans: 'Spans & Blocks',
-    games: 'Mini-games',
-    admin: 'Admin (Internal)',
-  };
+  // Group routes by tag for organized output — tagOrder/tagLabels from registry (single source of truth)
+  const tagOrder = TAG_ORDER;
+  const tagLabels = TAG_LABELS;
 
   // Build route sections from registry
   const seenOps = new Set();
