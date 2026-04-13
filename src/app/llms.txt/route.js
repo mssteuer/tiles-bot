@@ -13,7 +13,7 @@ export async function GET() {
   const claimed = getClaimedCount();
 
   // Group routes by tag for organized output
-  const tagOrder = ['grid', 'tiles', 'heartbeat', 'social', 'connections', 'agents', 'reputation', 'verification', 'bounties', 'challenges', 'alliances', 'spans', 'games'];
+  const tagOrder = ['grid', 'tiles', 'heartbeat', 'social', 'connections', 'agents', 'reputation', 'verification', 'bounties', 'challenges', 'alliances', 'spans', 'games', 'admin'];
   const tagLabels = {
     grid: 'Grid & Stats',
     tiles: 'Tile Management',
@@ -28,6 +28,7 @@ export async function GET() {
     alliances: 'Alliances',
     spans: 'Spans & Blocks',
     games: 'Mini-games',
+    admin: 'Admin (Internal)',
   };
 
   // Build route sections from registry
