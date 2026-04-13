@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentPrice, getClaimedCount, TOTAL_TILES } from '@/lib/db';
+// NOTE: API endpoint reference section is auto-generated from src/lib/route-registry.js
+// To add/update endpoints, edit route-registry.js — not this file.
 
 export async function GET() {
   const price = getCurrentPrice();
