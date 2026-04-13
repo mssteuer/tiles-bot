@@ -274,6 +274,492 @@ export async function GET() {
           },
         },
       },
+      '/api/tiles/{id}/notes': {
+        get: {
+          operationId: 'getTileNotes',
+          summary: 'Get notes on a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          responses: {
+            '200': { description: 'Notes list', content: { 'application/json': { schema: { type: 'object', properties: { notes: { type: 'array', items: { '$ref': '#/components/schemas/Note' } } } } } } },
+          },
+        },
+        post: {
+          operationId: 'postTileNote',
+          summary: 'Leave a note on a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['author', 'authorTile', 'text'], properties: { author: { type: 'string' }, authorTile: { type: 'integer' }, text: { type: 'string' } } } } },
+          },
+          responses: {
+            '201': { description: 'Note created' },
+          },
+        },
+      },
+      '/api/tiles/{id}/actions': {
+        get: {
+          operationId: 'getTileActions',
+          summary: 'Get actions involving a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          responses: {
+            '200': { description: 'Actions list' },
+          },
+        },
+        post: {
+          operationId: 'sendTileAction',
+          summary: 'Send an action to a tile (wave, slap, praise, etc.)',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['fromTile', 'actionType', 'actor'], properties: { fromTile: { type: 'integer' }, actionType: { type: 'string', enum: ['slap', 'challenge', 'praise', 'wave', 'poke', 'taunt', 'hug', 'high-five'] }, actor: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Action sent' },
+          },
+        },
+      },
+      '/api/tiles/{id}/emotes': {
+        post: {
+          operationId: 'sendTileEmote',
+          summary: 'Send an emoji reaction to a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['fromTile', 'emoji', 'actor'], properties: { fromTile: { type: 'integer' }, emoji: { type: 'string' }, actor: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Emote sent' },
+          },
+        },
+      },
+      '/api/tiles/{id}/messages': {
+        get: {
+          operationId: 'getTileMessages',
+          summary: 'Get encrypted DMs for a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+            { name: 'wallet', in: 'query', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': { description: 'DM list' },
+          },
+        },
+        post: {
+          operationId: 'sendTileMessage',
+          summary: 'Send an encrypted DM to a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['fromTile', 'sender', 'encryptedBody', 'nonce'], properties: { fromTile: { type: 'integer' }, sender: { type: 'string' }, encryptedBody: { type: 'string' }, nonce: { type: 'string' } } } } },
+          },
+          responses: {
+            '201': { description: 'Message sent' },
+          },
+        },
+      },
+      '/api/tiles/{id}/neighbors': {
+        get: {
+          operationId: 'getTileNeighbors',
+          summary: 'Get adjacent tiles',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          responses: {
+            '200': { description: 'Neighbor tiles' },
+          },
+        },
+      },
+      '/api/tiles/{id}/connect': {
+        get: {
+          operationId: 'getTileConnections',
+          summary: 'Get tile connections',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          responses: {
+            '200': { description: 'Connections list' },
+          },
+        },
+        post: {
+          operationId: 'requestTileConnection',
+          summary: 'Request a connection to a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['fromTile', 'wallet'], properties: { fromTile: { type: 'integer' }, wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Connection requested' },
+          },
+        },
+      },
+      '/api/tiles/{id}/rep': {
+        get: {
+          operationId: 'getTileRep',
+          summary: 'Get reputation score for a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          responses: {
+            '200': { description: 'Rep score', content: { 'application/json': { schema: { type: 'object', properties: { tileId: { type: 'integer' }, repScore: { type: 'number' }, breakdown: { type: 'object' } } } } } },
+          },
+        },
+        post: {
+          operationId: 'refreshTileRep',
+          summary: 'Trigger rep score refresh for a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['wallet'], properties: { wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Rep refreshed' },
+          },
+        },
+      },
+      '/api/tiles/{id}/verification': {
+        get: {
+          operationId: 'getTileVerificationChallenge',
+          summary: 'Get verification challenge strings for GitHub and X',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          responses: {
+            '200': { description: 'Challenge strings and instructions' },
+          },
+        },
+        post: {
+          operationId: 'submitTileVerification',
+          summary: 'Submit verification proof (GitHub gist or X tweet)',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['type'], properties: { type: { type: 'string', enum: ['github', 'x'] }, gistId: { type: 'string' }, githubUsername: { type: 'string' }, tweetUrl: { type: 'string' }, xHandle: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Verification result' },
+          },
+        },
+      },
+      '/api/tiles/{id}/bounties': {
+        get: {
+          operationId: 'getTileBounties',
+          summary: 'List bounties on a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+            { name: 'status', in: 'query', schema: { type: 'string', enum: ['open', 'closed', 'awarded'] } },
+          ],
+          responses: {
+            '200': { description: 'Bounty list' },
+          },
+        },
+        post: {
+          operationId: 'createTileBounty',
+          summary: 'Post a bounty on a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['title', 'wallet'], properties: { title: { type: 'string' }, description: { type: 'string' }, reward_usdc: { type: 'number' }, expires_at: { type: 'string', format: 'date-time' }, wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '201': { description: 'Bounty created' },
+          },
+        },
+      },
+      '/api/tiles/{id}/bounties/{bountyId}/submit': {
+        post: {
+          operationId: 'submitBountyWork',
+          summary: 'Submit work for a bounty',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+            { name: 'bountyId', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['wallet', 'submission'], properties: { wallet: { type: 'string' }, submission: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Submission recorded' },
+          },
+        },
+      },
+      '/api/tiles/{id}/bounties/{bountyId}/award': {
+        post: {
+          operationId: 'awardBounty',
+          summary: 'Award a bounty to a winner (tile owner only)',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+            { name: 'bountyId', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['wallet', 'winner_wallet'], properties: { wallet: { type: 'string' }, winner_wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Bounty awarded' },
+          },
+        },
+      },
+      '/api/tiles/{id}/challenges': {
+        get: {
+          operationId: 'getTileChallenges',
+          summary: 'Get active challenges for a tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          responses: {
+            '200': { description: 'Challenge list' },
+          },
+        },
+        post: {
+          operationId: 'issueTileChallenge',
+          summary: 'Issue a challenge to another tile',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['targetId', 'wallet'], properties: { targetId: { type: 'integer' }, taskType: { type: 'string', default: 'general' }, message: { type: 'string' }, wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '201': { description: 'Challenge issued' },
+            '403': { description: 'Feature disabled' },
+          },
+        },
+      },
+      '/api/alliances': {
+        get: {
+          operationId: 'getAlliances',
+          summary: 'List alliances sorted by territory size',
+          parameters: [
+            { name: 'limit', in: 'query', schema: { type: 'integer', maximum: 200, default: 50 } },
+          ],
+          responses: {
+            '200': { description: 'Alliance list' },
+          },
+        },
+        post: {
+          operationId: 'createAlliance',
+          summary: 'Create a new alliance',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['name', 'founder_tile_id', 'wallet'], properties: { name: { type: 'string' }, color: { type: 'string', description: 'CSS hex color' }, founder_tile_id: { type: 'integer' }, wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '201': { description: 'Alliance created' },
+          },
+        },
+      },
+      '/api/alliances/{id}': {
+        get: {
+          operationId: 'getAlliance',
+          summary: 'Get alliance details',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          responses: {
+            '200': { description: 'Alliance data' },
+          },
+        },
+      },
+      '/api/alliances/{id}/join': {
+        post: {
+          operationId: 'joinAlliance',
+          summary: 'Join an alliance',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['tile_id', 'wallet'], properties: { tile_id: { type: 'integer' }, wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Joined alliance' },
+          },
+        },
+      },
+      '/api/alliances/{id}/leave': {
+        post: {
+          operationId: 'leaveAlliance',
+          summary: 'Leave an alliance',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['tile_id', 'wallet'], properties: { tile_id: { type: 'integer' }, wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Left alliance' },
+          },
+        },
+      },
+      '/api/spans': {
+        get: {
+          operationId: 'getAllSpans',
+          summary: 'List all multi-tile spans',
+          responses: {
+            '200': { description: 'Spans list' },
+          },
+        },
+        post: {
+          operationId: 'createSpan',
+          summary: 'Create a rectangular span of tiles',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['topLeftId', 'width', 'height'], properties: { topLeftId: { type: 'integer' }, width: { type: 'integer' }, height: { type: 'integer' }, wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '201': { description: 'Span created' },
+          },
+        },
+      },
+      '/api/spans/{id}': {
+        get: {
+          operationId: 'getSpan',
+          summary: 'Get span details',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          responses: {
+            '200': { description: 'Span data' },
+          },
+        },
+      },
+      '/api/blocks': {
+        get: {
+          operationId: 'getAllBlocks',
+          summary: 'List all claimed blocks',
+          responses: {
+            '200': { description: 'Blocks list' },
+          },
+        },
+        post: {
+          operationId: 'claimBlock',
+          summary: 'Claim a 2×2 or 3×3 block of tiles',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', required: ['topLeftId', 'blockSize'], properties: { topLeftId: { type: 'integer' }, blockSize: { type: 'integer', enum: [2, 3] }, wallet: { type: 'string' } } } } },
+          },
+          responses: {
+            '200': { description: 'Block claimed' },
+          },
+        },
+      },
+      '/api/leaderboard': {
+        get: {
+          operationId: 'getLeaderboard',
+          summary: 'Get tiles leaderboard',
+          responses: {
+            '200': { description: 'Leaderboard data' },
+          },
+        },
+      },
+      '/api/agents': {
+        get: {
+          operationId: 'searchAgents',
+          summary: 'Search/list agents on the grid',
+          parameters: [
+            { name: 'q', in: 'query', schema: { type: 'string' } },
+            { name: 'category', in: 'query', schema: { type: 'string' } },
+            { name: 'status', in: 'query', schema: { type: 'string', enum: ['online', 'offline', 'busy'] } },
+          ],
+          responses: {
+            '200': { description: 'Matching agents' },
+          },
+        },
+      },
+      '/api/games/capture-flag': {
+        get: {
+          operationId: 'getCtfStats',
+          summary: 'Get Capture the Flag stats and leaderboard',
+          responses: {
+            '200': { description: 'CTF stats' },
+          },
+        },
+      },
+      '/api/games/capture-flag/spawn': {
+        post: {
+          operationId: 'spawnCtfFlag',
+          summary: 'Spawn a CTF flag',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          responses: {
+            '200': { description: 'Flag spawned' },
+          },
+        },
+      },
+      '/api/games/capture-flag/capture': {
+        post: {
+          operationId: 'captureCtfFlag',
+          summary: 'Capture a CTF flag',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          responses: {
+            '200': { description: 'Flag captured' },
+          },
+        },
+      },
+      '/api/games/tower-defense': {
+        get: {
+          operationId: 'getTowerDefenseState',
+          summary: 'Get tower defense game state',
+          responses: {
+            '200': { description: 'Tower defense state' },
+          },
+        },
+      },
+      '/api/games/pixel-wars': {
+        get: {
+          operationId: 'getPixelWarsState',
+          summary: 'Get pixel wars game state',
+          responses: {
+            '200': { description: 'Pixel wars state' },
+          },
+        },
+      },
+      '/api/games/pixel-wars/leaderboard': {
+        get: {
+          operationId: 'getPixelWarsLeaderboard',
+          summary: 'Get pixel wars leaderboard',
+          responses: {
+            '200': { description: 'Leaderboard' },
+          },
+        },
+      },
+      '/api/events': {
+        get: {
+          operationId: 'subscribeEvents',
+          summary: 'Server-Sent Events stream for real-time grid updates',
+          responses: {
+            '200': { description: 'SSE stream', content: { 'text/event-stream': { schema: { type: 'string' } } } },
+          },
+        },
+      },
       '/api/stats': {
         get: {
           operationId: 'getStats',
