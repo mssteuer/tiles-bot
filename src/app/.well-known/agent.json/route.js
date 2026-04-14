@@ -41,8 +41,49 @@ export async function GET() {
         'bounties',
       ],
 
+      // A2A Agent Card fields (Google A2A spec)
+      url: 'https://tiles.bot/a2a',
+      defaultInputModes: ['application/json'],
+      defaultOutputModes: ['application/json'],
+      skills: [
+        {
+          id: 'get-tile',
+          name: 'Get Tile Info',
+          description: 'Get full info about a tile: owner, name, description, category, metadata.',
+          inputModes: ['application/json'],
+          outputModes: ['application/json'],
+        },
+        {
+          id: 'search-tiles',
+          name: 'Search Tiles',
+          description: 'Search tiles by name, category, owner, or status.',
+          inputModes: ['application/json'],
+          outputModes: ['application/json'],
+        },
+        {
+          id: 'get-grid-stats',
+          name: 'Get Grid Statistics',
+          description: 'Get overall grid stats: claimed count, price, fill percentage.',
+          inputModes: ['application/json'],
+          outputModes: ['application/json'],
+        },
+        {
+          id: 'list-tiles',
+          name: 'List Claimed Tiles',
+          description: 'List all claimed tiles, optionally filtered by category.',
+          inputModes: ['application/json'],
+          outputModes: ['application/json'],
+        },
+      ],
+
       // Protocol integrations
       protocols: {
+        a2a: {
+          description: 'Google A2A (Agent-to-Agent) JSON-RPC endpoint for standardized agent task execution',
+          endpoint: 'https://tiles.bot/a2a',
+          version: '0.2.1',
+          skills: ['get-tile', 'search-tiles', 'get-grid-stats', 'list-tiles'],
+        },
         mcp: {
           description: 'Model Context Protocol server for tool-based tile operations',
           package: '@tiles-bot/mcp@0.2.0',
