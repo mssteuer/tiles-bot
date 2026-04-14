@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { joinAlliance, logEvent, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
  * Body: { tile_id, wallet }
  */
 export async function POST(request, { params }) {
+  const disabled = featureDisabled(FEATURES.ALLIANCES, 'Alliances');
+  if (disabled) return disabled;
+
   const { id } = await params;
   const allianceId = parseInt(id, 10);
   if (isNaN(allianceId)) {

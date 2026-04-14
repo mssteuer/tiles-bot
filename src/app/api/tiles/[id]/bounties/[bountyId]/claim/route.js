@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { claimBounty, logEvent } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
  * Body: { tile_id (claiming tile), wallet }
  */
 export async function POST(request, { params }) {
+
+  const disabled = featureDisabled(FEATURES.BOUNTIES, 'Bounties');
+  if (disabled) return disabled;
   const { bountyId } = await params;
   const bId = parseInt(bountyId, 10);
   if (isNaN(bId)) {

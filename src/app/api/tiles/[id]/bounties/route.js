@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { getTileBounties, createBounty, logEvent, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
  * Query: ?status=open (optional)
  */
 export async function GET(request, { params }) {
+  const disabled = featureDisabled(FEATURES.BOUNTIES, 'Bounties');
+  if (disabled) return disabled;
+
   const { id } = await params;
   const tileId = parseInt(id, 10);
   if (isNaN(tileId) || tileId < 0 || tileId >= TOTAL_TILES) {
@@ -27,6 +31,9 @@ export async function GET(request, { params }) {
  * Body: { title, description, reward_usdc, expires_at, wallet }
  */
 export async function POST(request, { params }) {
+  const disabled = featureDisabled(FEATURES.BOUNTIES, 'Bounties');
+  if (disabled) return disabled;
+
   const { id } = await params;
   const tileId = parseInt(id, 10);
   if (isNaN(tileId) || tileId < 0 || tileId >= TOTAL_TILES) {

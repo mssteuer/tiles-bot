@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import {
   acceptChallenge,
   submitChallengeScore,
@@ -17,6 +18,9 @@ export const dynamic = 'force-dynamic';
  * Returns a single challenge with full details and community vote tallies.
  */
 export async function GET(request, { params }) {
+
+  const disabled = featureDisabled(FEATURES.CHALLENGES, 'Challenges');
+  if (disabled) return disabled;
   const { id, challengeId } = await params;
   const tileId = parseInt(id, 10);
   const chId = parseInt(challengeId, 10);

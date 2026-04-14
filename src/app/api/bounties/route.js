@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { getGlobalBounties } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -9,6 +10,9 @@ export const dynamic = 'force-dynamic';
  * Query: ?status=open&limit=50
  */
 export async function GET(request) {
+  const disabled = featureDisabled(FEATURES.BOUNTIES, 'Bounties');
+  if (disabled) return disabled;
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || 'open';
   const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
