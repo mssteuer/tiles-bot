@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { awardBounty, logEvent } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
  * Body: { winner_tile_id, wallet }
  */
 export async function POST(request, { params }) {
+
+  const disabled = featureDisabled(FEATURES.BOUNTIES, 'Bounties');
+  if (disabled) return disabled;
   const { id, bountyId } = await params;
   const tileId = parseInt(id, 10);
   const bId = parseInt(bountyId, 10);

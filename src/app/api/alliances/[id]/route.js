@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { getAlliance } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +9,9 @@ export const dynamic = 'force-dynamic';
  * Alliance detail: members, territory tiles, leaderboard rank.
  */
 export async function GET(request, { params }) {
+  const disabled = featureDisabled(FEATURES.ALLIANCES, 'Alliances');
+  if (disabled) return disabled;
+
   const { id } = await params;
   const allianceId = parseInt(id, 10);
   if (isNaN(allianceId)) {

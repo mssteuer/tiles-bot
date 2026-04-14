@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { spawnTdInvader } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
@@ -7,6 +8,9 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET;
 // Internal endpoint to spawn a new Tower Defense invader.
 // Called by cron or admin. Requires ADMIN_SECRET header when configured.
 export async function POST(request) {
+  const disabled = featureDisabled(FEATURES.TOWER_DEFENSE, 'Tower Defense');
+  if (disabled) return disabled;
+
   if (ADMIN_SECRET) {
     const auth = request.headers.get('x-admin-secret');
     if (auth !== ADMIN_SECRET) {

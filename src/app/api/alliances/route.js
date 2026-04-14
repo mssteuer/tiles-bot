@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { getAlliances, createAlliance, logEvent, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
  * Query: ?limit=50
  */
 export async function GET(request) {
+  const disabled = featureDisabled(FEATURES.ALLIANCES, 'Alliances');
+  if (disabled) return disabled;
+
   const { searchParams } = new URL(request.url);
   const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
   const alliances = getAlliances(limit);
@@ -22,6 +26,9 @@ export async function GET(request) {
  * Body: { name, color, founder_tile_id, wallet }
  */
 export async function POST(request) {
+  const disabled = featureDisabled(FEATURES.ALLIANCES, 'Alliances');
+  if (disabled) return disabled;
+
   let body;
   try { body = await request.json(); } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
