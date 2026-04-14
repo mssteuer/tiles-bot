@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request, { params }) {
 
-  const disabled = featureDisabled(FEATURES.CHALLENGES, 'Challenges');
+  const disabled = featureDisabled(FEATURES.TILE_CHALLENGES, 'Tile Challenges');
   if (disabled) return disabled;
   const { id, challengeId } = await params;
   const tileId = parseInt(id, 10);
@@ -47,6 +47,8 @@ export async function GET(request, { params }) {
  * Body: { action, wallet, score?, votedForId? }
  */
 export async function PATCH(request, { params }) {
+  const disabled = featureDisabled(FEATURES.TILE_CHALLENGES, 'Tile Challenges');
+  if (disabled) return disabled;
   const { id, challengeId } = await params;
   const tileId = parseInt(id, 10);
   const chId = parseInt(challengeId, 10);

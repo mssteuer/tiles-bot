@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { FEATURES, featureDisabled } from '@/lib/features';
 import { getPixelWarsTargets } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +9,8 @@ export const dynamic = 'force-dynamic';
  * Returns unclaimed tiles adjacent to any tile owned by the given wallet.
  */
 export async function GET(request) {
+  const disabled = featureDisabled(FEATURES.PIXEL_WARS, 'Pixel Wars');
+  if (disabled) return disabled;
   const { searchParams } = new URL(request.url);
   const wallet = searchParams.get('wallet');
   if (!wallet) {
