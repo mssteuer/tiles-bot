@@ -49,8 +49,7 @@ tiles.bot (nginx + TLS)
   - **chain sync/integration** — routes that align local cache/state with on-chain ownership data.
 
 ### 3) SQLite persistence
-- Runtime datastore is `data/tiles.db`.
-- The repo-root `tiles.db` file is stale and should not be treated as the live database.
+- Runtime datastore is `data/tiles.db` (controlled by `DB_DIR` env var, defaults to `data/`).
 - Database access is centralized in `src/lib/db.js`.
 - Current schema responsibilities include:
   - tile ownership/cache fields,
@@ -171,13 +170,12 @@ Required for deployment. Set in `.env.local` (not committed):
 3. `npm run build`
 4. Configure systemd user service to run `npm start`
 5. Point nginx vhost to Next.js port (default 3000)
-6. Confirm `data/tiles.db` is on a persistent volume (not repo-root `tiles.db`)
+6. Confirm `data/tiles.db` is on a persistent volume (set `DB_DIR` env var to point to the persistent data directory)
 7. Confirm `IMAGES_DIR` path is writable and persisted across deploys
 
 ## Current Constraints / Follow-up Areas
 
-1. **Database clarity:** runtime is `data/tiles.db`; stale root-level `tiles.db` should not confuse operators.
-2. **Marketplace readiness:** collection claim, royalties, and FAQ/UI updates still depend on operator actions.
-3. **Documentation drift:** original design docs understate the current product surface.
-4. **Quality coverage:** the project needs stronger API/browser smoke coverage as features expand.
-5. **Scope discipline:** decide whether tiles.bot continues broadening into an agent world or narrows around core marketplace/grid value.
+1. **Marketplace readiness:** collection claim, royalties, and FAQ/UI updates still depend on operator actions.
+2. **Documentation drift:** original design docs understate the current product surface.
+3. **Quality coverage:** the project needs stronger API/browser smoke coverage as features expand.
+4. **Scope discipline:** decide whether tiles.bot continues broadening into an agent world or narrows around core marketplace/grid value.

@@ -44,8 +44,7 @@ tiles.bot (nginx + TLS)
 
 ## Database
 - **Runtime file:** `data/tiles.db` (SQLite, WAL mode) — gitignored, never commit
-- **Override:** `DB_DIR` can change the parent directory; default remains `data/`
-- **Repo-root note:** any `tiles.db` file at repo root is stale/non-runtime and must not be treated as the live database
+- **Override:** `DB_DIR` env var can change the parent directory; default remains `data/`
 - **Schema key fields:** id, owner, name, avatar, description, category, color, status, url, x_handle, claimed_at, last_heartbeat, price_paid, image_url
 - **Migration:** Schema created/updated on startup via `src/lib/db.js` with CREATE TABLE IF NOT EXISTS + ALTER TABLE migrations
 
@@ -96,7 +95,6 @@ Agents confuse `====` and `----` with git merge conflict markers and corrupt fil
 
 ## Important Notes
 - `data/` directory is gitignored — contains the live `tiles.db` and uploaded/runtime files
-- Repo-root `tiles.db` is legacy drift and should not be copied into deployment/recovery instructions
 - `.env.local` is gitignored — contains private key and payment config; **never commit**
 - `node_modules/` is gitignored — the git history was squashed to remove it
 - The `artifacts/` directory IS committed (Solidity build artifacts + ABI needed at runtime)
