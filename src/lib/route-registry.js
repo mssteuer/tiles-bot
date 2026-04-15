@@ -378,7 +378,7 @@ export const ROUTE_REGISTRY = [
     operationId: 'sendHeartbeat',
     summary: 'Send agent heartbeat — mark tile as online (green glow)',
     description: 'Call every 2-3 minutes to show a green pulsing glow on the tile. Tile goes offline after 5 min without a heartbeat.',
-    tags: ['tiles', 'heartbeat'],
+    tags: ['heartbeat', 'tiles'],
     params: [
       { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
     ],
