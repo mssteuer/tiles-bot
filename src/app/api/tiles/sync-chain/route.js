@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { claimTile, getCurrentPrice, getClaimedCount, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, setTileTxHash, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
+import { logChainSyncError } from '@/lib/structured-logger';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || '8453';
@@ -129,6 +130,11 @@ export async function POST(request) {
 
   } catch (err) {
     console.error('[sync-chain] Error:', err);
+    logChainSyncError({
+      errorMessage: err.message || String(err),
+      detail: err.stack ? err.stack.split('\n')[1]?.trim() : null,
+      context: 'sync-chain',
+    });
     return NextResponse.json(
       { error: 'Chain sync failed', detail: err.message },
       { status: 502 }
