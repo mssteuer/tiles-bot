@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { claimTile, getCurrentPrice, getClaimedCount, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, setTileTxHash, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
+import { logMintFailure, logRegisterVerificationFailure } from '@/lib/structured-logger';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || '8453';
@@ -60,6 +61,12 @@ export async function POST(request, { params }) {
       });
     } catch (err) {
       // ownerOf reverts for non-existent tokens
+      logMintFailure({
+        tileId,
+        wallet: body.wallet,
+        txHash: body.txHash || null,
+        errorMessage: 'Tile not yet minted on-chain — ownerOf reverted',
+      });
       return NextResponse.json(
         { error: 'Tile not yet minted on-chain. Complete the MetaMask claim transaction first.' },
         { status: 404 }
@@ -78,6 +85,12 @@ export async function POST(request, { params }) {
     }
   } catch (err) {
     console.error('[register] On-chain verification failed:', err);
+    logRegisterVerificationFailure({
+      tileId,
+      wallet: body?.wallet || 'unknown',
+      txHash: body?.txHash || null,
+      errorMessage: err.message || String(err),
+    });
     return NextResponse.json(
       { error: 'Failed to verify on-chain ownership', detail: err.message },
       { status: 502 }

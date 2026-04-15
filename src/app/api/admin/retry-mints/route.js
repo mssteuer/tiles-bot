@@ -18,6 +18,7 @@
 
 import { NextResponse } from 'next/server';
 import { getPendingMintTilesLimit, setTileTxHash } from '@/lib/db';
+import { logMintFailure } from '@/lib/structured-logger';
 
 const RECEIPT_TIMEOUT_MS = 30_000;
 const DEFAULT_LIMIT = 50;
@@ -28,12 +29,16 @@ const DEFAULT_LIMIT = 50;
  */
 async function mintTileOnChain(tileId) {
   if (!process.env.SERVER_WALLET_PRIVATE_KEY) {
-    return { tileId, success: false, error: 'SERVER_WALLET_PRIVATE_KEY not set' };
+    const error = 'SERVER_WALLET_PRIVATE_KEY not set';
+    logMintFailure({ tileId, errorMessage: error });
+    return { tileId, success: false, error };
   }
 
   const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
   if (!contractAddress) {
-    return { tileId, success: false, error: 'NEXT_PUBLIC_CONTRACT_ADDRESS not set' };
+    const error = 'NEXT_PUBLIC_CONTRACT_ADDRESS not set';
+    logMintFailure({ tileId, errorMessage: error });
+    return { tileId, success: false, error };
   }
 
   try {
@@ -60,7 +65,9 @@ async function mintTileOnChain(tileId) {
     });
 
     if (receipt.status !== 'success') {
-      return { tileId, success: false, txHash, error: `Transaction reverted: ${txHash}` };
+      const errMsg = `Transaction reverted: ${txHash}`;
+      logMintFailure({ tileId, txHash, errorMessage: errMsg });
+      return { tileId, success: false, txHash, error: errMsg };
     }
 
     // Update the DB record with the confirmed tx_hash
@@ -85,6 +92,7 @@ async function mintTileOnChain(tileId) {
       };
     }
 
+    logMintFailure({ tileId, errorMessage: msg });
     return { tileId, success: false, error: msg };
   }
 }

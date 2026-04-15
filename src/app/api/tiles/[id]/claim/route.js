@@ -6,6 +6,7 @@ import {
   getTile,
   TOTAL_TILES,
 } from '@/lib/db';
+import { logX402Failure } from '@/lib/structured-logger';
 
 // Treasury address that receives x402 USDC payments
 const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000';
@@ -87,7 +88,7 @@ async function claimHandler(request, { params }) {
 }
 
 // Wrap with x402 — agent pays USDC to treasury, then gets the on-chain instructions
-export const POST = withX402(
+const x402Handler = withX402(
   claimHandler,
   PAY_TO_ADDRESS,
   async (request) => {
@@ -105,3 +106,49 @@ export const POST = withX402(
     };
   }
 );
+
+/**
+ * Wrap x402Handler to log failed payment attempts (4xx/5xx from x402 middleware).
+ * The x402 middleware rejects invalid payments before our handler is called,
+ * so we intercept the response here to detect those failures.
+ */
+export async function POST(request, context) {
+  // Clone URL info before consuming the request (x402 may read it)
+  const pathname = request.nextUrl?.pathname || '';
+  // Extract tileId from URL
+  const tileIdMatch = pathname.match(/\/tiles\/(\d+)\//);
+  const tileId = tileIdMatch ? tileIdMatch[1] : 'unknown';
+
+  // Extract wallet from X-PAYMENT header if present (public address only, no keys)
+  const paymentHeader = request.headers.get('x-payment') || '';
+  let wallet = 'unknown';
+  try {
+    if (paymentHeader) {
+      const decoded = JSON.parse(Buffer.from(paymentHeader, 'base64').toString('utf8'));
+      wallet = decoded?.payload?.authorization?.from || decoded?.from || 'unknown';
+    }
+  } catch {
+    // ignore decode errors
+  }
+
+  const response = await x402Handler(request, context);
+
+  // Log failures: 402 (payment required/invalid), 4xx (bad payment), 5xx (relay error)
+  if (response.status === 402 || (response.status >= 400 && response.status < 600)) {
+    let errorBody = {};
+    try {
+      errorBody = await response.clone().json();
+    } catch {
+      // ignore
+    }
+    const errorMessage = errorBody?.error || errorBody?.message || `HTTP ${response.status}`;
+    logX402Failure({
+      tileId,
+      wallet,
+      errorCode: String(response.status),
+      errorMessage,
+    });
+  }
+
+  return response;
+}
