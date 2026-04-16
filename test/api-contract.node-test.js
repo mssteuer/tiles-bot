@@ -1,6 +1,6 @@
 /**
  * API contract tests — grid, stats, tiles, collection endpoints
- * Task #702
+ * Task #702 (original), expanded by Task #791
  *
  * Runs against a live local server on port 8084.
  * Usage: node test/api-contract.node-test.js
@@ -53,6 +53,8 @@ async function run() {
   check('total = claimed + available', () => assert.equal(stats.body.total, stats.body.claimed + stats.body.available));
   check('has currentPrice (number)', () => assert.equal(typeof stats.body.currentPrice, 'number'));
   check('has totalRevenue (number)', () => assert.equal(typeof stats.body.totalRevenue, 'number'));
+  check('claimed is non-negative', () => assert.ok(stats.body.claimed >= 0));
+  check('available is non-negative', () => assert.ok(stats.body.available >= 0));
 
   // ── GET /api/grid ───────────────────────────────────────────────
   console.log('\n🔲 GET /api/grid');
@@ -61,6 +63,18 @@ async function run() {
   check('returns 200', () => assert.equal(grid.status, 200));
   check('has tiles (object)', () => assert.equal(typeof grid.body.tiles, 'object'));
   check('tiles is not null', () => assert.ok(grid.body.tiles !== null));
+
+  // Shape-check the first claimed tile
+  const tileIds = Object.keys(grid.body.tiles || {});
+  check('at least one tile in grid', () => assert.ok(tileIds.length > 0));
+  if (tileIds.length > 0) {
+    const firstTile = grid.body.tiles[tileIds[0]];
+    check('grid tile has id', () => assert.ok('id' in firstTile));
+    check('grid tile id is number', () => assert.equal(typeof firstTile.id, 'number'));
+    check('grid tile has owner (string)', () => assert.equal(typeof firstTile.owner, 'string'));
+    check('grid tile has name (string)', () => assert.equal(typeof firstTile.name, 'string'));
+    check('grid tile has status (string)', () => assert.equal(typeof firstTile.status, 'string'));
+  }
 
   // ── GET /api/tiles/:id ─────────────────────────────────────────
   console.log('\n🧩 GET /api/tiles/1');
