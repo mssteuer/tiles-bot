@@ -3,6 +3,7 @@ import { FEATURES, featureDisabled } from '@/lib/features';
 import { pixelWarsPaint, pixelWarsErase, getPixelWarsMap, TOTAL_TILES } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 import { logEvent } from '@/lib/db';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,15 @@ export async function GET() {
 export async function POST(request) {
   const disabled = featureDisabled(FEATURES.PIXEL_WARS, 'Pixel Wars');
   if (disabled) return disabled;
+
+  const ip = getClientIp(request);
+  const rl = checkRateLimit('pixel-wars', ip, 30, 60);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
 
   let body;
   try {
