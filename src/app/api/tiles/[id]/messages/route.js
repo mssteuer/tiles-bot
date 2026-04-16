@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sendMessage, getMessages, markMessageRead, getTile } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
 import { logEvent } from '@/lib/db';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export async function GET(req, { params }) {
   const { id } = await params;
@@ -39,6 +40,15 @@ export async function GET(req, { params }) {
 }
 
 export async function POST(req, { params }) {
+  const ip = getClientIp(req);
+  const rl = checkRateLimit('messages', ip, 5, 60);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   const { id } = await params;
   const toTile = parseInt(id, 10);
   const body = await req.json();

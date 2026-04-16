@@ -8,6 +8,7 @@ import {
   logEvent,
 } from '@/lib/db';
 import { broadcast } from '@/lib/sse-broadcast';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,15 @@ export async function POST(request, { params }) {
   const challengerId = parseInt(id, 10);
   if (isNaN(challengerId) || challengerId < 0 || challengerId >= TOTAL_TILES) {
     return NextResponse.json({ error: 'Invalid tile ID' }, { status: 400 });
+  }
+
+  const ip = getClientIp(request);
+  const rl = checkRateLimit('challenges', ip, 5, 60);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
   }
 
   let body;
