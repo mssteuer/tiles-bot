@@ -453,6 +453,13 @@ POST /api/tiles/batch-register
 POST /api/tiles/batch-update
 ```
 
+### Sync on-chain ownership to DB
+```
+POST /api/tiles/sync-chain
+{ "wallet": "0x..." }   # optional — omit to sync all wallets
+```
+Scans on-chain Transfer events and registers tiles that exist on-chain but not in the DB. Useful if a claim transaction succeeded but the register step was missed.
+
 ### Bulk rename (owner dashboard)
 ```
 POST /api/owner/{address}/bulk-update
