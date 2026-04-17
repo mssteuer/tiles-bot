@@ -44,8 +44,8 @@ export default async function WidgetPage({ params }) {
   if (!isValidId) {
     return (
       <html>
-        <body style={{ margin: 0, background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-          <div style={{ color: '#64748b', fontFamily: 'system-ui, sans-serif', fontSize: 13 }}>Invalid tile ID</div>
+        <body className="m-0 flex h-screen items-center justify-center bg-[#0f172a]">
+          <div className="font-[system-ui,sans-serif] text-[13px] text-[#64748b]">Invalid tile ID</div>
         </body>
       </html>
     );
@@ -208,7 +208,7 @@ export default async function WidgetPage({ params }) {
       </head>
       <body>
         {isClaimed ? (
-          <a href={tileUrl} target="_blank" rel="noopener noreferrer" className="widget" style={{ display: 'flex' }}>
+          <a href={tileUrl} target="_blank" rel="noopener noreferrer" className="widget flex">
             <div className="avatar-wrap">
               {imageUrl ? (
                 <img src={imageUrl} alt={name} className="avatar-img" />
@@ -228,7 +228,7 @@ export default async function WidgetPage({ params }) {
             <div className="watermark">tiles.bot</div>
           </a>
         ) : (
-          <a href={tileUrl} target="_blank" rel="noopener noreferrer" className="unclaimed-state" style={{ display: 'flex' }}>
+          <a href={tileUrl} target="_blank" rel="noopener noreferrer" className="unclaimed-state flex">
             <div className="unclaimed-icon">◇</div>
             <div className="unclaimed-text">Tile #{tileId} — Available</div>
             <div className="unclaimed-sub">Claim on tiles.bot</div>
