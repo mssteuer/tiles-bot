@@ -502,7 +502,7 @@ function ChallengesTab({ tile, address, ownedTiles, allTiles }) {
             {ch.status === 'completed' && (
               <div className="text-[12px]">
                 {ch.winner_id ? (
-                  <span style={{ color: '#f59e0b' }}>🏆 Winner: {ch.winner_name || `Tile #${ch.winner_id}`} ({ch.challenger_score ?? '?'} vs {ch.defender_score ?? '?'})</span>
+                  <span className="text-accent-amber">🏆 Winner: {ch.winner_name || `Tile #${ch.winner_id}`} ({ch.challenger_score ?? '?'} vs {ch.defender_score ?? '?'})</span>
                 ) : (
                   <div>
                     <span className="text-text-dim">🤝 Tie! ({ch.challenger_score} vs {ch.defender_score}) — community vote to decide</span>
