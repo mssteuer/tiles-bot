@@ -59,14 +59,21 @@ export function checkRateLimit(namespace, identifier, limit, windowSec) {
 
 /**
  * Get client IP from a Next.js request.
- * Checks X-Forwarded-For first, then falls back to socket.
+ * Prefers X-Real-IP (set by nginx to the actual remote address) over
+ * X-Forwarded-For, because nginx appends the real IP to XFF which makes
+ * the leftmost entry attacker-controlled. X-Real-IP cannot be spoofed
+ * by the client because nginx overwrites it unconditionally.
  * @param {Request} req
  * @returns {string}
  */
 export function getClientIp(req) {
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
   const realIp = req.headers.get('x-real-ip');
   if (realIp) return realIp.trim();
+  const forwarded = req.headers.get('x-forwarded-for');
+  // Nginx appends the real IP, so the rightmost entry is the trusted one.
+  if (forwarded) {
+    const parts = forwarded.split(',');
+    return parts[parts.length - 1].trim();
+  }
   return 'unknown';
 }

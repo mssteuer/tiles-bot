@@ -29,11 +29,11 @@ export async function POST(request) {
   if (disabled) return disabled;
 
   const ip = getClientIp(request);
-  const rl = checkRateLimit('pixel-wars', ip, 30, 60);
-  if (!rl.allowed) {
+  const rlIp = checkRateLimit('pixel-wars', ip, 30, 60);
+  if (!rlIp.allowed) {
     return NextResponse.json(
       { error: 'Rate limit exceeded. Try again shortly.' },
-      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+      { status: 429, headers: { 'Retry-After': String(rlIp.retryAfter) } }
     );
   }
 
@@ -45,6 +45,18 @@ export async function POST(request) {
   }
 
   const { ownerTileId, targetTileId, color, wallet } = body;
+
+  // Per-tile rate limit: prevent flooding a single target tile
+  if (targetTileId != null) {
+    const tIdStr = String(parseInt(targetTileId, 10));
+    const rlTile = checkRateLimit('pixel-wars-tile', tIdStr, 30, 60);
+    if (!rlTile.allowed) {
+      return NextResponse.json(
+        { error: 'This tile is being painted too frequently. Try again shortly.' },
+        { status: 429, headers: { 'Retry-After': String(rlTile.retryAfter) } }
+      );
+    }
+  }
 
   if (ownerTileId == null || targetTileId == null || !color || !wallet) {
     return NextResponse.json(
