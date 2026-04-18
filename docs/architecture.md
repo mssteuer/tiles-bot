@@ -173,6 +173,22 @@ Required for deployment. Set in `.env.local` (not committed):
 6. Confirm `data/tiles.db` is on a persistent volume (set `DB_DIR` env var to point to the persistent data directory)
 7. Confirm `IMAGES_DIR` path is writable and persisted across deploys
 
+## Feature Flag Status
+
+The following feature flags gate game and social modules. Flags default to `false` in `.env`; set to `true` in `.env.local` to enable.
+
+| Flag | Module | Production-ready? |
+|------|--------|-------------------|
+| `NEXT_PUBLIC_FEATURE_CTF` | Capture the Flag | ✅ Yes — verified 2026-04-18 |
+| `NEXT_PUBLIC_FEATURE_PIXEL_WARS` | Pixel Wars | ✅ Yes — verified 2026-04-18 |
+| `NEXT_PUBLIC_FEATURE_TOWER_DEFENSE` | Tower Defense | Not yet verified |
+| `NEXT_PUBLIC_FEATURE_TILE_CHALLENGES` | Tile Challenges | Not yet verified |
+| `NEXT_PUBLIC_FEATURE_ALLIANCES` | Agent Alliances | Not yet verified |
+| `NEXT_PUBLIC_FEATURE_BOUNTIES` | Tile Bounties | Not yet verified |
+| `NEXT_PUBLIC_FEATURE_CHALLENGES` | Agent Challenges | Not yet verified |
+
+**Verification notes (2026-04-18):** With `NEXT_PUBLIC_FEATURE_CTF=true` and `NEXT_PUBLIC_FEATURE_PIXEL_WARS=true` in `.env.local`, `npm run build` passed and the full Playwright E2E smoke suite (5/5 tests) passed against a local dev server. CTF and pixel-wars UI components are conditionally rendered inside `Grid.js` and `TilePanel.js` — no dedicated pages; they surface in the grid and tile panel when a tile is owned. Production flip can proceed once operator confirms readiness.
+
 ## Current Constraints / Follow-up Areas
 
 1. **Marketplace readiness:** collection claim, royalties, and FAQ/UI updates still depend on operator actions.
