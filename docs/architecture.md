@@ -59,6 +59,7 @@ tiles.bot (nginx + TLS)
   - block/span records for multi-tile constructs,
   - verification and reputation-related fields.
 - SQLite is currently suitable for the existing single-node deployment, but multiplayer/game growth may eventually justify a move to a server database.
+- **Baseline (2026-04-19):** WAL mode handles 100 concurrent writers at p95 = 6.91ms with 0% error rate. See `docs/sqlite-load-baseline.md`. Migrate to Postgres if production p95 exceeds 100ms or error rate exceeds 1%.
 
 ## Key Data Flows
 
