@@ -99,8 +99,10 @@ describe('verifyCasperSignature - ed25519', () => {
     const { privKey, address } = makeEd25519Keys();
     const message = 'tiles.bot:metadata:42:1716700000';
     let signature = casperSign(message, privKey, 'ed25519');
-    // Corrupt 1 byte in the middle
-    signature = signature.slice(0, 20) + 'ff' + signature.slice(22);
+    // Corrupt 1 byte — flip bits so the replacement always differs from original
+    const orig = signature.slice(20, 22);
+    const flipped = (parseInt(orig, 16) ^ 0x01).toString(16).padStart(2, '0');
+    signature = signature.slice(0, 20) + flipped + signature.slice(22);
     assert.equal(verifyCasperSignature(message, signature, address), false);
   });
 });
