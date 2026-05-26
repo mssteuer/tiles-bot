@@ -19,11 +19,9 @@ export async function GET() {
   const chains = getSupportedChains();
   const perChain = {};
   for (const chain of chains) {
-    const chainClaimed = getClaimedCountByChain(chain.id);
     perChain[chain.id] = {
       name: chain.name,
-      claimed: chainClaimed,
-      available: TOTAL_TILES - chainClaimed,
+      claimed: getClaimedCountByChain(chain.id),
       currentPrice: getCurrentPriceByChain(chain.id),
       totalRevenue: getTotalRevenueByChain(chain.id),
     };
