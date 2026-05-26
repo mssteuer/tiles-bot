@@ -73,7 +73,7 @@ CHAIN_BASE_X402_FACILITATOR=https://x402-facilitator.base.org
 CHAIN_CASPER_NFT_CONTRACT=hash-placeholder
 CHAIN_CASPER_PAYMENT_TOKEN=hash-placeholder
 CHAIN_CASPER_TREASURY=02placeholder
-CHAIN_CASPER_RPC_URL=https://rpc.mainnet.casperlabs.io/rpc
+CHAIN_CASPER_RPC_URL=https://node.mainnet.casper.network/rpc
 CHAIN_CASPER_EXPLORER=https://cspr.live
 CHAIN_CASPER_X402_FACILITATOR=https://x402-facilitator.cspr.cloud
 
