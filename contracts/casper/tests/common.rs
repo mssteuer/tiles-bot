@@ -1,7 +1,7 @@
 //! Shared test setup for TilesBot NFT tests.
 
 use odra::casper_types::U256;
-use odra::host::{Deployer, HostEnv, HostRef};
+use odra::host::{Deployer, HostEnv};
 use odra::prelude::*;
 use odra_modules::cep18_token::Cep18;
 

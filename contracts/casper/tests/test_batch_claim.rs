@@ -3,7 +3,6 @@
 mod common;
 
 use odra::casper_types::U256;
-use odra::host::HostRef;
 use odra::prelude::*;
 
 #[test]

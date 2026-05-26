@@ -160,6 +160,7 @@ fn fp_div(a: i128, b: i128) -> i128 {
 }
 
 /// Convert 64.64 fixed-point to u128 (truncates fractional part).
+#[allow(dead_code)]
 fn fp_to_u128(x: i128) -> u128 {
     if x < 0 {
         0
