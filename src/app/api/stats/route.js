@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue, getTotalRevenue } from '@/lib/db';
+import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue, getTotalRevenue, getClaimedCountByChain, getCurrentPriceByChain, getTotalRevenueByChain, getEstimatedSoldOutRevenueByChain } from '@/lib/db';
+import { getSupportedChains } from '@/lib/chains';
 
 export async function GET() {
   const claimed = getClaimedCount();
@@ -14,6 +15,21 @@ export async function GET() {
     count: row.count,
   }));
 
+  // Per-chain independent pricing
+  const chains = getSupportedChains();
+  const perChain = {};
+  for (const chain of chains) {
+    const chainClaimed = getClaimedCountByChain(chain.id);
+    perChain[chain.id] = {
+      name: chain.name,
+      claimed: chainClaimed,
+      available: TOTAL_TILES - chainClaimed,
+      currentPrice: getCurrentPriceByChain(chain.id),
+      totalRevenue: getTotalRevenueByChain(chain.id),
+      estimatedSoldOutRevenue: getEstimatedSoldOutRevenueByChain(),
+    };
+  }
+
   return NextResponse.json({
     claimed,
     available: TOTAL_TILES - claimed,
@@ -26,5 +42,6 @@ export async function GET() {
     estimatedSoldOutRevenue: getEstimatedSoldOutRevenue(),
     recentlyClaimed,
     topHolders,
+    perChain,
   });
 }
