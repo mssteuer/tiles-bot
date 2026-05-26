@@ -16,6 +16,7 @@
 |------|---------|
 | `src/lib/chains.js` | Chain registry module — config loading, validation, exports |
 | `test/chains.test.js` | Unit tests for all registry functionality |
+| `test/chains-validation.test.js` | Startup validation test (missing env vars) |
 | `.env.local` | Add CHAIN_* variables (existing file, append) |
 
 ---
@@ -28,7 +29,7 @@
 - [ ] **Step 1: Create the test file with getChain tests**
 
 ```js
-import { describe, it, beforeEach } from 'node:test'
+import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
 // Set required env vars before importing the module
@@ -42,7 +43,7 @@ function setTestEnv() {
   process.env.CHAIN_CASPER_NFT_CONTRACT = 'hash-placeholder'
   process.env.CHAIN_CASPER_PAYMENT_TOKEN = 'hash-placeholder'
   process.env.CHAIN_CASPER_TREASURY = '02placeholder'
-  process.env.CHAIN_CASPER_RPC_URL = 'https://rpc.mainnet.casperlabs.io/rpc'
+  process.env.CHAIN_CASPER_RPC_URL = 'https://node.mainnet.casper.network/rpc'
   process.env.CHAIN_CASPER_EXPLORER = 'https://cspr.live'
   process.env.CHAIN_CASPER_X402_FACILITATOR = 'https://x402-facilitator.cspr.cloud'
   process.env.DEFAULT_CHAIN = 'base'
@@ -74,7 +75,7 @@ describe('getChain', () => {
     assert.equal(chain.name, 'Casper')
     assert.equal(chain.addressFormat, 'casper')
     assert.equal(chain.nftContract, 'hash-placeholder')
-    assert.equal(chain.rpcUrl, 'https://rpc.mainnet.casperlabs.io/rpc')
+    assert.equal(chain.rpcUrl, 'https://node.mainnet.casper.network/rpc')
   })
 
   it('throws for unknown chain id', () => {
@@ -408,7 +409,7 @@ CHAIN_BASE_X402_FACILITATOR=https://x402-facilitator.base.org
 CHAIN_CASPER_NFT_CONTRACT=hash-placeholder
 CHAIN_CASPER_PAYMENT_TOKEN=hash-placeholder
 CHAIN_CASPER_TREASURY=02placeholder
-CHAIN_CASPER_RPC_URL=https://rpc.mainnet.casperlabs.io/rpc
+CHAIN_CASPER_RPC_URL=https://node.mainnet.casper.network/rpc
 CHAIN_CASPER_EXPLORER=https://cspr.live
 CHAIN_CASPER_X402_FACILITATOR=https://x402-facilitator.cspr.cloud
 DEFAULT_CHAIN=base
