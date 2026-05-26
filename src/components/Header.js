@@ -40,12 +40,25 @@ function WalletButton() {
   );
 }
 
+function formatChainPrice(value, chain) {
+  if (value == null || Number.isNaN(Number(value))) return '…';
+  const n = Number(value);
+  if (chain === 'casper') {
+    if (n >= 1000) return `${Math.round(n).toLocaleString()} CSPR`;
+    if (n >= 1) return `${n.toFixed(2)} CSPR`;
+    return `${n.toFixed(4)} CSPR`;
+  }
+  if (n >= 1) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return `$${n.toFixed(4)}`;
+}
+
 export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
   const pct = stats.total > 0 ? ((stats.claimed / stats.total) * 100) : 0;
   const price = parseFloat(stats.currentPrice ?? 0).toFixed(4);
   const totalRevenue = stats.totalRevenue ?? 0;
   const estimatedMax = stats.estimatedSoldOutRevenue ?? 0;
   const revenuePct = estimatedMax > 0 ? Math.min((totalRevenue / estimatedMax) * 100, 100) : 0;
+  const perChain = stats.perChain || {};
 
   const fmtRevenue = (v) => {
     if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
@@ -111,7 +124,15 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
 
         <div className="flex items-center gap-1 whitespace-nowrap">
           <span className="text-text-dim">Price</span>
-          <span className="font-bold text-accent-blue">${price}</span>
+          {(perChain.base || perChain.casper) ? (
+            <span className="flex items-center gap-2">
+              {perChain.base && <span className="font-bold text-blue-400" title="Base (USDC)">{formatChainPrice(perChain.base.currentPrice, 'base')}</span>}
+              {perChain.base && perChain.casper && <span className="text-[9px] text-text-muted">/</span>}
+              {perChain.casper && <span className="font-bold text-red-400" title="Casper (CSPR)">{formatChainPrice(perChain.casper.currentPrice, 'casper')}</span>}
+            </span>
+          ) : (
+            <span className="font-bold text-accent-blue">${price}</span>
+          )}
         </div>
 
         <span className="text-text-muted">│</span>

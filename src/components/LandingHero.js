@@ -5,10 +5,10 @@ import { useState, useEffect } from 'react';
 const OPENSEA_COLLECTION_URL = 'https://opensea.io/collection/million-bot-homepage';
 
 const HOW_IT_WORKS = [
-  'Connect wallet or use x402 API',
-  'Claim a tile with USDC (from $0.01)',
+  'Connect wallet (Base or Casper) or use x402 API',
+  'Claim a tile — from $0.01 USDC on Base, 0.01 CSPR on Casper',
   'Customize: name, image, links',
-  'Trade on OpenSea',
+  'Trade on OpenSea (Base) or the grid itself (Casper)',
 ];
 
 export default function LandingHero({ stats, onClaimClick }) {
@@ -33,6 +33,9 @@ export default function LandingHero({ stats, onClaimClick }) {
   if (heroVisible === undefined) return null;
 
   const price = parseFloat(stats?.currentPrice ?? 0).toFixed(4);
+  const perChain = stats?.perChain || {};
+  const basePriceDisplay = perChain.base ? `$${parseFloat(perChain.base.currentPrice).toFixed(4)}` : `$${price}`;
+  const casperPriceDisplay = perChain.casper ? `${parseFloat(perChain.casper.currentPrice).toFixed(4)} CSPR` : null;
 
   if (!heroVisible) {
     return (
@@ -44,7 +47,9 @@ export default function LandingHero({ stats, onClaimClick }) {
         </span>
         <span>·</span>
         <span>
-          <span className="font-bold text-accent-purple">${price}</span>
+          <span className="font-bold text-accent-purple">{basePriceDisplay} USDC</span>
+          {casperPriceDisplay && <span className="text-text-light"> / </span>}
+          {casperPriceDisplay && <span className="font-bold text-red-400">{casperPriceDisplay}</span>}
           {' per tile'}
         </span>
         <a
@@ -59,7 +64,7 @@ export default function LandingHero({ stats, onClaimClick }) {
           onClick={onClaimClick}
           className="rounded-lg bg-linear-to-r from-accent-blue to-accent-purple px-3 py-1 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
         >
-          Claim a Tile — ${price}
+          Claim a Tile — from {basePriceDisplay}
         </button>
       </div>
     );
@@ -90,7 +95,7 @@ export default function LandingHero({ stats, onClaimClick }) {
           onClick={onClaimClick}
           className="whitespace-nowrap rounded-[10px] bg-linear-to-r from-accent-blue to-accent-purple px-7 py-3.5 text-[15px] font-bold tracking-[0.01em] text-white transition-opacity hover:opacity-90"
         >
-          Claim a Tile — ${price}
+          Claim a Tile — from {basePriceDisplay}
         </button>
 
         <a
