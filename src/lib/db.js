@@ -305,11 +305,6 @@ export function getBatchPriceByChain(count, chainId) {
   return total;
 }
 
-// Per-chain estimated sold-out revenue (same formula, independent per chain)
-export function getEstimatedSoldOutRevenueByChain() {
-  return ESTIMATED_SOLD_OUT_REVENUE;
-}
-
 export function getTotalRevenueByChain(chainId) {
   const db = getDb();
   const row = db.prepare('SELECT SUM(COALESCE(price_paid, 0)) as total FROM tiles WHERE chain = ?').get(chainId);

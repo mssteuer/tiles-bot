@@ -36,6 +36,14 @@ function formatUsdShort(value) {
   return `$${n.toFixed(4)}`;
 }
 
+function formatCspr(value) {
+  if (value == null || Number.isNaN(Number(value))) return '…';
+  const n = Number(value);
+  if (n >= 1000) return `${Math.round(n).toLocaleString()}`;
+  if (n >= 1) return n.toFixed(2);
+  return n.toFixed(4);
+}
+
 export default function StatsPanel({ stats }) {
   const [open, setOpen] = React.useState(true);
   const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
@@ -81,7 +89,7 @@ export default function StatsPanel({ stats }) {
                   {perChain.casper && (
                     <div>
                       <span className="text-red-400">Casper:</span>{' '}
-                      <span className="font-semibold">{perChain.casper.currentPrice < 1 ? perChain.casper.currentPrice.toFixed(4) : perChain.casper.currentPrice.toFixed(2)} CSPR</span>
+                      <span className="font-semibold">{formatCspr(perChain.casper.currentPrice)} CSPR</span>
                       <span className="text-text-gray"> ({perChain.casper.claimed} claimed)</span>
                     </div>
                   )}
