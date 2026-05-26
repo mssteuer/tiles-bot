@@ -36,6 +36,14 @@ function formatUsdShort(value) {
   return `$${n.toFixed(4)}`;
 }
 
+function formatCspr(value) {
+  if (value == null || Number.isNaN(Number(value))) return '…';
+  const n = Number(value);
+  if (n >= 1000) return `${Math.round(n).toLocaleString()}`;
+  if (n >= 1) return n.toFixed(2);
+  return n.toFixed(4);
+}
+
 export default function StatsPanel({ stats }) {
   const [open, setOpen] = React.useState(true);
   const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
@@ -43,6 +51,7 @@ export default function StatsPanel({ stats }) {
   const totalRevenue = stats?.totalRevenue ?? 0;
   const estimatedMax = stats?.estimatedSoldOutRevenue ?? 0;
   const revenuePct = estimatedMax > 0 ? Math.min((totalRevenue / estimatedMax) * 100, 100) : 0;
+  const perChain = stats?.perChain || {};
 
   React.useEffect(() => {
     const tick = setInterval(() => setNowTs(Date.now()), 10_000);
@@ -68,6 +77,24 @@ export default function StatsPanel({ stats }) {
               <div>
                 Current price: <span className="font-bold text-accent-purple">{formatUsd(stats.currentPrice)} USDC</span>
               </div>
+              {(perChain.base || perChain.casper) && (
+                <div className="mt-1 flex flex-col gap-0.5 text-[11px]">
+                  {perChain.base && (
+                    <div>
+                      <span className="text-blue-400">Base:</span>{' '}
+                      <span className="font-semibold">{formatUsd(perChain.base.currentPrice)}</span>
+                      <span className="text-text-gray"> ({perChain.base.claimed} claimed)</span>
+                    </div>
+                  )}
+                  {perChain.casper && (
+                    <div>
+                      <span className="text-red-400">Casper:</span>{' '}
+                      <span className="font-semibold">{formatCspr(perChain.casper.currentPrice)} CSPR</span>
+                      <span className="text-text-gray"> ({perChain.casper.claimed} claimed)</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 Est. sold out: <span className="font-bold text-amber-500">{formatUsd(stats.estimatedSoldOutRevenue)}</span>
               </div>

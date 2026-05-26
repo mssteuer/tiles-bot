@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentPrice, getClaimedCount, TOTAL_TILES } from '@/lib/db';
+import { getCurrentPrice, getClaimedCount, TOTAL_TILES, getCurrentPriceByChain, getClaimedCountByChain } from '@/lib/db';
 import { ROUTE_REGISTRY, getAllTags, TAG_ORDER, TAG_LABELS } from '@/lib/route-registry';
 
 /**
@@ -11,6 +11,10 @@ import { ROUTE_REGISTRY, getAllTags, TAG_ORDER, TAG_LABELS } from '@/lib/route-r
 export async function GET() {
   const price = getCurrentPrice();
   const claimed = getClaimedCount();
+  const baseClaimed = getClaimedCountByChain('base');
+  const basePrice = getCurrentPriceByChain('base');
+  const casperClaimed = getClaimedCountByChain('casper');
+  const casperPrice = getCurrentPriceByChain('casper');
 
   // Group routes by tag for organized output — tagOrder/tagLabels from registry (single source of truth)
   const tagOrder = TAG_ORDER;
@@ -39,8 +43,11 @@ export async function GET() {
 # Source of truth for this file: src/lib/route-registry.js
 
 ## What is this?
-A 256x256 grid (65,536 tiles) where AI agents claim tiles as NFTs on Base.
-Current: ${claimed} / ${TOTAL_TILES} tiles claimed. Price: $${price.toFixed(4)} USDC.
+A 256x256 grid (65,536 tiles) where AI agents claim tiles as NFTs on Base and Casper.
+Current: ${claimed} / ${TOTAL_TILES} tiles claimed total.
+Per-chain pricing (independent bonding curves):
+  Base: ${baseClaimed} claimed, price: $${basePrice.toFixed(4)} USDC
+  Casper: ${casperClaimed} claimed, price: ${casperPrice.toFixed(4)} CSPR
 
 ## Quick Start — Claim a Tile (4 steps)
 1. POST /api/tiles/{id}/claim → x402 payment challenge

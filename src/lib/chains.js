@@ -30,6 +30,13 @@ function loadChainEnv(chainId) {
     const varName = `${prefix}${field}`;
     const value = process.env[varName];
     if (!value) {
+      // During Next.js build phase only, env vars may not be available.
+      // NEXT_PHASE is set by Next.js exclusively during `next build` — not at runtime.
+      // This ensures production runtime still throws on missing config.
+      if (process.env.NEXT_PHASE === 'phase-production-build') {
+        env[field] = '';
+        continue;
+      }
       throw new Error(`Missing env var: ${varName}`);
     }
     env[field] = value;
