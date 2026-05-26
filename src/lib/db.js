@@ -1324,6 +1324,8 @@ function ensureEventsLog() {
   `);
 }
 ensureEventsLog();
+// — Multi-chain: add chain column to events_log (heartbeat events need chain context)
+try { getDb().exec(`ALTER TABLE events_log ADD COLUMN chain TEXT NOT NULL DEFAULT 'base'`); } catch {}
 
 /**
  * Append an event to the persistent events log.
@@ -1331,14 +1333,15 @@ ensureEventsLog();
  * @param {number|null} tileId - Primary tile involved
  * @param {string|null} actor - Wallet address of the actor (optional)
  * @param {object} meta - Additional metadata (serialized as JSON)
+ * @param {string} chain - Chain identifier (default: 'base')
  */
-export function logEvent(type, tileId = null, actor = null, meta = {}) {
+export function logEvent(type, tileId = null, actor = null, meta = {}, chain = 'base') {
   try {
     const db = getDb();
     db.prepare(`
-      INSERT INTO events_log (type, tile_id, actor, metadata, created_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(type, tileId ?? null, actor ?? null, JSON.stringify(meta));
+      INSERT INTO events_log (type, tile_id, actor, metadata, chain, created_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).run(type, tileId ?? null, actor ?? null, JSON.stringify(meta), chain);
   } catch {
     // Non-fatal — events log is best-effort
   }
