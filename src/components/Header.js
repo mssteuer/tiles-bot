@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { ConnectKitButton } from 'connectkit';
+import CasperWalletButton from './CasperWalletButton';
 import { initSounds, isMuted, toggleMute, playSound } from '@/lib/sound';
 
 function SoundToggle() {
@@ -86,6 +87,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
           <button onClick={() => onClaimClick(nextAvailableTileId ?? 0)} className="btn-retro btn-retro-green px-[14px] py-1.5 text-[12px]">
             ▶ Claim a Tile
           </button>
+          <CasperWalletButton />
           <WalletButton />
         </div>
       </div>

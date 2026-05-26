@@ -4,8 +4,16 @@ const path = require('path');
 const nextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   serverExternalPackages: ['sharp'],
-  // serverActions not used in this project; removed experimental.serverActionsBodySizeLimit
-  // (was causing "Unrecognized key" warnings in Next.js 16)
+  // styled-components requires the SWC compiler plugin for SSR
+  compiler: {
+    styledComponents: true,
+  },
+  // Transpile CSPR.click packages (they ship ESM/CJS that Next.js needs to process)
+  transpilePackages: [
+    '@make-software/csprclick-ui',
+    '@make-software/csprclick-core-client',
+    '@make-software/csprclick-core-types',
+  ],
   // Prevent browsers from aggressively caching HTML pages (chunks change on each build)
   async headers() {
     return [
