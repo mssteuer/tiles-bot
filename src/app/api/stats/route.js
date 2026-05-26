@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue, getTotalRevenue, getClaimedCountByChain, getCurrentPriceByChain, getTotalRevenueByChain, getEstimatedSoldOutRevenueByChain } from '@/lib/db';
+import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue, getTotalRevenue, getClaimedCountByChain, getCurrentPriceByChain, getTotalRevenueByChain } from '@/lib/db';
 import { getSupportedChains } from '@/lib/chains';
 
 export async function GET() {
@@ -26,7 +26,6 @@ export async function GET() {
       available: TOTAL_TILES - chainClaimed,
       currentPrice: getCurrentPriceByChain(chain.id),
       totalRevenue: getTotalRevenueByChain(chain.id),
-      estimatedSoldOutRevenue: getEstimatedSoldOutRevenueByChain(),
     };
   }
 

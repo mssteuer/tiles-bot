@@ -87,7 +87,7 @@ describe('independent per-chain pricing', () => {
     assert.ok(baseBatch > casperBatch, 'Batch on more-claimed chain costs more');
   });
 
-  it('each chains curve can independently reach max', () => {
+  it('formula reaches $111.11 at 65535 regardless of which chain', () => {
     // Each chain can theoretically have all 65536 tiles claimed
     // Their max price should be ~$111.11 independently
     const baseMaxPrice = bondingCurvePrice(65535);

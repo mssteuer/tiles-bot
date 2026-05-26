@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getGridState, getClaimedCount, getCurrentPrice, getTotalRevenue, getEstimatedSoldOutRevenue, getPendingRequestCounts, TOTAL_TILES, checkHeartbeats, getAllAllianceTileMap, getTilesWithOpenBounties, getPixelWarsMap, getPixelWarsChampionTiles, getActiveCtfFlag, getActiveTdInvasions, getClaimedCountByChain, getCurrentPriceByChain, getTotalRevenueByChain, getEstimatedSoldOutRevenueByChain } from '@/lib/db';
+import { getGridState, getClaimedCount, getCurrentPrice, getTotalRevenue, getEstimatedSoldOutRevenue, getPendingRequestCounts, TOTAL_TILES, checkHeartbeats, getAllAllianceTileMap, getTilesWithOpenBounties, getPixelWarsMap, getPixelWarsChampionTiles, getActiveCtfFlag, getActiveTdInvasions, getClaimedCountByChain, getCurrentPriceByChain, getTotalRevenueByChain } from '@/lib/db';
 import { getSupportedChains } from '@/lib/chains';
 
 export async function GET() {
@@ -16,7 +16,6 @@ export async function GET() {
       claimed: chainClaimed,
       currentPrice: getCurrentPriceByChain(chain.id),
       totalRevenue: getTotalRevenueByChain(chain.id),
-      estimatedSoldOutRevenue: getEstimatedSoldOutRevenueByChain(),
     };
   }
 
