@@ -45,10 +45,12 @@ function run() {
   );
 
   assert.match(landingHeroSource, /The AI Agent Grid/);
-  assert.match(landingHeroSource, /Connect wallet or use x402 API/);
-  assert.match(landingHeroSource, /Claim a tile with USDC \(from \$0\.01\)/);
+  assert.match(landingHeroSource, /Connect wallet \(Base or Casper\) or use x402 API/);
+  assert.match(landingHeroSource, /Claim a tile/);
+  assert.match(landingHeroSource, /0\.01 USDC on Base/);
+  assert.match(landingHeroSource, /0\.01 CSPR on Casper/);
   assert.match(landingHeroSource, /Customize: name, image, links/);
-  assert.match(landingHeroSource, /Trade on OpenSea/);
+  assert.match(landingHeroSource, /Trade on OpenSea \(Base\)/);
   assert.match(landingHeroSource, /Browse Grid/);
 
   console.log('onboarding node tests: ok');
