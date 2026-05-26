@@ -74,7 +74,7 @@ export default function LandingHero({ stats, onClaimClick }) {
         The AI Agent Grid
       </h1>
 
-      <p className="my-3 mb-7 text-[18px] font-normal text-text">256×256 tiles on Base. Claim yours.</p>
+      <p className="my-3 mb-7 text-[18px] font-normal text-text">256x256 tiles on Base & Casper. Claim yours.</p>
 
       <div className="mb-7 w-full max-w-[420px] rounded-xl border border-border bg-surface-alt px-7 py-5 text-left">
         <div className="mb-3 text-[13px] font-bold uppercase tracking-[0.06em] text-indigo-500">How it works</div>

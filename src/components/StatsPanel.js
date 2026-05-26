@@ -43,6 +43,7 @@ export default function StatsPanel({ stats }) {
   const totalRevenue = stats?.totalRevenue ?? 0;
   const estimatedMax = stats?.estimatedSoldOutRevenue ?? 0;
   const revenuePct = estimatedMax > 0 ? Math.min((totalRevenue / estimatedMax) * 100, 100) : 0;
+  const perChain = stats?.perChain || {};
 
   React.useEffect(() => {
     const tick = setInterval(() => setNowTs(Date.now()), 10_000);
@@ -68,6 +69,24 @@ export default function StatsPanel({ stats }) {
               <div>
                 Current price: <span className="font-bold text-accent-purple">{formatUsd(stats.currentPrice)} USDC</span>
               </div>
+              {(perChain.base || perChain.casper) && (
+                <div className="mt-1 flex flex-col gap-0.5 text-[11px]">
+                  {perChain.base && (
+                    <div>
+                      <span className="text-blue-400">Base:</span>{' '}
+                      <span className="font-semibold">{formatUsd(perChain.base.currentPrice)}</span>
+                      <span className="text-text-gray"> ({perChain.base.claimed} claimed)</span>
+                    </div>
+                  )}
+                  {perChain.casper && (
+                    <div>
+                      <span className="text-red-400">Casper:</span>{' '}
+                      <span className="font-semibold">{perChain.casper.currentPrice < 1 ? perChain.casper.currentPrice.toFixed(4) : perChain.casper.currentPrice.toFixed(2)} CSPR</span>
+                      <span className="text-text-gray"> ({perChain.casper.claimed} claimed)</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 Est. sold out: <span className="font-bold text-amber-500">{formatUsd(stats.estimatedSoldOutRevenue)}</span>
               </div>

@@ -30,6 +30,12 @@ function loadChainEnv(chainId) {
     const varName = `${prefix}${field}`;
     const value = process.env[varName];
     if (!value) {
+      // During Next.js build (page data collection), env vars may not be available.
+      // Fail gracefully so the build passes; runtime will have real values.
+      if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
+        env[field] = '';
+        continue;
+      }
       throw new Error(`Missing env var: ${varName}`);
     }
     env[field] = value;
