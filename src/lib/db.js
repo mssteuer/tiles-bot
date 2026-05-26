@@ -127,6 +127,10 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE tile_blocks ADD COLUMN status TEXT NOT NULL DEFAULT 'offline'`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN rep_score REAL NOT NULL DEFAULT 0`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN effects TEXT`); } catch {}
+  // — Multi-chain support (Task #1714)
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN chain TEXT NOT NULL DEFAULT 'base'`); } catch {}
+  try { db.exec(`ALTER TABLE tiles ADD COLUMN chain_contract TEXT`); } catch {}
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_tiles_chain ON tiles(chain)`);
 }
 
 export function getRectTileIds(topLeftId, width, height, gridSize = GRID_SIZE) {
@@ -181,6 +185,8 @@ function rowToTile(row) {
     hasTrophy: row.trophy_expires_at ? new Date(row.trophy_expires_at) > new Date() : false,
     hasCrack: row.crack_expires_at ? new Date(row.crack_expires_at) > new Date() : false,
     effects: row.effects ? JSON.parse(row.effects) : null,
+    chain: row.chain || 'base',
+    chainContract: row.chain_contract || null,
   };
 }
 
@@ -199,9 +205,9 @@ export function setTile(id, data) {
   const db = getDb();
   db.prepare(`
     INSERT OR REPLACE INTO tiles
-      (id, owner, name, avatar, description, category, color, status, url, x_handle, claimed_at, last_heartbeat, price_paid)
+      (id, owner, name, avatar, description, category, color, status, url, x_handle, claimed_at, last_heartbeat, price_paid, chain, chain_contract)
     VALUES
-      (@id, @owner, @name, @avatar, @description, @category, @color, @status, @url, @x_handle, @claimed_at, @last_heartbeat, @price_paid)
+      (@id, @owner, @name, @avatar, @description, @category, @color, @status, @url, @x_handle, @claimed_at, @last_heartbeat, @price_paid, @chain, @chain_contract)
   `).run({
     id: data.id,
     owner: data.owner,
@@ -216,6 +222,8 @@ export function setTile(id, data) {
     claimed_at: data.claimedAt || new Date().toISOString(),
     last_heartbeat: data.lastHeartbeat || null,
     price_paid: data.pricePaid || null,
+    chain: data.chain || 'base',
+    chain_contract: data.chainContract || null,
   });
 }
 
@@ -280,7 +288,7 @@ export function getBatchPrice(count) {
   return total;
 }
 
-export function claimTile(id, wallet, pricePaid) {
+export function claimTile(id, wallet, pricePaid, chain = 'base') {
   const db = getDb();
   if (id < 0 || id >= TOTAL_TILES) return null;
 
@@ -302,11 +310,13 @@ export function claimTile(id, wallet, pricePaid) {
     claimedAt: new Date().toISOString(),
     lastHeartbeat: null,
     pricePaid: pricePaid || null,
+    chain,
+    chainContract: null,
   };
 
   db.prepare(`
-    INSERT INTO tiles (id, owner, name, status, claimed_at, price_paid)
-    VALUES (@id, @owner, @name, @status, @claimed_at, @price_paid)
+    INSERT INTO tiles (id, owner, name, status, claimed_at, price_paid, chain)
+    VALUES (@id, @owner, @name, @status, @claimed_at, @price_paid, @chain)
   `).run({
     id: tile.id,
     owner: tile.owner,
@@ -314,6 +324,7 @@ export function claimTile(id, wallet, pricePaid) {
     status: tile.status,
     claimed_at: tile.claimedAt,
     price_paid: tile.pricePaid,
+    chain: tile.chain,
   });
 
   return tile;
@@ -453,17 +464,18 @@ export function setTileTxHash(id, txHash) {
  * Upsert a tile claim from on-chain data (for sync with blockchain events).
  * Used by the indexer/sync mechanism when it reads on-chain claims.
  */
-export function syncOnChainClaim(id, owner, claimedAt, pricePaid) {
+export function syncOnChainClaim(id, owner, claimedAt, pricePaid, chain = 'base') {
   const db = getDb();
   db.prepare(`
-    INSERT OR REPLACE INTO tiles (id, owner, name, status, claimed_at, price_paid)
-    VALUES (@id, @owner, @name, 'offline', @claimed_at, @price_paid)
+    INSERT OR REPLACE INTO tiles (id, owner, name, status, claimed_at, price_paid, chain)
+    VALUES (@id, @owner, @name, 'offline', @claimed_at, @price_paid, @chain)
   `).run({
     id,
     owner,
     name: `Tile #${id}`,
     claimed_at: claimedAt || new Date().toISOString(),
     price_paid: pricePaid || null,
+    chain,
   });
 }
 
@@ -1312,6 +1324,8 @@ function ensureEventsLog() {
   `);
 }
 ensureEventsLog();
+// — Multi-chain: add chain column to events_log (heartbeat events need chain context)
+try { getDb().exec(`ALTER TABLE events_log ADD COLUMN chain TEXT NOT NULL DEFAULT 'base'`); } catch {}
 
 /**
  * Append an event to the persistent events log.
@@ -1319,14 +1333,15 @@ ensureEventsLog();
  * @param {number|null} tileId - Primary tile involved
  * @param {string|null} actor - Wallet address of the actor (optional)
  * @param {object} meta - Additional metadata (serialized as JSON)
+ * @param {string} chain - Chain identifier (default: 'base')
  */
-export function logEvent(type, tileId = null, actor = null, meta = {}) {
+export function logEvent(type, tileId = null, actor = null, meta = {}, chain = 'base') {
   try {
     const db = getDb();
     db.prepare(`
-      INSERT INTO events_log (type, tile_id, actor, metadata, created_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(type, tileId ?? null, actor ?? null, JSON.stringify(meta));
+      INSERT INTO events_log (type, tile_id, actor, metadata, chain, created_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).run(type, tileId ?? null, actor ?? null, JSON.stringify(meta), chain);
   } catch {
     // Non-fatal — events log is best-effort
   }
