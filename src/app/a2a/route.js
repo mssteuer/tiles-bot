@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getTile, getClaimedTiles, getClaimedCount, getCurrentPrice, TOTAL_TILES } from '@/lib/db';
+import { getTile, getClaimedTiles, getClaimedCount, getCurrentPrice, TOTAL_TILES, getClaimedCountByChain, getCurrentPriceByChain } from '@/lib/db';
+import { getSupportedChains } from '@/lib/chains';
 
 /**
  * POST /a2a
@@ -113,12 +114,21 @@ async function executeTask(skill, input) {
     case 'get-grid-stats': {
       const claimed = getClaimedCount();
       const price = getCurrentPrice();
+      const chains = getSupportedChains();
+      const per_chain = {};
+      for (const chain of chains) {
+        per_chain[chain.id] = {
+          claimed: getClaimedCountByChain(chain.id),
+          current_price: parseFloat(getCurrentPriceByChain(chain.id).toFixed(4)),
+        };
+      }
       return {
         claimed,
         total: TOTAL_TILES,
         unclaimed: TOTAL_TILES - claimed,
         current_price_usdc: parseFloat(price.toFixed(4)),
         fill_percentage: parseFloat(((claimed / TOTAL_TILES) * 100).toFixed(2)),
+        per_chain,
       };
     }
 

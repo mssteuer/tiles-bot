@@ -115,7 +115,7 @@ function HomeInner() {
   const [introReady, setIntroReady] = useState(hasDeepLink || isReturnNav || alreadyOnboarded);
   // blockClaimTopLeft removed — block tiles feature killed
   const [spanClaimTopLeft, setSpanClaimTopLeft] = useState(null);
-  const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0 });
+  const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0, perChain: {} });
   const [zoom, setZoom] = useState(() => savedCamera?.zoom ?? DEFAULT_ZOOM);
   const [filterCategory, setFilterCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,6 +224,7 @@ function HomeInner() {
               nextAvailableTileId: event.nextAvailableTileId ?? prev.nextAvailableTileId,
               recentlyClaimed: event.recentlyClaimed ?? prev.recentlyClaimed,
               topHolders: event.topHolders ?? prev.topHolders,
+              perChain: event.perChain ?? prev.perChain,
             };
           });
           if (event.nextAvailableTileId != null) {

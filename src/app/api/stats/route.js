@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue, getTotalRevenue } from '@/lib/db';
+import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue, getTotalRevenue, getPerChainStats } from '@/lib/db';
+import { getSupportedChains } from '@/lib/chains';
 
 export async function GET() {
   const claimed = getClaimedCount();
@@ -14,6 +15,18 @@ export async function GET() {
     count: row.count,
   }));
 
+  // Per-chain stats in a single GROUP BY query (no N×COUNT overhead)
+  const chains = getSupportedChains();
+  const chainStats = getPerChainStats();
+  const perChain = {};
+  for (const chain of chains) {
+    const cs = chainStats[chain.id] || { claimed: 0, currentPrice: 0.01, totalRevenue: 0 };
+    perChain[chain.id] = {
+      name: chain.name,
+      ...cs,
+    };
+  }
+
   return NextResponse.json({
     claimed,
     available: TOTAL_TILES - claimed,
@@ -26,5 +39,6 @@ export async function GET() {
     estimatedSoldOutRevenue: getEstimatedSoldOutRevenue(),
     recentlyClaimed,
     topHolders,
+    perChain,
   });
 }

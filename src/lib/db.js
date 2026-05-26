@@ -127,7 +127,7 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE tile_blocks ADD COLUMN status TEXT NOT NULL DEFAULT 'offline'`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN rep_score REAL NOT NULL DEFAULT 0`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN effects TEXT`); } catch {}
-  // — Multi-chain support (Task #1714)
+  // — Multi-chain support (Task #1714 + #1715)
   try { db.exec(`ALTER TABLE tiles ADD COLUMN chain TEXT NOT NULL DEFAULT 'base'`); } catch {}
   try { db.exec(`ALTER TABLE tiles ADD COLUMN chain_contract TEXT`); } catch {}
   db.exec(`CREATE INDEX IF NOT EXISTS idx_tiles_chain ON tiles(chain)`);
@@ -274,8 +274,39 @@ export function getClaimedTiles({ category = null } = {}) {
 // Exponential bonding curve: price = e^(ln(11111) * totalMinted / 65536)
 export function getCurrentPrice() {
   const totalMinted = getClaimedCount();
-  // Curve: $0.01 → $111 (divide original $1→$11,111 by 100)
+  // Curve: $0.01 -> $111 (divide original $1->$11,111 by 100)
   return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
+}
+
+// Per-chain bonding curve: independent price based on chain's own totalMinted
+export function getClaimedCountByChain(chainId) {
+  const db = getDb();
+  const row = db.prepare('SELECT COUNT(*) as cnt FROM tiles WHERE chain = ?').get(chainId);
+  return row.cnt;
+}
+
+export function getCurrentPriceByChain(chainId) {
+  const totalMinted = getClaimedCountByChain(chainId);
+  return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
+}
+
+// — Batch per-chain stats (single query instead of N×COUNT + N×SUM)
+// Returns { [chainId]: { claimed, currentPrice, totalRevenue } }
+export function getPerChainStats() {
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT chain, COUNT(*) as claimed, SUM(COALESCE(price_paid, 0)) as revenue FROM tiles GROUP BY chain'
+  ).all();
+  const stats = {};
+  for (const row of rows) {
+    const claimed = row.claimed;
+    stats[row.chain] = {
+      claimed,
+      currentPrice: Math.exp(Math.log(11111) * claimed / TOTAL_TILES) / 100,
+      totalRevenue: row.revenue ?? 0,
+    };
+  }
+  return stats;
 }
 
 // Progressive pricing: sum of bonding curve prices for N sequential mints
@@ -286,6 +317,21 @@ export function getBatchPrice(count) {
     total += Math.exp(Math.log(11111) * (totalMinted + i) / TOTAL_TILES) / 100;
   }
   return total;
+}
+
+export function getBatchPriceByChain(count, chainId) {
+  const totalMinted = getClaimedCountByChain(chainId);
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    total += Math.exp(Math.log(11111) * (totalMinted + i) / TOTAL_TILES) / 100;
+  }
+  return total;
+}
+
+export function getTotalRevenueByChain(chainId) {
+  const db = getDb();
+  const row = db.prepare('SELECT SUM(COALESCE(price_paid, 0)) as total FROM tiles WHERE chain = ?').get(chainId);
+  return row?.total ?? 0;
 }
 
 export function claimTile(id, wallet, pricePaid, chain = 'base') {

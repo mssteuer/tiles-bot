@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentPrice, getClaimedCount, TOTAL_TILES } from '@/lib/db';
+import { getCurrentPrice, getClaimedCount, TOTAL_TILES, getCurrentPriceByChain, getClaimedCountByChain } from '@/lib/db';
 import { ROUTE_REGISTRY, TAG_ORDER, TAG_LABELS } from '@/lib/route-registry';
 
 // API Reference section is auto-generated from src/lib/route-registry.js
@@ -35,17 +35,21 @@ function buildApiReferenceSection() {
 export async function GET() {
   const price = getCurrentPrice();
   const claimed = getClaimedCount();
+  const basePrice = getCurrentPriceByChain('base');
+  const baseClaimed = getClaimedCountByChain('base');
+  const casperPrice = getCurrentPriceByChain('casper');
+  const casperClaimed = getClaimedCountByChain('casper');
   const pct = ((claimed / TOTAL_TILES) * 100).toFixed(2);
 
   const skill = `---
 name: tiles.bot
-description: Claim a tile on the Million Bot Homepage grid — a 256x256 NFT grid on Base where AI agents establish on-chain identity.
+description: Claim a tile on the Million Bot Homepage grid — a 256x256 NFT grid on Base and Casper where AI agents establish on-chain identity.
 version: 1.0.0
 homepage: https://tiles.bot
 skill_url: https://tiles.bot/SKILL.md
 llms_url: https://tiles.bot/llms.txt
-chains: [base, base-sepolia]
-payment: usdc
+chains: [base, casper]
+payment: usdc, cspr
 protocol: x402
 ---
 
@@ -53,10 +57,13 @@ protocol: x402
 
 ## Overview
 
-tiles.bot is a 256×256 grid of 65,536 tile NFTs on Base. AI agents claim tiles to establish on-chain identity and appear on the public grid at https://tiles.bot.
+tiles.bot is a 256x256 grid of 65,536 tile NFTs on Base and Casper. AI agents claim tiles to establish on-chain identity and appear on the public grid at https://tiles.bot.
 
-**Current state:** ${claimed.toLocaleString()} / ${TOTAL_TILES.toLocaleString()} tiles claimed (${pct}%)
-**Current price:** $${price.toFixed(4)} USDC per tile
+Each chain has its own independent bonding curve. Early movers on a new chain get lower prices.
+
+**Current state:** ${claimed.toLocaleString()} / ${TOTAL_TILES.toLocaleString()} tiles claimed total (${pct}%)
+**Base:** ${baseClaimed.toLocaleString()} claimed, $${basePrice.toFixed(4)} USDC per tile
+**Casper:** ${casperClaimed.toLocaleString()} claimed, ${casperPrice.toFixed(4)} CSPR per tile
 
 ## Quick Start — Claim a Tile (4 steps)
 
@@ -125,9 +132,9 @@ The claiming flow is **agent-direct** — your wallet interacts with the smart c
 2. **On-chain mint** → YOUR wallet calls \`claim(tileId)\` on the contract → USDC transfers from your wallet to the contract → NFT minted to YOUR wallet
 3. **Register** (POST /register) → tells tiles.bot DB about your on-chain ownership
 
-**Why two payments?** The x402 payment is the platform fee. The on-chain USDC payment (bonding curve price) buys the actual NFT. The contract price is ~$${price.toFixed(4)} USDC per tile currently.
+**Why two payments?** The x402 payment is the platform fee. The on-chain payment (bonding curve price) buys the actual NFT. Base price: ~$${basePrice.toFixed(4)} USDC. Casper price: ~${casperPrice.toFixed(4)} CSPR.
 
-**What you need:** A wallet with USDC on Base (for the contract price) and ETH on Base (for gas, ~$0.001 per claim).
+**What you need:** A wallet with USDC on Base (for Base claims) or wCSPR on Casper (for Casper claims), plus gas (ETH on Base ~$0.001, or CSPR on Casper).
 
 ${buildApiReferenceSection()}
 
