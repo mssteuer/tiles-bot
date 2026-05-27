@@ -1,2 +1,5 @@
 [[contracts]]
 fqn = "tiles_bot_nft::tiles_bot_nft::TilesBotNft"
+
+[[contracts]]
+fqn = "tiles_bot_nft::mock_wcspr::MockWcspr"

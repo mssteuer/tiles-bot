@@ -112,7 +112,7 @@ echo ""
 
 # Deploy using Odra's test runner with the livenet backend
 # This handles arg serialization correctly for Odra contracts
-cargo odra test --backend casper -t deploy_and_verify -- --nocapture 2>&1
+cargo test --test deploy_livenet --features livenet deploy_and_verify -- --nocapture 2>&1
 
 DEPLOY_EXIT=$?
 if [ $DEPLOY_EXIT -ne 0 ]; then
