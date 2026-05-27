@@ -1,3 +1,4 @@
 target/
 wasm/
 .env.testnet
+scripts/.env.testnet
