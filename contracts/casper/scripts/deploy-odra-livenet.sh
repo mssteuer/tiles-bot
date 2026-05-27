@@ -11,7 +11,7 @@ set -euo pipefail
 # ODRA_CASPER_LIVENET_CHAIN_NAME - chain name
 
 export ODRA_CASPER_LIVENET_SECRET_KEY_PATH="${ODRA_CASPER_LIVENET_SECRET_KEY_PATH:-$HOME/.casper/testnet-deploy-key/secret_key.pem}"
-export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-https://node.testnet.casper.network/rpc}"
+export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-https://node.testnet.casper.network}"
 export ODRA_CASPER_LIVENET_EVENTS_URL="${ODRA_CASPER_LIVENET_EVENTS_URL:-https://events.testnet.casper.network/events/main}"
 export ODRA_CASPER_LIVENET_CHAIN_NAME="${ODRA_CASPER_LIVENET_CHAIN_NAME:-casper-test}"
 export ODRA_CASPER_LIVENET_ENV="${ODRA_CASPER_LIVENET_ENV:-casper-test}"
