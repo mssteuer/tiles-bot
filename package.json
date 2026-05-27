@@ -22,6 +22,7 @@
     "@make-software/csprclick-core-client": "^1.11.0",
     "@make-software/csprclick-core-types": "^2.0.3",
     "@make-software/csprclick-ui": "^2.0.5",
+    "@noble/hashes": "^1.8.0",
     "@openzeppelin/contracts": "^5.6.1",
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@tailwindcss/postcss": "^4.2.2",

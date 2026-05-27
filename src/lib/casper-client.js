@@ -28,18 +28,26 @@ function computePrice(totalMinted) {
 }
 
 // — Account hash normalization
-// Casper stores ownership as account hashes (blake2b-256 of the public key bytes).
-// Public keys are 01/02 prefix + 64 hex (33 bytes total). Account hashes are 32 bytes (64 hex).
-// This function normalizes ANY Casper identity representation to a 64-char account hash hex.
+// Casper stores ownership as account hashes (blake2b-256 of algorithm_tag + 0x00 + raw_key_bytes).
+// Public keys are 01 (ed25519) or 02 (secp256k1) prefix + 64 hex.
+// Account hashes are 32 bytes (64 hex).
 
 /**
  * Convert a public key to its Casper account hash via blake2b-256.
+ * Casper protocol: blake2b256(algorithm_tag_ascii + 0x00 + raw_key_bytes_32)
  * @param {string} publicKeyHex - 66-char hex public key (01/02 + 64 hex)
  * @returns {string} 64-char lowercase hex account hash
  */
 function publicKeyToAccountHash(publicKeyHex) {
-  const bytes = Buffer.from(publicKeyHex, 'hex');
-  const hash = blake2b(bytes, { dkLen: 32 });
+  const prefix = publicKeyHex.slice(0, 2).toLowerCase();
+  const algoTag = prefix === '01' ? 'ed25519' : 'secp256k1';
+  const rawKeyBytes = Buffer.from(publicKeyHex.slice(2), 'hex'); // 32 bytes, prefix stripped
+  const preimage = Buffer.concat([
+    Buffer.from(algoTag, 'ascii'),
+    Buffer.from([0x00]),
+    rawKeyBytes,
+  ]);
+  const hash = blake2b(preimage, { dkLen: 32 });
   return Buffer.from(hash).toString('hex');
 }
 
@@ -259,7 +267,7 @@ function createEventStream(options = {}) {
               if (line.startsWith('event:')) {
                 currentEvent = line.slice(6).trim();
               } else if (line.startsWith('data:')) {
-                currentData += line.slice(5).trim();
+                currentData += (currentData ? '\n' : '') + line.slice(5).trim();
               } else if (line === '' && currentEvent && currentData) {
                 // End of SSE message block
                 try {
