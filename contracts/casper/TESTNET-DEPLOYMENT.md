@@ -1,63 +1,57 @@
-# TilesBot NFT Testnet Deployment Guide
+# TilesBot NFT -- Casper Testnet Deployment Guide
 
-## Current Status: BLOCKED on 3 Prerequisites
+## Status: READY TO DEPLOY (pending wallet funding)
 
-The contract is fully implemented and all 17 unit tests pass. WASM artifact built (396 KB).
-Deployment scripts are ready. Three blockers remain:
+Contract: fully implemented, 17/17 unit tests pass, WASM built (396 KB).
+Deployment scripts: ready. Odra livenet deployment tests: verified on mock backend.
 
-### Blocker 1: Testnet Wallet Not Funded
-- **Public key:** `0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f`
-- **Key files:** `~/.casper/testnet-deploy-key/` (secret_key.pem, public_key.pem, public_key_hex)
-- **Faucet:** https://testnet.cspr.live/tools/faucet (requires Casper Wallet browser sign-in)
-- **Resolution:** Michael or a team member needs to visit the faucet URL with Casper Wallet installed and fund this key with 5,000 CSPR
+## Prerequisites Checklist
 
-### Blocker 2: wCSPR Testnet Contract Hash
-- Need to find or deploy a CEP-18 wCSPR token on casper-test
-- Check with the MAKE team if testnet wCSPR exists
-- Alternative: deploy a test CEP-18 token ourselves (Odra has Cep18 module)
+- [x] Contract source code and unit tests (17/17 passing)
+- [x] WASM artifact built (`cargo odra build` -> `wasm/TilesBotNft.wasm`, 396 KB)
+- [x] Deployment key generated (`~/.casper/testnet-deploy-key/`)
+- [x] Deployment scripts created (`scripts/deploy.sh`, testnet + devnet)
+- [x] Livenet deployment test verified on mock backend
+- [ ] **Wallet funded with 5,000 CSPR** (needs browser faucet)
+- [ ] **x402 facilitator API key** (needs cspr.cloud console)
 
-### Blocker 3: x402 Facilitator API Key for Testnet
-- Need API key from cspr.cloud console for testnet environment
-- Endpoint: https://x402-facilitator.cspr.cloud (testnet)
-- Contact MAKE team / cspr.cloud for testnet credentials
+## How to Fund the Wallet
 
-## What's Been Verified
+The Casper testnet faucet requires the Casper Wallet browser extension.
 
-### Unit Tests (17/17 passing)
-- Bonding curve: 6 tests (pricing at 0, max, midpoint, monotonicity, batch, overflow)
-- Single claim: 6 tests (success, price increment, duplicate, invalid ID, paused, insufficient)
-- Batch claim: present (in test_batch_claim.rs) -- 100-tile batch, empty, exceed max, duplicates  
-- Metadata: 5 tests (CEP-95/96 metadata, set_tile_uri owner check, NFT transfer)
-- Admin: present (in test_admin.rs) -- pause/unpause, withdraw, ownership transfer
+1. Install [Casper Wallet](https://www.casperwallet.io/) browser extension
+2. Import or create a wallet (you can import the testnet key if needed)
+3. Visit: https://testnet.cspr.live/tools/faucet
+4. Sign in with Casper Wallet
+5. Request 5,000 CSPR for:
+   ```
+   0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f
+   ```
+6. Verify funding:
+   ```bash
+   casper-client query-balance \
+     --node-address https://node.testnet.casper.network/rpc \
+     --purse-identifier 0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f
+   ```
 
-### WASM Build
-- `cargo odra build` produces `wasm/TilesBotNft.wasm` (396,260 bytes)
-- Toolchain: nightly Rust, wasm-opt, wasm-strip (wabt)
-- WASM exports: `call` (dispatcher) and `init` (installer)
+## Deploy (Once Wallet Is Funded)
 
-### Local Devnet Testing (casper-devnet)
-- casper-devnet v2.2.0 installed and working with 4-node network
-- Network boots in ~2 minutes, reaches Validate state
-- **Deployment via casper-client fails with error 64658** 
-- Root cause: Odra contracts use a generated dispatcher that wraps args differently
-  than raw casper-client `--session-args-json`. The init() args need to be passed
-  through Odra's own deployment mechanism (cargo odra test --backend casper).
+### Option A: One-Command Deploy (recommended)
 
-## Deployment Wallet
+```bash
+cd contracts/casper
+./scripts/deploy.sh testnet
+```
 
-| Field | Value |
-|-------|-------|
-| Public key | `0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f` |
-| Key files | `~/.casper/testnet-deploy-key/` |
-| Network | casper-test (Casper Testnet) |
-| Faucet | https://testnet.cspr.live/tools/faucet |
+This script:
+1. Checks secret key exists
+2. Verifies WASM is built
+3. Runs unit tests
+4. Checks account balance (testnet only)
+5. Deploys a test wCSPR + TilesBot NFT via Odra livenet
+6. Verifies contract state on-chain
 
-## Deployment Methods
-
-### Method A: Odra Livenet (Recommended)
-
-The recommended way to deploy Odra contracts. Uses Odra's built-in deployment framework
-which handles arg serialization correctly.
+### Option B: Manual Odra Deploy
 
 ```bash
 cd contracts/casper
@@ -67,46 +61,49 @@ export ODRA_CASPER_LIVENET_NODE_ADDRESS=https://node.testnet.casper.network/rpc
 export ODRA_CASPER_LIVENET_EVENTS_URL=https://events.testnet.casper.network/events/main
 export ODRA_CASPER_LIVENET_CHAIN_NAME=casper-test
 
-# Deploy via Odra's test runner (runs init on-chain)
-cargo odra test --backend casper
+# Deploy and verify
+cargo odra test --backend casper -t deploy_and_verify -- --nocapture
+
+# Deploy and test minting
+cargo odra test --backend casper -t deploy_and_test_mint -- --nocapture
 ```
 
-### Method B: casper-client Direct Deploy
-
-For manual deployment. **Note:** Odra contracts need special arg serialization.
-The deploy-testnet.sh script handles this but may need adjustments for Odra's dispatcher.
-
-```bash
-cd contracts/casper
-export WCSPR_CONTRACT=hash-<testnet-wcspr-hash>
-export TREASURY_PUBKEY=0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f
-./scripts/deploy-testnet.sh
-```
-
-### Method C: Local Devnet Testing
-
-For validating the deployment flow without testnet CSPR:
+### Option C: Local Devnet (no CSPR needed)
 
 ```bash
 # Start a 4-node devnet
-casper-devnet start --network-name tiles-test --node-count 4 --users 3
+casper-devnet start --network-name tiles-deploy --node-count 4 --users 3
 
-# Wait ~2 min for blocks, then deploy
-./scripts/deploy-devnet.sh
+# Deploy to devnet
+./scripts/deploy.sh devnet
 ```
 
-## Post-Deployment Verification
+## Post-Deployment Steps
 
-```bash
-# Verify on-chain
-./scripts/verify-deployment.sh <contract-hash>
+After successful deployment, you'll get contract hashes from the output.
 
-# Test minting
-./scripts/test-mint.sh <contract-hash> <wcspr-hash>
+1. **Record contract addresses:**
+   - wCSPR contract hash (or use existing testnet wCSPR)
+   - TilesBot NFT contract hash
 
-# Check on explorer
-# https://testnet.cspr.live/contract/<contract-hash>
-```
+2. **Update project .env.local:**
+   ```
+   CHAIN_CASPER_NFT_CONTRACT=hash-<nft-contract-hash>
+   CHAIN_CASPER_PAYMENT_TOKEN=hash-<wcspr-contract-hash>
+   CHAIN_CASPER_TREASURY=0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f
+   CHAIN_CASPER_RPC_URL=https://node.testnet.casper.network/rpc
+   CHAIN_CASPER_EXPLORER=https://testnet.cspr.live
+   ```
+
+3. **Verify on explorer:**
+   ```bash
+   ./scripts/verify-deployment.sh <nft-contract-hash>
+   # Also: https://testnet.cspr.live/contract/<contract-hash>
+   ```
+
+4. **Test x402 flow** (once API key is obtained):
+   - Configure `CASPER_FACILITATOR_API_KEY` in `.env.local`
+   - Test: `curl -X POST https://tiles.bot/api/tiles/42/claim` (should return 402)
 
 ## Contract Init Parameters
 
@@ -114,8 +111,8 @@ casper-devnet start --network-name tiles-test --node-count 4 --users 3
 |-----------|-------|
 | name | TilesBot |
 | symbol | TILE |
-| wcspr_address | <testnet wCSPR contract hash> |
-| treasury | Deploy wallet account hash |
+| wcspr_address | (deployed wCSPR hash) |
+| treasury | Deploy wallet address |
 | contract_name | TilesBot Grid |
 | contract_description | AI Agent Grid on Casper |
 | contract_icon_uri | https://tiles.bot/icon.png |
@@ -123,34 +120,27 @@ casper-devnet start --network-name tiles-test --node-count 4 --users 3
 
 ## Gas Estimates
 
-| Operation | Estimated Gas (motes) |
-|-----------|-----------------------|
-| Contract install | 250,000,000,000 (250 CSPR) |
-| claim (single) | 5,000,000,000 (5 CSPR) |
-| batch_claim (100) | ~50,000,000,000 (50 CSPR) |
-| approve (wCSPR) | 3,000,000,000 (3 CSPR) |
+| Operation | Gas (motes) | CSPR |
+|-----------|-------------|------|
+| wCSPR deploy | ~150,000,000,000 | ~150 |
+| NFT deploy | ~250,000,000,000 | ~250 |
+| claim (single) | ~5,000,000,000 | ~5 |
+| batch_claim (100) | ~50,000,000,000 | ~50 |
+| approve (wCSPR) | ~3,000,000,000 | ~3 |
 
-## x402 Integration
+**Total for deploy+test: ~500 CSPR** (well within 5,000 CSPR faucet)
 
-After contract deployment:
-1. Configure facilitator API key in `.env.local`
-2. Set `CHAIN_CASPER_NFT_CONTRACT` to the deployed contract hash
-3. Set `CHAIN_CASPER_PAYMENT_TOKEN` to wCSPR contract hash
-4. Test the 402->pay->settle flow via `/api/tiles/:id/claim`
-
-## Network Details
+## Deployment Key
 
 | Field | Value |
 |-------|-------|
-| Chain | casper-test |
-| RPC | https://node.testnet.casper.network/rpc |
-| SSE | https://events.testnet.casper.network/events/main |
-| Explorer | https://testnet.cspr.live |
-| Faucet | https://testnet.cspr.live/tools/faucet |
+| Public key | `0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f` |
+| Key files | `~/.casper/testnet-deploy-key/` |
+| Network | casper-test |
 
-## Deployment Lessons Learned
+## Known Issues
 
-1. **casper-devnet single-node doesn't work** -- needs 4+ nodes for consensus
-2. **casper-devnet with chainspec overrides** -- use `core.minimum_block_time="4sec"` (TOML string format), NOT `highway.minimum_round_exponent` (removed in 2.x)
-3. **Odra WASM arg format** -- Odra generates its own dispatcher; raw casper-client `--session-args-json` does NOT work for init args. Use Odra's livenet framework or write a custom deployment script that matches the dispatcher's expected format.
-4. **casper-client 5.x** -- requires `--standard-payment true` flag (new in Casper 2.x)
+1. **casper-client raw deploy doesn't work for Odra contracts** -- Odra uses a custom
+   arg dispatcher. Always use `cargo odra test --backend casper` for deployment.
+2. **casper-devnet single-node stuck** -- use 4+ nodes for consensus.
+3. **Testnet faucet is browser-only** -- cannot be automated from CLI.
