@@ -4,8 +4,8 @@ use odra::casper_types::U256;
 use odra::host::{Deployer, HostEnv};
 use odra::prelude::*;
 
-use tiles_bot_nft::tiles_bot_nft::{TilesBotNftHostRef, TilesBotNftInitArgs};
 use tiles_bot_nft::mock_wcspr::{MockWcsprHostRef, MockWcsprInitArgs};
+use tiles_bot_nft::tiles_bot_nft::{TilesBotNftHostRef, TilesBotNftInitArgs};
 
 // Re-export for tests that import common
 pub use tiles_bot_nft::mock_wcspr::MockWcspr;
