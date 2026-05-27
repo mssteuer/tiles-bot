@@ -35,6 +35,13 @@ echo "================================="
 # -- Configure by target
 case "$TARGET" in
     testnet)
+        # Load .env.testnet if it exists
+        if [ -f "$CONTRACT_DIR/.env.testnet" ]; then
+            echo "Loading .env.testnet..."
+            set -a
+            source "$CONTRACT_DIR/.env.testnet"
+            set +a
+        fi
         export ODRA_CASPER_LIVENET_SECRET_KEY_PATH="${ODRA_CASPER_LIVENET_SECRET_KEY_PATH:-$HOME/.casper/testnet-deploy-key/secret_key.pem}"
         export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-https://node.testnet.casper.network}"
         export ODRA_CASPER_LIVENET_EVENTS_URL="${ODRA_CASPER_LIVENET_EVENTS_URL:-https://events.testnet.casper.network/events/main}"
@@ -118,6 +125,15 @@ cargo test --test deploy_livenet deploy_and_verify -- --nocapture || fail "Deplo
 
 echo ""
 ok "Deployment complete!"
+echo ""
+
+# Also run the mint test to verify end-to-end
+echo "-- Running Mint Test --"
+echo ""
+cargo test --test deploy_livenet deploy_and_test_mint -- --nocapture || warn "Mint test failed (deployment may still be valid)"
+
+echo ""
+ok "All deployment steps complete!"
 echo ""
 echo "Next steps:"
 echo "  1. Note the contract addresses from output above"
