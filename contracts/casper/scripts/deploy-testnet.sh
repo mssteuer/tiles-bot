@@ -58,6 +58,7 @@ casper-client put-txn session \
     --wasm-path "$WASM_PATH" \
     --gas-price-tolerance "$GAS_PRICE_TOLERANCE" \
     --payment-amount 250000000000 \
+    --standard-payment true \
     --install-upgrade \
     --session-args-json '[
         {"name": "name", "type": "String", "value": "TilesBot"},
