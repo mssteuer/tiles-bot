@@ -36,7 +36,7 @@ echo "================================="
 case "$TARGET" in
     testnet)
         export ODRA_CASPER_LIVENET_SECRET_KEY_PATH="${ODRA_CASPER_LIVENET_SECRET_KEY_PATH:-$HOME/.casper/testnet-deploy-key/secret_key.pem}"
-        export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-https://node.testnet.casper.network/rpc}"
+        export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-https://node.testnet.casper.network}"
         export ODRA_CASPER_LIVENET_EVENTS_URL="${ODRA_CASPER_LIVENET_EVENTS_URL:-https://events.testnet.casper.network/events/main}"
         export ODRA_CASPER_LIVENET_CHAIN_NAME="casper-test"
         PUBKEY_FILE="$HOME/.casper/testnet-deploy-key/public_key_hex"
@@ -44,9 +44,9 @@ case "$TARGET" in
         ;;
     devnet)
         export ODRA_CASPER_LIVENET_SECRET_KEY_PATH="${ODRA_CASPER_LIVENET_SECRET_KEY_PATH:-/tmp/devnet-key/secret_key.pem}"
-        export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-http://127.0.0.1:11101/rpc}"
+        export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-http://127.0.0.1:11101}"
         export ODRA_CASPER_LIVENET_EVENTS_URL="${ODRA_CASPER_LIVENET_EVENTS_URL:-http://127.0.0.1:18101/events}"
-        export ODRA_CASPER_LIVENET_CHAIN_NAME="casper-devnet"
+        export ODRA_CASPER_LIVENET_CHAIN_NAME="${ODRA_CASPER_LIVENET_CHAIN_NAME:-casper-devnet}"
         PUBKEY_FILE=""
         EXPLORER="(local devnet)"
         ;;

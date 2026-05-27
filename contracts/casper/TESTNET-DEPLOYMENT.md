@@ -1,10 +1,12 @@
 # TilesBot NFT -- Casper Testnet Deployment Guide
 
-## Status: READY TO DEPLOY (pending wallet funding)
+## Status: DEVNET VERIFIED — Testnet pending wallet funding
 
 Contract: fully implemented, 32 tests pass, WASM built (396 KB).
+Devnet: FULL DEPLOYMENT VERIFIED — deploy, mint, batch mint, ownership all tested on local devnet.
 Deployment scripts: ready. Odra livenet integration: verified (auto-detects via env var).
 Odra deps upgraded to 2.7.0 with `odra-casper-livenet-env` for real chain deployment.
+Testnet: blocked on wallet funding (faucet requires browser + Casper Wallet extension).
 
 ## Prerequisites Checklist
 
@@ -60,7 +62,7 @@ This script:
 cd contracts/casper
 
 export ODRA_CASPER_LIVENET_SECRET_KEY_PATH=~/.casper/testnet-deploy-key/secret_key.pem
-export ODRA_CASPER_LIVENET_NODE_ADDRESS=https://node.testnet.casper.network/rpc
+export ODRA_CASPER_LIVENET_NODE_ADDRESS=https://node.testnet.casper.network
 export ODRA_CASPER_LIVENET_EVENTS_URL=https://events.testnet.casper.network/events/main
 export ODRA_CASPER_LIVENET_CHAIN_NAME=casper-test
 
@@ -125,13 +127,13 @@ After successful deployment, you'll get contract hashes from the output.
 
 | Operation | Gas (motes) | CSPR |
 |-----------|-------------|------|
-| wCSPR deploy | ~150,000,000,000 | ~150 |
-| NFT deploy | ~250,000,000,000 | ~250 |
-| claim (single) | ~5,000,000,000 | ~5 |
-| batch_claim (100) | ~50,000,000,000 | ~50 |
-| approve (wCSPR) | ~3,000,000,000 | ~3 |
+| wCSPR deploy | ~500,000,000,000 | ~500 |
+| NFT deploy | ~800,000,000,000 | ~800 |
+| claim (single) | ~50,000,000,000 | ~50 |
+| batch_claim (3) | ~100,000,000,000 | ~100 |
+| approve (wCSPR) | ~50,000,000,000 | ~50 |
 
-**Total for deploy+test: ~500 CSPR** (well within 5,000 CSPR faucet)
+**Total for deploy+test: ~1,500 CSPR** (well within 5,000 CSPR faucet)
 
 ## Deployment Key
 
@@ -161,3 +163,16 @@ This means:
    deploy.sh uses `cargo test` directly with env vars set.
 5. **Rust toolchain: nightly-2025-01-01** -- newer nightlies break WASM linking.
    The `idna_adapter` dep is pinned to 1.2.0 to avoid icu crates requiring rustc 1.86+.
+6. **NODE_ADDRESS must NOT end with /rpc** -- Odra's casper_client appends /rpc
+   internally. Using `https://node.testnet.casper.network/rpc` causes double-path
+   `/rpc/rpc`. Correct: `https://node.testnet.casper.network` (no suffix).
+7. **EVENTS_URL for devnet is /events, not /events/main** -- casper-devnet SSE
+   endpoint is at `http://127.0.0.1:18101/events`. Using `/events/main` returns
+   "invalid path". Testnet uses `/events/main`.
+8. **Gas must be set before deploy** -- `env.set_gas(N)` MUST be called before
+   each `deploy()`, `approve()`, or `claim()` call. Odra initializes gas to zero;
+   without set_gas the transaction fails with "Out of gas error" on the network.
+9. **casper-devnet keys use secp256k1** -- derived keys (BIP32 path m/44'/506'/...)
+   produce `02`-prefix secp256k1 keys. This works fine with Odra livenet.
+10. **casper-devnet derive outputs \\r\\n line endings** -- pipe through `tr -d '\\r'`
+    before saving PEM files, or Odra's PEM parser may fail.
