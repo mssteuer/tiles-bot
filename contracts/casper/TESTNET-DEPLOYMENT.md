@@ -2,16 +2,18 @@
 
 ## Status: READY TO DEPLOY (pending wallet funding)
 
-Contract: fully implemented, 17/17 unit tests pass, WASM built (396 KB).
-Deployment scripts: ready. Odra livenet deployment tests: verified on mock backend.
+Contract: fully implemented, 32 tests pass, WASM built (396 KB).
+Deployment scripts: ready. Odra livenet integration: verified (auto-detects via env var).
+Odra deps upgraded to 2.7.0 with `odra-casper-livenet-env` for real chain deployment.
 
 ## Prerequisites Checklist
 
-- [x] Contract source code and unit tests (17/17 passing)
-- [x] WASM artifact built (`cargo odra build` -> `wasm/TilesBotNft.wasm`, 396 KB)
+- [x] Contract source code and unit tests (32/32 passing)
+- [x] WASM artifacts built (`cargo odra build` -> `wasm/TilesBotNft.wasm` 396 KB, `wasm/MockWcspr.wasm` 321 KB)
 - [x] Deployment key generated (`~/.casper/testnet-deploy-key/`)
 - [x] Deployment scripts created (`scripts/deploy.sh`, testnet + devnet)
-- [x] Livenet deployment test verified on mock backend
+- [x] Livenet deployment test with auto-detection (`tests/deploy_livenet.rs`)
+- [x] Odra 2.7.0 with livenet backend dep (`odra-casper-livenet-env`)
 - [ ] **Wallet funded with 5,000 CSPR** (needs browser faucet)
 - [ ] **x402 facilitator API key** (needs cspr.cloud console)
 
@@ -48,8 +50,9 @@ This script:
 2. Verifies WASM is built
 3. Runs unit tests
 4. Checks account balance (testnet only)
-5. Deploys a test wCSPR + TilesBot NFT via Odra livenet
+5. Deploys test wCSPR + TilesBot NFT via Odra livenet backend
 6. Verifies contract state on-chain
+7. Prints contract addresses for .env.local configuration
 
 ### Option B: Manual Odra Deploy
 
@@ -62,10 +65,10 @@ export ODRA_CASPER_LIVENET_EVENTS_URL=https://events.testnet.casper.network/even
 export ODRA_CASPER_LIVENET_CHAIN_NAME=casper-test
 
 # Deploy and verify
-cargo odra test --backend casper -t deploy_and_verify -- --nocapture
+cargo test --test deploy_livenet deploy_and_verify -- --nocapture
 
 # Deploy and test minting
-cargo odra test --backend casper -t deploy_and_test_mint -- --nocapture
+cargo test --test deploy_livenet deploy_and_test_mint -- --nocapture
 ```
 
 ### Option C: Local Devnet (no CSPR needed)
@@ -138,9 +141,23 @@ After successful deployment, you'll get contract hashes from the output.
 | Key files | `~/.casper/testnet-deploy-key/` |
 | Network | casper-test |
 
+## Livenet Backend: How It Works
+
+The `tests/deploy_livenet.rs` auto-detects the backend:
+- If `ODRA_CASPER_LIVENET_SECRET_KEY_PATH` is set -> uses `odra_casper_livenet_env::env()` (real chain)
+- If unset -> uses `odra_test::env()` (mock VM, for CI and development)
+
+This means:
+- `cargo test` -> mock (fast, no CSPR needed)
+- `./scripts/deploy.sh testnet` -> real testnet (exports env vars, then calls cargo test)
+
 ## Known Issues
 
 1. **casper-client raw deploy doesn't work for Odra contracts** -- Odra uses a custom
-   arg dispatcher. Always use `cargo odra test --backend casper` for deployment.
+   arg dispatcher. Always use the deploy test or deploy.sh for deployment.
 2. **casper-devnet single-node stuck** -- use 4+ nodes for consensus.
 3. **Testnet faucet is browser-only** -- cannot be automated from CLI.
+4. **cargo odra test --nocapture bug** -- cargo odra reorders args incorrectly, so
+   deploy.sh uses `cargo test` directly with env vars set.
+5. **Rust toolchain: nightly-2025-01-01** -- newer nightlies break WASM linking.
+   The `idna_adapter` dep is pinned to 1.2.0 to avoid icu crates requiring rustc 1.86+.
