@@ -38,6 +38,7 @@ fn deploy_and_verify() {
 
     // -- Step 1: Deploy wCSPR
     println!("\n== Step 1: Deploying test wCSPR token ==");
+    env.set_gas(500_000_000_000u64); // 500 CSPR for wCSPR deploy
     let wcspr = MockWcspr::deploy(
         &env,
         MockWcsprInitArgs {
@@ -52,6 +53,7 @@ fn deploy_and_verify() {
 
     // -- Step 2: Deploy TilesBot NFT
     println!("\n== Step 2: Deploying TilesBot NFT ==");
+    env.set_gas(800_000_000_000u64); // 800 CSPR for NFT deploy
     let nft = TilesBotNft::deploy(
         &env,
         TilesBotNftInitArgs {
@@ -89,6 +91,7 @@ fn deploy_and_test_mint() {
     let deployer = env.get_account(0);
 
     // Deploy mock wCSPR
+    env.set_gas(500_000_000_000u64); // 500 CSPR for wCSPR deploy
     let mut wcspr = MockWcspr::deploy(
         &env,
         MockWcsprInitArgs {
@@ -101,6 +104,7 @@ fn deploy_and_test_mint() {
     let wcspr_address = wcspr.address();
 
     // Deploy NFT contract
+    env.set_gas(800_000_000_000u64); // 800 CSPR for NFT deploy
     let mut nft = TilesBotNft::deploy(
         &env,
         TilesBotNftInitArgs {
@@ -117,15 +121,19 @@ fn deploy_and_test_mint() {
     let nft_address = nft.address();
 
     // Approve and claim tile #42
+    env.set_gas(50_000_000_000u64); // 50 CSPR for approve
     let fund_amount = U256::from(100_000_000_000u64);
     wcspr.approve(&nft_address, &fund_amount);
+    env.set_gas(50_000_000_000u64); // 50 CSPR for claim
     nft.claim(U256::from(42u64));
     assert_eq!(nft.owner_of(U256::from(42u64)), Some(deployer));
     assert_eq!(nft.total_minted(), 1);
 
     // Batch claim 3 more tiles
+    env.set_gas(50_000_000_000u64); // 50 CSPR for approve
     let batch_amount = U256::from(500_000_000_000u64);
     wcspr.approve(&nft_address, &batch_amount);
+    env.set_gas(100_000_000_000u64); // 100 CSPR for batch claim
     nft.batch_claim(vec![
         U256::from(100u64),
         U256::from(200u64),
