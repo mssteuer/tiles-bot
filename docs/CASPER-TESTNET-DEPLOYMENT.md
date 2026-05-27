@@ -8,10 +8,11 @@
 
 - [x] Contract code: complete, all 32 tests passing
 - [x] WASM artifacts: built and optimized (TilesBotNft.wasm 396KB, MockWcspr.wasm 322KB)
-- [x] Deployment scripts: ready (deploy.sh testnet, verify-deployment.sh, test-mint.sh)
+- [x] Deployment scripts: ready (deploy.sh testnet/devnet, deploy-devnet.sh, verify-deployment.sh, test-mint.sh)
 - [x] Mock deployment: verified via Odra VM (deploy_livenet.rs)
 - [x] Odra livenet env: configured (.env.testnet)
 - [x] CSPR.cloud API key: available (from cspr-guru project)
+- [x] **Devnet deployment: VERIFIED** -- full deploy + approve + claim + batch_claim on casper-devnet (2026-05-27)
 - [ ] **BLOCKER: Testnet wallet unfunded** -- requires browser + Casper Wallet extension
 
 ## Prerequisites
@@ -50,7 +51,39 @@ Stored in `.env.testnet` for use by deploy scripts.
 
 ## Deploy (One Command)
 
+### Testnet
+
 Once the wallet is funded:
+
+```bash
+cd contracts/casper
+./scripts/deploy.sh testnet
+```
+
+### Devnet (Local Integration Testing)
+
+No funding needed -- devnet accounts have 1B CSPR each:
+
+```bash
+cd contracts/casper
+./scripts/deploy-devnet.sh          # starts devnet, deploys, tests
+./scripts/deploy-devnet.sh --no-start  # if devnet already running
+```
+
+Alternatively via deploy.sh:
+```bash
+cd contracts/casper
+./scripts/deploy.sh devnet
+```
+
+**Critical devnet notes:**
+- Uses 4 nodes (single node gets stuck on peer discovery)
+- Chain name auto-detected from `--network-name` flag (becomes `chainspec_name`)
+- SSE path is `/events` (NOT `/events/main` like testnet)
+- Odra contracts MUST be deployed via Odra framework, NOT raw casper-client (error 64658)
+- secp256k1 keys (02-prefix) work fine -- derived via `casper-devnet derive`
+
+### Testnet deploy.sh details
 
 ```bash
 cd contracts/casper
@@ -101,8 +134,12 @@ CASPER_FACILITATOR_API_KEY=019a1227-9380-70e9-b22e-39c17bcf43d2
 ### Facilitator Setup
 
 The Casper x402 facilitator lives at `x402-facilitator.cspr.cloud`.
-- Requires CSPR.cloud API key in `Authorization` header
+- Requires CSPR.cloud API key in `Authorization` header (NOT `Bearer` or `X-API-Key`)
 - Settlements to the `payTo` address (treasury)
+- The `/verify` endpoint accepts POST with x402 payment headers
+- Facilitator returns `"authorization is not provided"` without the API key
+
+**Auth format:** `Authorization: <api-key>` (raw key, no Bearer prefix)
 
 ### Test x402 Flow
 
@@ -112,6 +149,14 @@ The Casper x402 facilitator lives at `x402-facilitator.cspr.cloud`.
 4. Facilitator settles wCSPR to contract
 5. Verify settlement via balance check
 
+### x402 Testnet Status
+
+- Facilitator endpoint: `https://x402-facilitator.cspr.cloud` (mainnet + testnet share endpoint)
+- No separate testnet facilitator URL confirmed (testnet.cspr.cloud returns 000)
+- API key `019a1227-9380-70e9-b22e-39c17bcf43d2` is for CSPR.cloud (cspr-guru project)
+- Full x402 end-to-end flow requires: deployed NFT contract + funded wCSPR token + facilitator auth
+- Blocked on testnet deployment (wallet funding) for live x402 testing
+
 ## Key Files
 
 | File | Purpose |
@@ -120,7 +165,8 @@ The Casper x402 facilitator lives at `x402-facilitator.cspr.cloud`.
 | `contracts/casper/src/bonding_curve.rs` | Pricing logic |
 | `contracts/casper/src/mock_wcspr.rs` | Test wCSPR token |
 | `contracts/casper/tests/deploy_livenet.rs` | Deployment test (mock + livenet) |
-| `contracts/casper/scripts/deploy.sh` | One-command deploy script |
+| `contracts/casper/scripts/deploy.sh` | One-command deploy (testnet or devnet) |
+| `contracts/casper/scripts/deploy-devnet.sh` | Full devnet lifecycle (start, deploy, test) |
 | `contracts/casper/scripts/verify-deployment.sh` | Post-deploy verification |
 | `contracts/casper/scripts/test-mint.sh` | Manual mint test flow |
 | `contracts/casper/.env.testnet` | Odra livenet env config |

@@ -50,10 +50,15 @@ case "$TARGET" in
         EXPLORER="https://testnet.cspr.live"
         ;;
     devnet)
-        export ODRA_CASPER_LIVENET_SECRET_KEY_PATH="${ODRA_CASPER_LIVENET_SECRET_KEY_PATH:-/tmp/devnet-key/secret_key.pem}"
+        export ODRA_CASPER_LIVENET_SECRET_KEY_PATH="${ODRA_CASPER_LIVENET_SECRET_KEY_PATH:-/tmp/devnet-deploy-key/secret_key.pem}"
         export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-http://127.0.0.1:11101}"
         export ODRA_CASPER_LIVENET_EVENTS_URL="${ODRA_CASPER_LIVENET_EVENTS_URL:-http://127.0.0.1:18101/events}"
-        export ODRA_CASPER_LIVENET_CHAIN_NAME="${ODRA_CASPER_LIVENET_CHAIN_NAME:-casper-devnet}"
+        # Auto-detect chain name from running devnet (network-name becomes chainspec_name)
+        DETECTED_CHAIN=$(curl -s -X POST "${ODRA_CASPER_LIVENET_NODE_ADDRESS}/rpc" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"info_get_status"}' 2>/dev/null | \
+            python3 -c "import json,sys; print(json.load(sys.stdin)['result']['chainspec_name'])" 2>/dev/null || echo "")
+        export ODRA_CASPER_LIVENET_CHAIN_NAME="${ODRA_CASPER_LIVENET_CHAIN_NAME:-${DETECTED_CHAIN:-casper-devnet}}"
         PUBKEY_FILE=""
         EXPLORER="(local devnet)"
         ;;
