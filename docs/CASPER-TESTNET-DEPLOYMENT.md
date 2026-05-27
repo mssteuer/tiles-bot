@@ -8,7 +8,7 @@ Everything is built, tested, and scripted. The only blocker is testnet CSPR.
 
 - **Public Key:** `0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f`
 - **Key Path:** `~/.casper/testnet-deploy-key/`
-- **Algorithm:** secp256k1
+- **Algorithm:** Ed25519 (01 prefix)
 - **Current Balance:** 0 CSPR (unfunded)
 
 ## Funding
