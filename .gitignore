@@ -1,6 +1,8 @@
 node_modules/
 .next/
 .env.local
+.env.testnet
+contracts/casper/.env.testnet
 data/
 .next/
 data/
