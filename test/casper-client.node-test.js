@@ -211,16 +211,12 @@ describe('casper-client', () => {
       assert.equal(isOwner, true);
     });
 
-    it('returns true when contract stores account-hash format', async () => {
+    it('returns true when contract stores account-hash format (blake2b match)', async () => {
       const client = casperClient.createClient();
       // Input is a 66-char public key
       const publicKey = '01' + '23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01';
-      // Contract returns account-hash format with just the 64-char hex (no prefix)
-      // In reality the blake2b hash would differ, but when contract stores the
-      // public key bytes directly as account-hash, the hex after "account-hash-"
-      // won't match the public key. We test the case where the contract returns
-      // the same hex as an account-hash wrapper:
-      const accountHashHex = '23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01';
+      // The blake2b-256 account hash of this public key
+      const accountHashHex = '0dddc0eae2fb23d9bb2b32909eacc569f5ae6ccb770ff7d14e21dc761b469fd3';
 
       fetchMock.mock.mockImplementation(async () =>
         rpcOk({
@@ -233,13 +229,9 @@ describe('casper-client', () => {
         })
       );
 
-      // The owner's account hash portion matches the claimer's key minus prefix
-      // This tests that normalization handles the format difference
+      // Public key is blake2b-hashed to the same account hash => match
       const isOwner = await client.verifyOwnership(42, publicKey);
-      // account-hash-<hex> extracts to hex (64 chars), pubkey normalizes to full 66 chars
-      // They won't match because they're different representations
-      // This correctly returns false — the two representations are genuinely different identities
-      assert.equal(isOwner, false);
+      assert.equal(isOwner, true);
     });
 
     it('returns true when contract stores { Account: "account-hash-..." } object format', async () => {
@@ -263,9 +255,31 @@ describe('casper-client', () => {
       assert.equal(isOwner, true);
     });
 
-    it('returns true when contract returns { Account: "account-hash-<hex>" } and input matches', async () => {
+    it('returns true when contract returns { Account: "account-hash-<blake2b>" } matching input pubkey', async () => {
       const client = casperClient.createClient();
-      const hex = 'ab'.repeat(32);
+      const publicKey = '01' + 'ab'.repeat(32);
+      // blake2b-256 of 01ababab...ab
+      const blake2bHash = 'c63d44026a73f0a79c42c0901d7bc2de88a2ff9855b85c8ed42ebf15e035ac6f';
+
+      fetchMock.mock.mockImplementation(async () =>
+        rpcOk({
+          stored_value: {
+            CLValue: {
+              cl_type: { Option: 'Key' },
+              parsed: { Account: `account-hash-${blake2bHash}` },
+            },
+          },
+        })
+      );
+
+      // account-hash contains the blake2b of the input pubkey => match
+      const isOwner = await client.verifyOwnership(42, publicKey);
+      assert.equal(isOwner, true);
+    });
+
+    it('returns false when contract returns { Account: "account-hash-<hex>" } for different identity', async () => {
+      const client = casperClient.createClient();
+      const hex = 'ab'.repeat(32); // raw hex, not a blake2b of the input pubkey
       const publicKey = '01' + hex;
 
       fetchMock.mock.mockImplementation(async () =>
@@ -279,9 +293,8 @@ describe('casper-client', () => {
         })
       );
 
-      // account-hash extracts to 64 chars, pubkey is 66 chars — different representations
+      // account-hash is raw hex ab..ab, pubkey blake2b is c63d44... — different identities
       const isOwner = await client.verifyOwnership(42, publicKey);
-      // These are genuinely different: one is 64 hex, other is 01+64 hex
       assert.equal(isOwner, false);
     });
 
@@ -356,16 +369,35 @@ describe('casper-client', () => {
       assert.equal(result, hex);
     });
 
-    it('passes through 66-char public key', () => {
+    it('blake2b-hashes 66-char public key to 64-char account hash', () => {
       const pubkey = '01' + 'ab'.repeat(32);
       const result = casperClient.normalizeToAccountHash(pubkey);
-      assert.equal(result, pubkey);
+      // blake2b-256 of 01ababab...ab
+      assert.equal(result, 'c63d44026a73f0a79c42c0901d7bc2de88a2ff9855b85c8ed42ebf15e035ac6f');
+      assert.equal(result.length, 64, 'Account hash should be 64 hex chars');
     });
 
     it('returns null for invalid input', () => {
       assert.equal(casperClient.normalizeToAccountHash(null), null);
       assert.equal(casperClient.normalizeToAccountHash(''), null);
       assert.equal(casperClient.normalizeToAccountHash('xyz'), null);
+    });
+  });
+
+  // — publicKeyToAccountHash
+
+  describe('publicKeyToAccountHash', () => {
+    it('computes correct blake2b-256 hash for ed25519 key (01 prefix)', () => {
+      const pubkey = '01' + 'ab'.repeat(32);
+      const result = casperClient.publicKeyToAccountHash(pubkey);
+      assert.equal(result, 'c63d44026a73f0a79c42c0901d7bc2de88a2ff9855b85c8ed42ebf15e035ac6f');
+      assert.equal(result.length, 64);
+    });
+
+    it('computes correct blake2b-256 hash for secp256k1 key (02 prefix)', () => {
+      const pubkey = '02' + 'ef'.repeat(32);
+      const result = casperClient.publicKeyToAccountHash(pubkey);
+      assert.equal(result, 'f41e2cf3c69d0e4724057df1495895378f13ff55307671899207118df7deeb8e');
     });
   });
 
@@ -378,10 +410,11 @@ describe('casper-client', () => {
       assert.equal(result, hex);
     });
 
-    it('extracts from public key string', () => {
+    it('hashes public key string to account hash', () => {
       const pubkey = '02' + 'ef'.repeat(32);
       const result = casperClient.extractAccountHash(pubkey);
-      assert.equal(result, pubkey);
+      // blake2b-256 of 02efef...ef
+      assert.equal(result, 'f41e2cf3c69d0e4724057df1495895378f13ff55307671899207118df7deeb8e');
     });
 
     it('extracts from { Account: "account-hash-..." } object', () => {
@@ -390,10 +423,11 @@ describe('casper-client', () => {
       assert.equal(result, hex);
     });
 
-    it('extracts from { PublicKey: "01..." } object', () => {
+    it('hashes { PublicKey: "01..." } object to account hash', () => {
       const pubkey = '01' + 'cd'.repeat(32);
       const result = casperClient.extractAccountHash({ PublicKey: pubkey });
-      assert.equal(result, pubkey);
+      // blake2b-256 of 01cdcd...cd
+      assert.equal(result, 'bb99be6936ee3d29cd7da880105462448ff23b2bd5bebe034563c73fc5a8dddf');
     });
 
     it('returns null for unrecognized formats', () => {
@@ -544,6 +578,22 @@ describe('casper-client', () => {
         sseUrl: 'https://custom-sse.test/events/deploys',
       });
       assert.equal(stream.sseUrl, 'https://custom-sse.test/events/deploys');
+    });
+
+    it('correctly derives SSE URL from ported RPC URL (no double-port)', () => {
+      // Regression: localhost:7777/rpc should become localhost:18101/events/deploys
+      // NOT localhost:7777:18101/events/deploys
+      const stream = casperClient.createEventStream({
+        rpcUrl: 'http://localhost:7777/rpc',
+      });
+      assert.equal(stream.sseUrl, 'http://localhost:18101/events/deploys');
+    });
+
+    it('correctly derives SSE URL from portless RPC URL', () => {
+      const stream = casperClient.createEventStream({
+        rpcUrl: 'https://node.mainnet.casper.network/rpc',
+      });
+      assert.equal(stream.sseUrl, 'https://node.mainnet.casper.network:18101/events/deploys');
     });
 
     it('has subscribe and waitForDeploy methods', () => {

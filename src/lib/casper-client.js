@@ -2,6 +2,8 @@
 // Server-side client for interacting with the tiles.bot CEP-95/96 NFT contract on Casper.
 // Uses JSON-RPC directly for reliable contract state queries + SSE for deploy event streaming.
 
+import { blake2b } from '@noble/hashes/blake2b';
+
 // — Constants
 
 const TOTAL_TILES = 65536;
@@ -15,18 +17,39 @@ const DEFAULT_GAS_PAYMENT = '2500000000'; // 2.5 CSPR
 // — Bonding Curve (JS parity with Solidity/Rust contracts)
 // Formula: price = exp(ln(11111) * totalMinted / 65536) / 100
 
+/**
+ * Compute tile price from the bonding curve.
+ * @param {number} totalMinted - Total tiles minted so far on this chain
+ * @returns {number} Price in CSPR
+ */
 function computePrice(totalMinted) {
   if (totalMinted >= TOTAL_TILES) return Infinity;
   return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
 }
 
 // — Account hash normalization
-// Casper has two representations: public keys (01/02 + 64 hex = 66 chars) and
-// account hashes (64 hex chars, typically from "account-hash-<hex>" format).
-// This function normalizes a public key to its account hash (blake2b-256).
-// Since we don't want to pull in a full crypto dep for this, we normalize at
-// the comparison level: extract raw hex from both sides and compare.
+// Casper stores ownership as account hashes (blake2b-256 of the public key bytes).
+// Public keys are 01/02 prefix + 64 hex (33 bytes total). Account hashes are 32 bytes (64 hex).
+// This function normalizes ANY Casper identity representation to a 64-char account hash hex.
 
+/**
+ * Convert a public key to its Casper account hash via blake2b-256.
+ * @param {string} publicKeyHex - 66-char hex public key (01/02 + 64 hex)
+ * @returns {string} 64-char lowercase hex account hash
+ */
+function publicKeyToAccountHash(publicKeyHex) {
+  const bytes = Buffer.from(publicKeyHex, 'hex');
+  const hash = blake2b(bytes, { dkLen: 32 });
+  return Buffer.from(hash).toString('hex');
+}
+
+/**
+ * Normalize any Casper identity to a 64-char lowercase hex account hash.
+ * Handles: "account-hash-<hex>", raw 64-char hex, and 66-char public keys.
+ * Public keys are hashed via blake2b-256 to produce the account hash.
+ * @param {string} value - Casper identity in any supported format
+ * @returns {string|null} 64-char lowercase hex account hash, or null if invalid
+ */
 function normalizeToAccountHash(value) {
   if (!value || typeof value !== 'string') return null;
 
@@ -37,9 +60,8 @@ function normalizeToAccountHash(value) {
   // Raw 64-char hex (already an account hash)
   if (ACCOUNT_HASH_PATTERN.test(value)) return value.toLowerCase();
 
-  // 66-char public key (01/02 + 64 hex) — return as-is lowered
-  // This is the public key form; comparison must handle both sides being the same form
-  if (CASPER_PUBKEY_PATTERN.test(value)) return value.toLowerCase();
+  // 66-char public key (01/02 + 64 hex) — hash to account hash via blake2b-256
+  if (CASPER_PUBKEY_PATTERN.test(value)) return publicKeyToAccountHash(value.toLowerCase());
 
   return null;
 }
@@ -168,8 +190,23 @@ function extractAccountHash(parsed) {
 // Casper nodes expose an SSE endpoint for real-time deploy events.
 // This lets callers subscribe to deploy execution results without polling.
 
+/**
+ * Create an SSE event stream for real-time deploy tracking.
+ * @param {Object} [options]
+ * @param {string} [options.sseUrl] - Direct SSE endpoint URL (takes precedence)
+ * @param {string} [options.rpcUrl] - RPC URL to derive SSE URL from (port replaced with 18101)
+ * @returns {{ sseUrl: string, subscribe: Function, waitForDeploy: Function }}
+ */
 function createEventStream(options = {}) {
-  const sseUrl = options.sseUrl || options.rpcUrl?.replace(/\/rpc\/?$/, '') + ':18101/events/deploys';
+  let sseUrl = options.sseUrl;
+  if (!sseUrl && options.rpcUrl) {
+    // Derive SSE URL from RPC URL by replacing the port with 18101
+    // Using URL constructor to avoid double-port bugs (e.g. localhost:7777:18101)
+    const parsed = new URL(options.rpcUrl);
+    parsed.port = '18101';
+    parsed.pathname = '/events/deploys';
+    sseUrl = parsed.toString().replace(/\/$/, ''); // strip trailing slash
+  }
   if (!sseUrl) {
     throw new Error('SSE URL not configured. Provide sseUrl or rpcUrl.');
   }
@@ -287,6 +324,17 @@ function createEventStream(options = {}) {
 
 // — Client factory
 
+/**
+ * Create a Casper blockchain client for interacting with the tiles.bot NFT contract.
+ * @param {Object} [options]
+ * @param {string} [options.rpcUrl] - Casper node RPC URL (default: CHAIN_CASPER_RPC_URL env)
+ * @param {string} [options.contractHash] - NFT contract hash (default: CHAIN_CASPER_NFT_CONTRACT env)
+ * @param {number} [options.maxRetries=3] - Max retry attempts for RPC calls
+ * @param {number} [options.retryDelay=1000] - Base delay between retries in ms
+ * @param {string} [options.gasPayment] - Gas payment in motes (default: 2.5 CSPR)
+ * @param {string} [options.chainName] - Chain name for transactions (default: 'casper')
+ * @returns {Object} Client with getTotalMinted, getCurrentPrice, verifyOwnership, getDeployStatus, buildMintInstructions, createEventStream
+ */
 function createClient(options = {}) {
   const rpcUrl = options.rpcUrl || process.env.CHAIN_CASPER_RPC_URL;
   const contractHash = options.contractHash || process.env.CHAIN_CASPER_NFT_CONTRACT;
@@ -306,7 +354,7 @@ function createClient(options = {}) {
     rpcUrl,
     contractHash,
 
-    // — Get total number of tiles minted on Casper
+    /** @returns {Promise<number>} Total tiles minted on Casper */
     async getTotalMinted() {
       if (!entityAddr) throw new Error('NFT contract hash not configured');
 
@@ -316,22 +364,28 @@ function createClient(options = {}) {
       return typeof parsed === 'number' ? parsed : 0;
     },
 
-    // — Get current price in CSPR (computed from bonding curve)
+    /** @returns {Promise<number>} Current tile price in CSPR from the bonding curve */
     async getCurrentPrice() {
       const totalMinted = await this.getTotalMinted();
       return computePrice(totalMinted);
     },
 
-    // — Verify on-chain ownership of a tile
-    // Queries CEP-95 owner_of via the token owners dictionary.
-    // accountHash must be a 66-char public key (01/02 + 64 hex).
-    // The contract may store ownership as account-hash or public key;
-    // both formats are normalized before comparison.
+    /**
+     * Verify on-chain ownership of a tile.
+     * Queries CEP-95 owner_of via the token owners dictionary.
+     * Both public key and account-hash formats are normalized to account hashes
+     * (via blake2b-256) before comparison.
+     * @param {number} tileId - Tile ID (0-65535)
+     * @param {string} accountHash - 66-char public key (01/02 + 64 hex)
+     * @returns {Promise<boolean>} true if the account owns the tile
+     */
     async verifyOwnership(tileId, accountHash) {
       validateTileId(tileId);
       validateCasperAccount(accountHash);
       if (!entityAddr) throw new Error('NFT contract hash not configured');
 
+      // NOTE: Dictionary path assumes Odra CEP-95 layout: cep95 > token_owners > <token_id>
+      // If the deployed contract uses a different named-key structure, this will silently return false.
       const result = await queryContractNamedKey(
         rpcUrl,
         entityAddr,
@@ -355,7 +409,11 @@ function createClient(options = {}) {
       return ownerNormalized === inputNormalized;
     },
 
-    // — Get deploy/transaction status
+    /**
+     * Get deploy/transaction execution status.
+     * @param {string} deployHash - 64-char hex deploy hash
+     * @returns {Promise<{executed: boolean, success: boolean, pending: boolean, errorMessage: string|null, cost: string|null}>}
+     */
     async getDeployStatus(deployHash) {
       validateDeployHash(deployHash);
 
@@ -399,8 +457,12 @@ function createClient(options = {}) {
       };
     },
 
-    // — Build instructions for minting a tile
-    // Returns data needed for the frontend/wallet to construct and sign the transaction
+    /**
+     * Build instructions for minting a tile via the frontend/wallet.
+     * @param {number} tileId - Tile ID (0-65535)
+     * @param {string} accountHash - 66-char public key (01/02 + 64 hex)
+     * @returns {Promise<{tileId: number, price: number, priceMotes: string, contractHash: string, entryPoint: string, args: Object, wcspr: Object, chainName: string, paymentAmount: string}>}
+     */
     async buildMintInstructions(tileId, accountHash) {
       validateTileId(tileId);
       validateCasperAccount(accountHash);
@@ -444,5 +506,6 @@ export {
   CasperRpcError,
   TOTAL_TILES,
   normalizeToAccountHash,
+  publicKeyToAccountHash,
   extractAccountHash,
 };
