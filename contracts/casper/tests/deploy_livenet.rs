@@ -1,25 +1,39 @@
 //! Livenet deployment test for TilesBot NFT.
 //!
-//! Without ODRA_CASPER_LIVENET_SECRET_KEY_PATH set, these tests run against
-//! the Odra mock VM (verifying the deploy flow works).
+//! Uses ODRA_CASPER_LIVENET_SECRET_KEY_PATH to detect real deployment.
+//! When the env var is set, connects to the actual Casper network (testnet/devnet).
+//! When unset, falls back to the Odra mock VM for CI/development verification.
 //!
-//! For real deployment to testnet/devnet, set the env vars and run:
+//! For real deployment:
 //!   ./scripts/deploy.sh testnet
-//! which calls this test with the livenet backend configured.
+//!
+//! For mock verification:
+//!   cargo test --test deploy_livenet -- --nocapture
 
 use odra::casper_types::U256;
-use odra::host::Deployer;
+use odra::host::{Deployer, HostEnv};
 use odra::prelude::*;
 
 use tiles_bot_nft::mock_wcspr::{MockWcspr, MockWcsprInitArgs};
 use tiles_bot_nft::tiles_bot_nft::{TilesBotNft, TilesBotNftInitArgs};
 
+/// Get the appropriate HostEnv -- livenet if configured, mock otherwise.
+fn get_env() -> HostEnv {
+    if std::env::var("ODRA_CASPER_LIVENET_SECRET_KEY_PATH").is_ok() {
+        eprintln!("== LIVENET MODE: deploying to real Casper network ==");
+        odra_casper_livenet_env::env()
+    } else {
+        eprintln!("== MOCK MODE: using Odra VM (no real deployment) ==");
+        odra_test::env()
+    }
+}
+
 #[test]
 fn deploy_and_verify() {
-    let env = odra_test::env();
+    let env = get_env();
     let deployer = env.get_account(0);
 
-    println!("== TilesBot NFT Deployment (MOCK) ==");
+    println!("== TilesBot NFT Deployment ==");
     println!("Deployer: {:?}", deployer);
 
     // -- Step 1: Deploy wCSPR
@@ -71,7 +85,7 @@ fn deploy_and_verify() {
 
 #[test]
 fn deploy_and_test_mint() {
-    let env = odra_test::env();
+    let env = get_env();
     let deployer = env.get_account(0);
 
     // Deploy mock wCSPR

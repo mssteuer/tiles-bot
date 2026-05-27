@@ -110,14 +110,11 @@ echo ""
 echo "-- Deploying via Odra Livenet --"
 echo ""
 
-# Deploy using Odra's test runner with the livenet backend
-# This handles arg serialization correctly for Odra contracts
-cargo test --test deploy_livenet --features livenet deploy_and_verify -- --nocapture 2>&1
-
-DEPLOY_EXIT=$?
-if [ $DEPLOY_EXIT -ne 0 ]; then
-    fail "Deployment failed with exit code $DEPLOY_EXIT"
-fi
+# Deploy using the deploy_livenet test which auto-detects livenet via
+# ODRA_CASPER_LIVENET_SECRET_KEY_PATH env var (set above).
+# We use cargo test directly because cargo odra test has arg-ordering
+# bugs with --nocapture, and the WASM build step is already done above.
+cargo test --test deploy_livenet deploy_and_verify -- --nocapture || fail "Deployment failed"
 
 echo ""
 ok "Deployment complete!"

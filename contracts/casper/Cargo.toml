@@ -7,14 +7,15 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-odra = { version = "2.5.0", default-features = false }
-odra-modules = { version = "2.5.0", default-features = false }
+odra = { version = "2.7.0", default-features = false }
+odra-modules = { version = "2.7.0", default-features = false }
 
 [dev-dependencies]
-odra-test = { version = "2.5.0", default-features = false }
+odra-test = { version = "2.7.0", default-features = false }
+odra-casper-livenet-env = { version = "2.7.0", default-features = false }
 
 [build-dependencies]
-odra-build = { version = "2.5.0", default-features = false }
+odra-build = { version = "2.7.0", default-features = false }
 
 [features]
 default = []
