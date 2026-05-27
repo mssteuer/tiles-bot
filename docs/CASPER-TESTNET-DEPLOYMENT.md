@@ -1,97 +1,123 @@
 # Casper Testnet Deployment Guide
 
-## Status: READY — Awaiting Wallet Funding
+**Contract:** TilesBot NFT (CEP-95/96)
+**Chain:** Casper Testnet (`casper-test`)
+**Deployer Key:** `0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f`
 
-Everything is built, tested, and scripted. The only blocker is testnet CSPR.
+## Prerequisites
 
-## Testnet Wallet
+### 1. Fund the Testnet Wallet
 
-- **Public Key:** `0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f`
-- **Key Path:** `~/.casper/testnet-deploy-key/`
-- **Algorithm:** Ed25519 (01 prefix)
-- **Current Balance:** 0 CSPR (unfunded)
+The deployer account needs at least 1,500 CSPR on Casper Testnet.
 
-## Funding
+**Faucet:** https://testnet.cspr.live/tools/faucet
+- Requires: Casper Wallet browser extension (https://www.casperwallet.io/)
+- Import key from `~/.casper/testnet-deploy-key/secret_key.pem`
+- Or add the public key: `0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f`
+- The faucet provides 5,000 CSPR per account
 
-The Casper testnet faucet requires a browser with Casper Wallet extension — no programmatic API exists.
+**Verify funding:**
+```bash
+casper-client query-balance \
+  --node-address https://node.testnet.casper.network/rpc \
+  --purse-identifier "0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f"
+```
 
-1. Go to https://testnet.cspr.live/tools/faucet
-2. Connect Casper Wallet with the key above (or import secret_key.pem)
-3. Request 5,000 CSPR (faucet default)
-4. Wait for the transaction to finalize (~2 min)
-
-**Minimum needed:** ~500 CSPR (wCSPR deploy ~150 + NFT deploy ~250 + mint tests ~50 + buffer)
-
-## One-Command Deploy
-
-Once the wallet is funded:
+### 2. Build WASM Artifacts
 
 ```bash
-cd ~/workspace/million-bot-homepage/contracts/casper
+cd contracts/casper
+cargo test         # 32 tests, all passing
+cargo odra build   # Produces wasm/TilesBotNft.wasm + wasm/MockWcspr.wasm
+```
+
+### 3. x402 Facilitator API Key
+
+Get a CSPR.cloud API key from https://console.cspr.cloud for the testnet x402 facilitator.
+
+## Deploy
+
+### One-Command Deploy
+
+```bash
+cd contracts/casper
 ./scripts/deploy.sh testnet
 ```
 
-This runs:
-1. Pre-flight checks (key, WASM, tests, balance)
-2. Deploys mock wCSPR token (for testnet — no real wCSPR exists on testnet)
-3. Deploys TilesBotNft contract (with bonding curve, batch claims, etc.)
-4. Verifies contract state (name, symbol, owner, not paused)
-5. Prints contract addresses
+This script:
+1. Verifies secret key exists
+2. Builds WASM if needed
+3. Runs all unit tests
+4. Checks account balance (requires >= 500 CSPR)
+5. Deploys MockWcspr (test wCSPR) + TilesBotNft via Odra livenet
 
-## Post-Deploy Steps
+### What Gets Deployed
 
-1. **Save contract addresses** from deploy output:
-   - wCSPR: `hash-...`
-   - TilesBotNft: `hash-...`
+1. **MockWcspr** (test CEP-18 token) - acts as wCSPR for testnet
+   - Gas: 500 CSPR
+   - Initial supply: 1,000,000 CSPR (1M)
+2. **TilesBotNft** (CEP-95/96 NFT)
+   - Gas: 800 CSPR
+   - Name: "TilesBot", Symbol: "TILE"
+   - Treasury: deployer account
+   - Metadata: icon/project URIs pointing to tiles.bot
 
-2. **Verify on explorer:**
-   ```bash
-   ./scripts/verify-deployment.sh <nft-contract-hash>
-   ```
-   Or visit: `https://testnet.cspr.live/contract/<hash>`
+### After Deploy
 
-3. **Test minting on-chain:**
-   ```bash
-   cargo test --test deploy_livenet deploy_and_test_mint -- --nocapture
-   ```
-   (With ODRA_CASPER_LIVENET_* env vars still set from deploy.sh)
+1. Note the contract addresses from deployment output
+2. Verify on explorer: `https://testnet.cspr.live/contract/<hash>`
+3. Run verification: `./scripts/verify-deployment.sh <nft-contract-hash>`
 
-4. **Update tiles.bot config** (`.env.local`):
-   ```
-   CHAIN_CASPER_NFT_CONTRACT=hash-<deployed-nft-hash>
-   CHAIN_CASPER_PAYMENT_TOKEN=hash-<deployed-wcspr-hash>
-   CHAIN_CASPER_TREASURY=<public-key-hex>
-   CHAIN_CASPER_RPC_URL=https://node.testnet.casper.network/rpc
-   CHAIN_CASPER_EXPLORER=https://testnet.cspr.live
-   ```
+### Update Configuration
 
-## x402 Facilitator
+Add to `.env.local`:
+```
+CHAIN_CASPER_NFT_CONTRACT=hash-<nft-contract-hash>
+CHAIN_CASPER_PAYMENT_TOKEN=hash-<wcspr-contract-hash>
+CHAIN_CASPER_TREASURY=0196f363185dc4b746109bddcf27632c506fec460cf4a0363801e1e3729ac6fb7f
+CHAIN_CASPER_RPC_URL=https://node.testnet.casper.network/rpc
+CHAIN_CASPER_EXPLORER=https://testnet.cspr.live
+CHAIN_CASPER_X402_FACILITATOR=https://x402-facilitator.testnet.cspr.cloud
+CASPER_FACILITATOR_API_KEY=<your-cspr-cloud-api-key>
+```
 
-The Casper x402 facilitator is at `https://x402-facilitator.cspr.cloud`.
+## x402 Integration
 
-- Requires an API key (`CASPER_FACILITATOR_API_KEY`)
-- The facilitator handles 402 payment challenges for wCSPR
-- After testnet deploy, need to register our contract with the facilitator
-- API key must be obtained from cspr.cloud (contact Casper team)
+### Facilitator Setup
 
-## What's Been Validated
+The Casper x402 facilitator lives at `x402-facilitator.cspr.cloud`. For testnet:
+- Endpoint: `https://x402-facilitator.testnet.cspr.cloud` (pending verification)
+- Requires CSPR.cloud API key in `Authorization` header
+- Settlements to the `payTo` address (treasury)
 
-- 32 unit tests pass (bonding curve, single claim, batch claim, admin, metadata, transfers)
-- WASM builds clean (TilesBotNft.wasm: 396KB, MockWcspr.wasm: 321KB)
-- Deploy + mint tests pass in mock mode
-- Deploy script has pre-flight checks for all dependencies
-- Previous devnet testing attempted (devnet is unstable for longer flows — testnet recommended)
+### Test x402 Flow
 
-## Contract Capabilities
+1. Get current price: query `current_price()` on NFT contract
+2. Create x402 payment for that amount
+3. Submit to facilitator for verification
+4. Facilitator settles wCSPR to contract
+5. Verify settlement via balance check
 
-| Feature | Status |
-|---|---|
-| CEP-95 NFT (mint, transfer, approve) | Tested |
-| CEP-96 collection metadata | Tested |
-| Exponential bonding curve (0.01 → 111 CSPR) | Tested |
-| wCSPR payment (transfer_from) | Tested |
-| Batch claim (up to 100 tiles) | Tested |
-| Pause/Unpause | Tested |
-| Treasury withdrawal | Tested |
-| Ownership transfer | Tested |
-| Reentrancy protection | Implemented |
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `contracts/casper/src/tiles_bot_nft.rs` | Main NFT contract |
+| `contracts/casper/src/bonding_curve.rs` | Pricing logic |
+| `contracts/casper/src/mock_wcspr.rs` | Test wCSPR token |
+| `contracts/casper/tests/deploy_livenet.rs` | Deployment test (mock + livenet) |
+| `contracts/casper/scripts/deploy.sh` | One-command deploy script |
+| `contracts/casper/scripts/verify-deployment.sh` | Post-deploy verification |
+| `contracts/casper/scripts/test-mint.sh` | Manual mint test flow |
+| `contracts/casper/wasm/TilesBotNft.wasm` | Compiled NFT contract (396KB) |
+| `contracts/casper/wasm/MockWcspr.wasm` | Compiled wCSPR token (322KB) |
+
+## Testnet Endpoints
+
+| Service | URL |
+|---------|-----|
+| RPC | https://node.testnet.casper.network/rpc |
+| SSE Events | https://events.testnet.casper.network/events/main |
+| Explorer | https://testnet.cspr.live |
+| Faucet | https://testnet.cspr.live/tools/faucet |
+| x402 Facilitator | https://x402-facilitator.cspr.cloud |
