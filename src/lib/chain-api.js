@@ -93,18 +93,20 @@ async function getChainCurrentPrice(chainId) {
 }
 
 async function getAllChainCurrentPrices(fallbackStats = {}) {
-  const prices = {};
-  for (const chain of getSupportedChains()) {
+  const entries = await Promise.all(getSupportedChains().map(async chain => {
     try {
-      prices[chain.id] = await getChainCurrentPrice(chain.id);
+      return [chain.id, await getChainCurrentPrice(chain.id)];
     } catch (err) {
-      prices[chain.id] = {
+      return [chain.id, {
         currentPrice: fallbackStats[chain.id]?.currentPrice ?? null,
         source: 'db-fallback',
         error: err?.message || String(err),
-      };
+      }];
     }
-  }
+  }));
+
+  const prices = {};
+  for (const [chainId, priceInfo] of entries) prices[chainId] = priceInfo;
   return prices;
 }
 

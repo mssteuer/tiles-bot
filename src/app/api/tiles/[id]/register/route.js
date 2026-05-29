@@ -126,6 +126,7 @@ export async function POST(request, { params }) {
     chain: chain.id,
     tile,
     claimedCount: getClaimedCount(),
+    // Legacy homepage stats still treat `currentPrice` as Base/USDC; chain-specific prices come from /api/stats perChain.
     currentPrice: await priceForRegistration('base'),
     nextAvailableTileId: getNextAvailableTileId(),
     recentlyClaimed: recentClaimsPayload(),
