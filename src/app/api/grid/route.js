@@ -16,13 +16,13 @@ import {
   getActiveTdInvasions,
   getPerChainStats,
 } from '@/lib/db';
-import { buildChainStatsPayload, getAllChainCurrentPrices } from '@/lib/chain-api';
+import { buildChainStatsPayload, CHAIN_PRICE_CACHE_CONTROL, getCachedAllChainCurrentPrices } from '@/lib/chain-api';
 
 export async function GET() {
   checkHeartbeats();
   const grid = getGridState();
   const chainStats = getPerChainStats();
-  const chainPrices = await getAllChainCurrentPrices(chainStats);
+  const chainPrices = await getCachedAllChainCurrentPrices(chainStats);
   const perChain = buildChainStatsPayload(chainPrices, chainStats);
   const basePrice = perChain.base?.currentPrice ?? getCurrentPrice();
 
@@ -44,5 +44,7 @@ export async function GET() {
       estimatedSoldOutRevenue: getEstimatedSoldOutRevenue(),
       perChain,
     },
+  }, {
+    headers: { 'Cache-Control': CHAIN_PRICE_CACHE_CONTROL },
   });
 }

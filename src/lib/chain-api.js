@@ -8,6 +8,14 @@ const BASE_OWNER_ABI_TEXT = ['function ownerOf(uint256 tokenId) view returns (ad
 const BASE_PRICE_ABI_TEXT = ['function currentPrice() view returns (uint256)'];
 const BASE_TRANSFER_ABI_TEXT = ['event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'];
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const CHAIN_PRICE_CACHE_TTL_MS = 30_000;
+const CHAIN_PRICE_CACHE_CONTROL = 'public, max-age=30, stale-while-revalidate=60';
+
+let chainPriceCache = {
+  expiresAt: 0,
+  prices: null,
+  promise: null,
+};
 
 function normalizeChainId(value) {
   if (!value || typeof value !== 'string') return null;
@@ -108,6 +116,31 @@ async function getAllChainCurrentPrices(fallbackStats = {}) {
   const prices = {};
   for (const [chainId, priceInfo] of entries) prices[chainId] = priceInfo;
   return prices;
+}
+
+async function getCachedAllChainCurrentPrices(fallbackStats = {}) {
+  const now = Date.now();
+  if (chainPriceCache.prices && chainPriceCache.expiresAt > now) {
+    return chainPriceCache.prices;
+  }
+
+  if (!chainPriceCache.promise) {
+    chainPriceCache.promise = getAllChainCurrentPrices(fallbackStats)
+      .then(prices => {
+        chainPriceCache = {
+          expiresAt: Date.now() + CHAIN_PRICE_CACHE_TTL_MS,
+          prices,
+          promise: null,
+        };
+        return prices;
+      })
+      .catch(err => {
+        chainPriceCache.promise = null;
+        throw err;
+      });
+  }
+
+  return chainPriceCache.promise;
 }
 
 function publicChainConfig(chainId, priceInfo = {}) {
@@ -235,6 +268,8 @@ module.exports = {
   buildChainStatsPayload,
   getChainCurrentPrice,
   getAllChainCurrentPrices,
+  getCachedAllChainCurrentPrices,
+  CHAIN_PRICE_CACHE_CONTROL,
   verifyOwnershipOnChain,
   verifyBatchMintTransaction,
   getBaseReceiptMintedTiles,
