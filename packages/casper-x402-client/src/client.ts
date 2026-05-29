@@ -10,18 +10,67 @@
  */
 
 import {
-  hashTypedData,
+  CASPER_DOMAIN_TYPES,
   TransferAuthorizationTypes,
+  buildDomain,
+  hashTypedData,
 } from '@casper-ecosystem/casper-eip-712';
-import { toHex } from './signer.js';
-import { computeAccountHash } from './signer.js';
+import { toHex, computeAccountHash } from './signer.js';
 import type {
   CasperSigner,
   CasperPaymentRequirements,
   CasperPaymentPayload,
   CasperEIP712Domain,
+  CasperNetwork,
   TransferAuthorizationMessage,
 } from './types.js';
+
+const ZERO_ADDRESS = /^0x0{40}$/i;
+const BYTES32_HEX = /^[0-9a-f]{64}$/i;
+
+function normalizeContractPackageHash(contractPackageHash: string): string {
+  const clean = contractPackageHash
+    .replace(/^hash-/i, '')
+    .replace(/^0x/i, '')
+    .toLowerCase();
+
+  if (!BYTES32_HEX.test(clean)) {
+    throw new Error('Casper contract package hash must be 32 bytes as hash-<hex>, 0x<hex>, or raw hex');
+  }
+
+  return '0x' + clean;
+}
+
+function typedDataOptions(domain: CasperEIP712Domain) {
+  if (typeof domain.verifyingContract === 'string' && ZERO_ADDRESS.test(domain.verifyingContract)) {
+    throw new Error('Refusing to sign with zero-address verifyingContract; use createCasperEIP712Domain() with the wCSPR contract package hash');
+  }
+
+  const hasCasperDomain = domain.chain_name !== undefined || domain.contract_package_hash !== undefined;
+  if (!hasCasperDomain) return undefined;
+
+  if (typeof domain.chain_name !== 'string' || typeof domain.contract_package_hash !== 'string') {
+    throw new Error('Casper-native EIP-712 domains must include chain_name and contract_package_hash');
+  }
+
+  normalizeContractPackageHash(domain.contract_package_hash);
+  return { domainTypes: CASPER_DOMAIN_TYPES };
+}
+
+/**
+ * Build the Casper-native EIP-712 domain for a wCSPR CEP-18 package.
+ *
+ * Prefer this over hand-written domain constants: it binds signatures to the
+ * actual Casper contract package hash instead of an unsafe placeholder address.
+ */
+export function createCasperEIP712Domain(
+  network: CasperNetwork,
+  contractPackageHash: string,
+  name: string = 'WrappedCSPR',
+  version: string = '1',
+): CasperEIP712Domain {
+  return buildDomain(name, version, network, normalizeContractPackageHash(contractPackageHash)) as CasperEIP712Domain;
+}
 
 /**
  * Generate a random 32-byte nonce as 0x-prefixed hex.
@@ -99,6 +148,7 @@ export async function signTransferAuthorization(
     TransferAuthorizationTypes,
     'TransferAuthorization',
     message as unknown as Record<string, unknown>,
+    typedDataOptions(domain),
   );
 
   // Sign the digest
@@ -114,19 +164,21 @@ export async function signTransferAuthorization(
  *
  * @param signer A CasperSigner (from createCasperSigner)
  * @param requirements The CasperPaymentRequirements from the 402 response
- * @param domain The EIP-712 domain for the wCSPR contract
+ * @param domain Optional EIP-712 domain for the wCSPR contract. If omitted, a Casper-native domain is built from requirements.asset.
  * @returns Base64-encoded payment header string
  */
 export async function createCasperPaymentHeader(
   signer: CasperSigner,
   requirements: CasperPaymentRequirements,
-  domain: CasperEIP712Domain,
+  domain?: CasperEIP712Domain,
 ): Promise<string> {
+  const eip712Domain = domain ?? createCasperEIP712Domain(requirements.network, requirements.asset);
+
   // Build the authorization message
   const authorization = buildTransferAuthorization(signer, requirements);
 
   // Sign it
-  const signature = await signTransferAuthorization(signer, domain, authorization);
+  const signature = await signTransferAuthorization(signer, eip712Domain, authorization);
 
   // Construct the payload
   const payload: CasperPaymentPayload = {

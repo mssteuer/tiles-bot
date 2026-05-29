@@ -12,12 +12,13 @@ export type {
   CasperSigner,
   CasperKeyAlgorithm,
   CasperEIP712Domain,
+  CasperNetwork,
   TransferAuthorizationMessage,
 } from './types.js';
 
 export {
-  CASPER_MAINNET_DOMAIN,
-  CASPER_TESTNET_DOMAIN,
+  CASPER_MAINNET_NETWORK,
+  CASPER_TESTNET_NETWORK,
 } from './types.js';
 
 // Signer
@@ -31,6 +32,7 @@ export {
 // Client
 export {
   createCasperPaymentHeader,
+  createCasperEIP712Domain,
   buildTransferAuthorization,
   signTransferAuthorization,
   selectCasperPaymentRequirements,
