@@ -171,6 +171,7 @@ async function performSync({ chainId, wallet, tileIds }) {
       type: 'tile_claimed',
       chain: chainId,
       claimedCount: getClaimedCount(),
+      // Legacy homepage stats still treat `currentPrice` as Base/USDC; chain-specific prices come from /api/stats perChain.
       currentPrice: await priceForRegistration('base'),
       nextAvailableTileId: getNextAvailableTileId(),
       recentlyClaimed: recentClaimsPayload(),
@@ -189,7 +190,7 @@ async function performSync({ chainId, wallet, tileIds }) {
 export async function GET(request) {
   const url = new URL(request.url);
   const rawChain = (url.searchParams.get('chain') || 'all').trim().toLowerCase();
-  const chainId = rawChain === 'all' ? 'all' : resolveRequestedChainId(request);
+  const chainId = rawChain === 'all' ? 'all' : rawChain;
   const wallet = url.searchParams.get('wallet') || null;
   const tileIds = parseTileIds(url.searchParams.get('tileIds'));
 
