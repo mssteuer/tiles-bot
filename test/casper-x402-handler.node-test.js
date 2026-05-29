@@ -13,7 +13,7 @@
 const { describe, it, before } = require('node:test');
 const assert = require('node:assert/strict');
 
-// -- Setup: chain env vars (must be set before importing modules)
+// — Setup: chain env vars (must be set before importing modules)
 process.env.CHAIN_BASE_NFT_CONTRACT = '0xB2915C42329edFfC26037eed300D620C302b5791';
 process.env.CHAIN_BASE_PAYMENT_TOKEN = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 process.env.CHAIN_BASE_TREASURY = '0x67439832C52C92B5ba8DE28a202E72D09CCEB42f';
@@ -166,9 +166,39 @@ describe('casper-x402: verifyCasperPayment', () => {
   });
 
   it('sends correct request to facilitator /verify', async () => {
-    // This test validates the request shape — actual HTTP call
-    // would need a mock facilitator. Here we test that invalid/missing
-    // payment header returns an appropriate error.
+    const originalFetch = global.fetch;
+    let captured;
+    global.fetch = async (url, options) => {
+      captured = { url, options };
+      return new Response(JSON.stringify({ valid: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const paymentRequirements = { network: 'casper:casper', maxAmountRequired: '10000000' };
+
+    try {
+      const result = await casperX402.verifyCasperPayment(
+        'signed-payment-header',
+        paymentRequirements
+      );
+
+      assert.equal(result.valid, true);
+      assert.equal(captured.url, 'https://x402-facilitator.cspr.cloud/verify');
+      assert.equal(captured.options.method, 'POST');
+      assert.equal(captured.options.headers['Content-Type'], 'application/json');
+      assert.equal(captured.options.headers['X-API-Key'], 'test-api-key-12345');
+      assert.deepEqual(JSON.parse(captured.options.body), {
+        payment: 'signed-payment-header',
+        paymentRequirements,
+      });
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('returns error for empty payment header', async () => {
     const result = await casperX402.verifyCasperPayment(
       '',  // empty payment header
       { network: 'casper:casper', maxAmountRequired: '10000000' }
@@ -197,6 +227,40 @@ describe('casper-x402: settleCasperPayment', () => {
     assert.equal(result.settled, false);
     assert.ok(result.error, 'Should return an error for empty payment');
   });
+
+  it('sends correct request to facilitator /settle', async () => {
+    const originalFetch = global.fetch;
+    let captured;
+    global.fetch = async (url, options) => {
+      captured = { url, options };
+      return new Response(JSON.stringify({ settled: true, txHash: 'abc123' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const paymentRequirements = { network: 'casper:casper', maxAmountRequired: '10000000' };
+
+    try {
+      const result = await casperX402.settleCasperPayment(
+        'signed-payment-header',
+        paymentRequirements
+      );
+
+      assert.equal(result.settled, true);
+      assert.equal(result.txHash, 'abc123');
+      assert.equal(captured.url, 'https://x402-facilitator.cspr.cloud/settle');
+      assert.equal(captured.options.method, 'POST');
+      assert.equal(captured.options.headers['Content-Type'], 'application/json');
+      assert.equal(captured.options.headers['X-API-Key'], 'test-api-key-12345');
+      assert.deepEqual(JSON.parse(captured.options.body), {
+        payment: 'signed-payment-header',
+        paymentRequirements,
+      });
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
 
 describe('casper-x402: cspr-to-motes conversion', () => {
@@ -224,5 +288,10 @@ describe('casper-x402: cspr-to-motes conversion', () => {
     // Base bonding curve price: 0.01
     const motes = casperX402.csprToMotes(0.01);
     assert.equal(motes, '10000000');
+  });
+
+  it('rejects non-finite prices before building facilitator amounts', () => {
+    assert.throws(() => casperX402.csprToMotes(Infinity), /finite/);
+    assert.throws(() => casperX402.csprToMotes(NaN), /finite/);
   });
 });

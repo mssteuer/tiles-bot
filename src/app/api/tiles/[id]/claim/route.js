@@ -7,6 +7,15 @@ import {
   TOTAL_TILES,
 } from '@/lib/db';
 import { logX402Failure } from '@/lib/structured-logger';
+import { getChain } from '@/lib/chains';
+import { createClient as createCasperClient } from '@/lib/casper-client';
+import {
+  csprToMotes,
+  buildCasperPaymentRequirements,
+  buildCasperClaimInstructions,
+  verifyCasperPayment,
+  settleCasperPayment,
+} from '@/lib/casper-x402';
 
 // Treasury address that receives x402 USDC payments
 const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000';
@@ -18,29 +27,161 @@ const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '8453', 10);
 
 /**
  * New agent-direct claim flow:
- * 
+ *
  * 1. Agent calls POST /api/tiles/:id/claim → gets 402 with x402 payment challenge
- * 2. Agent pays x402 challenge (USDC to treasury)
+ * 2. Agent pays x402 challenge (USDC to treasury, or wCSPR on Casper)
  * 3. Agent receives this response with on-chain instructions
  * 4. Agent calls the contract directly from their own wallet:
- *    a. approve USDC to contract
- *    b. claim(tileId) or batchClaim([tileIds])
+ *    a. approve payment token to contract
+ *    b. claim(tileId) / batchClaim([tokenIds]) on Base or claim(token_id) on Casper
  * 5. Agent calls POST /api/tiles/:id/register with txHash to register in DB
- * 
+ *
  * The server never touches the contract. The agent's wallet does everything on-chain.
  */
-async function claimHandler(request, { params }) {
+
+function getRequestedChain(request) {
+  const queryChain = request.nextUrl?.searchParams?.get('chain');
+  const headerChain = request.headers.get('x-chain') || request.headers.get('x-tiles-chain');
+  return (queryChain || headerChain || 'base').trim().toLowerCase();
+}
+
+async function getTileId(params) {
   const { id } = await params;
-  const tileId = parseInt(id, 10);
+  return parseInt(id, 10);
+}
+
+function validateTileId(tileId) {
   if (isNaN(tileId) || tileId < 0 || tileId >= TOTAL_TILES) {
     return NextResponse.json({ error: 'Invalid tile ID' }, { status: 400 });
   }
+  return null;
+}
 
-  // Check if already claimed
+function rejectClaimedTile(tileId) {
   const existing = getTile(tileId);
   if (existing) {
     return NextResponse.json({ error: 'Tile already claimed', tile: existing }, { status: 409 });
   }
+  return null;
+}
+
+function extractWalletFromPaymentHeader(paymentHeader) {
+  if (!paymentHeader) return 'unknown';
+  try {
+    const decoded = JSON.parse(Buffer.from(paymentHeader, 'base64').toString('utf8'));
+    return decoded?.payload?.authorization?.from || decoded?.from || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+function logPaymentFailure({ tileId, wallet, status, error }) {
+  logX402Failure({
+    tileId: String(tileId),
+    wallet,
+    errorCode: String(status),
+    errorMessage: error || `HTTP ${status}`,
+  });
+}
+
+function casperPaymentRequired(paymentRequirements, error = 'Payment required') {
+  return NextResponse.json({
+    x402Version: 1,
+    error,
+    accepts: [paymentRequirements],
+  }, { status: 402 });
+}
+
+async function buildCasperPaymentContext(request, tileId) {
+  const chainConfig = getChain('casper');
+  const client = createCasperClient({
+    rpcUrl: chainConfig.rpcUrl,
+    contractHash: chainConfig.nftContract,
+    chainName: 'casper',
+  });
+  const price = await client.getCurrentPrice();
+  const priceInMotes = csprToMotes(price);
+  const resource = `${SITE_URL}${request.nextUrl.pathname}?chain=casper`;
+  const paymentRequirements = buildCasperPaymentRequirements({
+    tileId,
+    priceInMotes,
+    chainConfig,
+    resource,
+  });
+
+  return { chainConfig, price, priceInMotes, paymentRequirements };
+}
+
+async function casperClaimHandler(request, { tileId }) {
+  const validationResponse = validateTileId(tileId) || rejectClaimedTile(tileId);
+  if (validationResponse) return validationResponse;
+
+  let context;
+  try {
+    context = await buildCasperPaymentContext(request, tileId);
+  } catch (err) {
+    return NextResponse.json({
+      error: 'Casper payment requirements unavailable',
+      detail: err.message,
+    }, { status: 503 });
+  }
+
+  const { chainConfig, price, priceInMotes, paymentRequirements } = context;
+  const paymentHeader = request.headers.get('x-payment') || '';
+  const wallet = extractWalletFromPaymentHeader(paymentHeader);
+
+  if (!paymentHeader) {
+    logPaymentFailure({ tileId, wallet, status: 402, error: 'Missing x-payment header' });
+    return casperPaymentRequired(paymentRequirements);
+  }
+
+  const verification = await verifyCasperPayment(paymentHeader, paymentRequirements);
+  if (!verification.valid) {
+    const error = verification.error || 'Invalid Casper x402 payment';
+    logPaymentFailure({ tileId, wallet, status: 402, error });
+    return casperPaymentRequired(paymentRequirements, error);
+  }
+
+  const settlement = await settleCasperPayment(paymentHeader, paymentRequirements);
+  if (!settlement.settled) {
+    const error = settlement.error || 'Casper x402 payment settlement failed';
+    logPaymentFailure({ tileId, wallet, status: 402, error });
+    return casperPaymentRequired(paymentRequirements, error);
+  }
+
+  const nextAvailable = getNextAvailableTileId();
+  const instructions = buildCasperClaimInstructions({
+    tileId,
+    priceInMotes,
+    chainConfig,
+    siteUrl: SITE_URL,
+  });
+
+  return NextResponse.json({
+    ok: true,
+    chain: 'casper',
+    message: 'Payment verified. Now mint the Casper NFT on-chain from your own wallet, then call /register.',
+    tileId,
+    onChainPrice: `${price.toFixed(6)} CSPR`,
+    priceInMotes,
+    payment: {
+      verified: true,
+      settled: true,
+      txHash: settlement.txHash || null,
+    },
+    paymentRequirements,
+    instructions,
+    contractAddress: chainConfig.nftContract,
+    wcsprAddress: chainConfig.paymentToken,
+    caip2: chainConfig.caip2,
+    nextAvailableTileId: nextAvailable,
+  }, { status: 200 });
+}
+
+async function claimHandler(request, { params }) {
+  const tileId = await getTileId(params);
+  const validationResponse = validateTileId(tileId) || rejectClaimedTile(tileId);
+  if (validationResponse) return validationResponse;
 
   const price = getCurrentPrice();
   const nextAvailable = getNextAvailableTileId();
@@ -109,28 +250,26 @@ const x402Handler = withX402(
 
 /**
  * Wrap x402Handler to log failed payment attempts (4xx/5xx from x402 middleware).
- * The x402 middleware rejects invalid payments before our handler is called,
- * so we intercept the response here to detect those failures.
+ * The x402 middleware rejects invalid Base payments before our handler is called;
+ * Casper requests are handled directly because x402-next does not support Casper.
  */
 export async function POST(request, context) {
-  // Clone URL info before consuming the request (x402 may read it)
   const pathname = request.nextUrl?.pathname || '';
-  // Extract tileId from URL
   const tileIdMatch = pathname.match(/\/tiles\/(\d+)\//);
-  const tileId = tileIdMatch ? tileIdMatch[1] : 'unknown';
+  const tileIdFromPath = tileIdMatch ? tileIdMatch[1] : 'unknown';
+  const requestedChain = getRequestedChain(request);
 
-  // Extract wallet from X-PAYMENT header if present (public address only, no keys)
-  const paymentHeader = request.headers.get('x-payment') || '';
-  let wallet = 'unknown';
-  try {
-    if (paymentHeader) {
-      const decoded = JSON.parse(Buffer.from(paymentHeader, 'base64').toString('utf8'));
-      wallet = decoded?.payload?.authorization?.from || decoded?.from || 'unknown';
-    }
-  } catch {
-    // ignore decode errors
+  if (requestedChain === 'casper') {
+    const tileId = await getTileId(context.params);
+    return casperClaimHandler(request, { tileId });
   }
 
+  if (requestedChain !== 'base') {
+    return NextResponse.json({ error: `Unsupported chain: ${requestedChain}` }, { status: 400 });
+  }
+
+  const paymentHeader = request.headers.get('x-payment') || '';
+  const wallet = extractWalletFromPaymentHeader(paymentHeader);
   const response = await x402Handler(request, context);
 
   // Log failures: 402 (payment required/invalid), 4xx (bad payment), 5xx (relay error)
@@ -142,11 +281,11 @@ export async function POST(request, context) {
       // ignore
     }
     const errorMessage = errorBody?.error || errorBody?.message || `HTTP ${response.status}`;
-    logX402Failure({
-      tileId,
+    logPaymentFailure({
+      tileId: tileIdFromPath,
       wallet,
-      errorCode: String(response.status),
-      errorMessage,
+      status: response.status,
+      error: errorMessage,
     });
   }
 
