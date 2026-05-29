@@ -2,8 +2,8 @@
  * Casper key utilities — convert public keys to AccountHashes,
  * create signers from raw private keys.
  *
- * Casper AccountHash = blake2b-256(algo_byte + raw_public_key_bytes)
- * where algo_byte = 0x01 for ed25519, 0x02 for secp256k1.
+ * Casper AccountHash = blake2b-256(algo_name_ascii + 0x00 + raw_public_key_bytes)
+ * where algo_name is "ed25519" or "secp256k1".
  */
 
 import { blake2b } from '@noble/hashes/blake2b';
@@ -35,11 +35,13 @@ function fromHex(hex: string): Uint8Array {
  * @returns 0x-prefixed 32-byte hex AccountHash
  */
 export function computeAccountHash(algoPrefix: string, rawPublicKeyHex: string): string {
-  const algoByte = algoPrefix === '01' ? 0x01 : 0x02;
+  const algoTag = algoPrefix === '01' ? 'ed25519' : 'secp256k1';
+  const algoTagBytes = new TextEncoder().encode(algoTag);
   const rawKeyBytes = fromHex(rawPublicKeyHex);
-  const input = new Uint8Array(1 + rawKeyBytes.length);
-  input[0] = algoByte;
-  input.set(rawKeyBytes, 1);
+  const input = new Uint8Array(algoTagBytes.length + 1 + rawKeyBytes.length);
+  input.set(algoTagBytes, 0);
+  input[algoTagBytes.length] = 0x00;
+  input.set(rawKeyBytes, algoTagBytes.length + 1);
   const hash = blake2b(input, { dkLen: 32 });
   return '0x' + toHex(hash);
 }
@@ -85,11 +87,9 @@ export function createCasperSigner(
         return ed25519.sign(digest, privKeyBytes);
       } else {
         const sig = secp256k1.sign(digest, privKeyBytes);
-        // Return 65-byte signature: r (32) + s (32) + v (1)
-        const r = sig.r.toString(16).padStart(64, '0');
-        const s = sig.s.toString(16).padStart(64, '0');
-        const v = sig.recovery === 0 ? '1b' : '1c'; // 27 or 28
-        return fromHex(r + s + v);
+        // Casper secp256k1 signatures use compact format: r (32) + s (32).
+        // No Ethereum recovery byte is appended.
+        return sig.toCompactRawBytes();
       }
     },
   };

@@ -45,8 +45,8 @@ export interface TransferAuthorizationMessage {
   from: string;
   /** 0x-prefixed 32-byte hex AccountHash of the recipient */
   to: string;
-  /** Transfer amount as bigint or 0x-prefixed 32-byte hex (U256) */
-  value: string | bigint;
+  /** Transfer amount in motes as a base-10 string (encoded as uint256 for EIP-712) */
+  value: string;
   /** Unix timestamp (seconds) — authorization invalid before this */
   valid_after: number | bigint;
   /** Unix timestamp (seconds) — authorization expires after this */
@@ -84,26 +84,21 @@ export interface CasperSigner {
 
 // -- Domain for Casper wCSPR EIP-712
 
+export const CASPER_MAINNET_NETWORK = 'casper:casper';
+export const CASPER_TESTNET_NETWORK = 'casper:casper-test';
+
+export type CasperNetwork = typeof CASPER_MAINNET_NETWORK | typeof CASPER_TESTNET_NETWORK | string;
+
 export interface CasperEIP712Domain {
   name: string;
   version: string;
-  chainId: number;
-  verifyingContract: string;
+  /** Standard EIP-712 domain field, for EVM-style deployments only. Must never be zero-address. */
+  chainId?: number;
+  /** Standard EIP-712 domain field, for EVM-style deployments only. Must never be zero-address. */
+  verifyingContract?: string;
+  /** Casper-native CAIP-2 chain name, e.g. 'casper:casper'. */
+  chain_name?: string;
+  /** 0x-prefixed bytes32 contract package hash for the wCSPR CEP-18 package. */
+  contract_package_hash?: string;
   [key: string]: unknown;
 }
-
-/** Casper mainnet wCSPR domain (chainId 1514) */
-export const CASPER_MAINNET_DOMAIN: CasperEIP712Domain = {
-  name: 'WrappedCSPR',
-  version: '1',
-  chainId: 1514,
-  verifyingContract: '0x0000000000000000000000000000000000000000', // placeholder, set per-deployment
-};
-
-/** Casper testnet wCSPR domain (chainId 1515) */
-export const CASPER_TESTNET_DOMAIN: CasperEIP712Domain = {
-  name: 'WrappedCSPR',
-  version: '1',
-  chainId: 1515,
-  verifyingContract: '0x0000000000000000000000000000000000000000', // placeholder, set per-deployment
-};

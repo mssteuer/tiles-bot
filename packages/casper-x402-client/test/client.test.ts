@@ -5,10 +5,11 @@ import {
   toHex,
   fromHex,
   createCasperPaymentHeader,
+  createCasperEIP712Domain,
   buildTransferAuthorization,
   signTransferAuthorization,
   selectCasperPaymentRequirements,
-  CASPER_MAINNET_DOMAIN,
+  CASPER_MAINNET_NETWORK,
 } from '../src/index.js';
 import type { CasperPaymentRequirements, CasperEIP712Domain } from '../src/index.js';
 
@@ -21,14 +22,14 @@ const TEST_SECP256K1_PRIVATE_KEY = 'b'.repeat(64); // 32 bytes of 0xbb
 const TEST_DOMAIN: CasperEIP712Domain = {
   name: 'WrappedCSPR',
   version: '1',
-  chainId: 1514,
-  verifyingContract: '0x0000000000000000000000000000000000000000',
+  chain_name: 'casper:casper',
+  contract_package_hash: '0x' + '8d'.repeat(32),
 };
 
 const TEST_REQUIREMENTS: CasperPaymentRequirements = {
   scheme: 'exact',
   network: 'casper:casper',
-  asset: 'hash-8df5d2fake05b6',
+  asset: 'hash-' + '8d'.repeat(32),
   maxAmountRequired: '10000000', // 0.01 CSPR
   payTo: '01' + 'cc'.repeat(32), // ed25519 public key
   resource: 'https://tiles.bot/api/tiles/42/claim',
@@ -85,6 +86,18 @@ describe('computeAccountHash', () => {
     const hash02 = computeAccountHash('02', rawKey);
     expect(hash01).not.toBe(hash02);
   });
+
+  it('matches Casper protocol account-hash preimage for ed25519', () => {
+    expect(computeAccountHash('01', 'aa'.repeat(32))).toBe(
+      '0x6320ec6f164c6bfa1fd3208deb2b797dcf0177fd1de32a8a1597c29b42f73b1b',
+    );
+  });
+
+  it('matches Casper protocol account-hash preimage for secp256k1', () => {
+    expect(computeAccountHash('02', 'aa'.repeat(32))).toBe(
+      '0xc44872342ec12499c138c4b1df8d223b88bbd725fd866b63747744f05c6102fe',
+    );
+  });
 });
 
 // -- CasperSigner creation
@@ -115,7 +128,7 @@ describe('createCasperSigner', () => {
     const signer = createCasperSigner(TEST_SECP256K1_PRIVATE_KEY, 'secp256k1');
     const digest = new Uint8Array(32).fill(0x42);
     const sig = await signer.sign(digest);
-    expect(sig.length).toBe(65); // r(32) + s(32) + v(1)
+    expect(sig.length).toBe(64); // Casper compact secp256k1: r(32) + s(32), no recovery byte
   });
 
   it('same key produces deterministic public key', () => {
@@ -200,6 +213,37 @@ describe('signTransferAuthorization', () => {
     const sig1 = await signTransferAuthorization(signer, TEST_DOMAIN, fixedAuth);
     const sig2 = await signTransferAuthorization(signer, TEST_DOMAIN, fixedAuth);
     expect(sig1).toBe(sig2);
+  });
+
+  it('rejects a zero-address verifyingContract domain before signing', async () => {
+    const signer = createCasperSigner(TEST_ED25519_PRIVATE_KEY, 'ed25519');
+    const auth = buildTransferAuthorization(signer, TEST_REQUIREMENTS);
+    await expect(signTransferAuthorization(signer, {
+      name: 'WrappedCSPR',
+      version: '1',
+      chainId: 1514,
+      verifyingContract: '0x0000000000000000000000000000000000000000',
+    }, auth)).rejects.toThrow(/zero-address verifyingContract/);
+  });
+});
+
+// -- Casper EIP-712 domain
+
+describe('createCasperEIP712Domain', () => {
+  it('builds a Casper-native domain from a hash-prefixed contract package hash', () => {
+    const domain = createCasperEIP712Domain(CASPER_MAINNET_NETWORK, 'hash-' + '8d'.repeat(32));
+    expect(domain).toEqual({
+      name: 'WrappedCSPR',
+      version: '1',
+      chain_name: 'casper:casper',
+      contract_package_hash: '0x' + '8d'.repeat(32),
+    });
+  });
+
+  it('rejects invalid contract package hashes', () => {
+    expect(() => createCasperEIP712Domain(CASPER_MAINNET_NETWORK, 'hash-short')).toThrow(
+      /contract package hash/,
+    );
   });
 });
 

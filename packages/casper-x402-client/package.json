@@ -21,6 +21,7 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsup",
+    "prepack": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
