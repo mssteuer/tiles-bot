@@ -1,13 +1,11 @@
-// -- Casper x402 handler
+// — Casper x402 handler
 // Builds PaymentRequirements for x402 402 responses on the Casper chain,
 // and provides facilitator HTTP client for verify/settle.
 //
 // Unlike Base (which uses x402-next middleware), Casper uses a lightweight
 // direct handler calling the Casper x402 facilitator REST API.
 
-const CASPER_FACILITATOR_API_KEY = process.env.CASPER_FACILITATOR_API_KEY || '';
-
-// -- wCSPR EIP-712 domain info (required by facilitator for transfer_with_authorization)
+// — wCSPR EIP-712 domain info (required by facilitator for transfer_with_authorization)
 const WCSPR_DOMAIN = {
   name: 'WrappedCSPR',
   version: '1.0.0',
@@ -15,15 +13,21 @@ const WCSPR_DOMAIN = {
   decimals: 9,
 };
 
-// -- Convert CSPR (human-readable) to motes (raw, 9 decimals)
+// — Convert CSPR (human-readable) to motes (raw, 9 decimals)
 function csprToMotes(cspr) {
-  // Use string math to avoid floating-point drift
-  // Multiply by 1e9, round, return as string
+  if (typeof cspr !== 'number' || !Number.isFinite(cspr)) {
+    throw new Error(`CSPR price must be a finite number, got: ${cspr}`);
+  }
+  if (cspr < 0) {
+    throw new Error(`CSPR price must be non-negative, got: ${cspr}`);
+  }
+
+  // Round to the nearest mote; prices come from the on-chain bonding curve.
   const motes = Math.round(cspr * 1_000_000_000);
   return String(motes);
 }
 
-// -- Build x402 PaymentRequirements for Casper
+// — Build x402 PaymentRequirements for Casper
 function buildCasperPaymentRequirements({ tileId, priceInMotes, chainConfig, resource }) {
   return {
     scheme: 'exact',
@@ -42,7 +46,7 @@ function buildCasperPaymentRequirements({ tileId, priceInMotes, chainConfig, res
   };
 }
 
-// -- Build on-chain claim instructions returned after payment verification
+// — Build on-chain claim instructions returned after payment verification
 function buildCasperClaimInstructions({ tileId, priceInMotes, chainConfig, siteUrl }) {
   return {
     step1_approve: {
@@ -71,23 +75,35 @@ function buildCasperClaimInstructions({ tileId, priceInMotes, chainConfig, siteU
   };
 }
 
-// -- Verify payment via Casper facilitator REST API
+// — Facilitator config
+function getFacilitatorUrl() {
+  const url = process.env.CHAIN_CASPER_X402_FACILITATOR;
+  return url ? url.replace(/\/$/, '') : '';
+}
+
+function getFacilitatorApiKey() {
+  return process.env.CASPER_FACILITATOR_API_KEY || '';
+}
+
+// — Verify payment via Casper facilitator REST API
 async function verifyCasperPayment(paymentHeader, paymentRequirements) {
   if (!paymentHeader) {
     return { valid: false, error: 'Missing x-payment header' };
   }
 
-  const facilitatorUrl = process.env.CHAIN_CASPER_X402_FACILITATOR;
+  const facilitatorUrl = getFacilitatorUrl();
   if (!facilitatorUrl) {
     return { valid: false, error: 'Casper facilitator URL not configured' };
   }
+
+  const apiKey = getFacilitatorApiKey();
 
   try {
     const resp = await fetch(`${facilitatorUrl}/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(CASPER_FACILITATOR_API_KEY ? { 'X-API-Key': CASPER_FACILITATOR_API_KEY } : {}),
+        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
       },
       body: JSON.stringify({
         payment: paymentHeader,
@@ -107,23 +123,25 @@ async function verifyCasperPayment(paymentHeader, paymentRequirements) {
   }
 }
 
-// -- Settle payment via Casper facilitator REST API
+// — Settle payment via Casper facilitator REST API
 async function settleCasperPayment(paymentHeader, paymentRequirements) {
   if (!paymentHeader) {
     return { settled: false, error: 'Missing x-payment header' };
   }
 
-  const facilitatorUrl = process.env.CHAIN_CASPER_X402_FACILITATOR;
+  const facilitatorUrl = getFacilitatorUrl();
   if (!facilitatorUrl) {
     return { settled: false, error: 'Casper facilitator URL not configured' };
   }
+
+  const apiKey = getFacilitatorApiKey();
 
   try {
     const resp = await fetch(`${facilitatorUrl}/settle`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(CASPER_FACILITATOR_API_KEY ? { 'X-API-Key': CASPER_FACILITATOR_API_KEY } : {}),
+        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
       },
       body: JSON.stringify({
         payment: paymentHeader,
