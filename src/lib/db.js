@@ -334,7 +334,7 @@ export function getTotalRevenueByChain(chainId) {
   return row?.total ?? 0;
 }
 
-export function claimTile(id, wallet, pricePaid, chain = 'base') {
+export function claimTile(id, wallet, pricePaid, chain = 'base', chainContract = null) {
   const db = getDb();
   if (id < 0 || id >= TOTAL_TILES) return null;
 
@@ -357,12 +357,12 @@ export function claimTile(id, wallet, pricePaid, chain = 'base') {
     lastHeartbeat: null,
     pricePaid: pricePaid || null,
     chain,
-    chainContract: null,
+    chainContract,
   };
 
   db.prepare(`
-    INSERT INTO tiles (id, owner, name, status, claimed_at, price_paid, chain)
-    VALUES (@id, @owner, @name, @status, @claimed_at, @price_paid, @chain)
+    INSERT INTO tiles (id, owner, name, status, claimed_at, price_paid, chain, chain_contract)
+    VALUES (@id, @owner, @name, @status, @claimed_at, @price_paid, @chain, @chain_contract)
   `).run({
     id: tile.id,
     owner: tile.owner,
@@ -371,6 +371,7 @@ export function claimTile(id, wallet, pricePaid, chain = 'base') {
     claimed_at: tile.claimedAt,
     price_paid: tile.pricePaid,
     chain: tile.chain,
+    chain_contract: tile.chainContract,
   });
 
   return tile;
@@ -459,7 +460,7 @@ export function getNextAvailableTileId() {
 export function getRecentlyClaimed(limit = 10) {
   const db = getDb();
   return db.prepare(
-    'SELECT id, name, owner, claimed_at FROM tiles ORDER BY claimed_at DESC LIMIT ?'
+    'SELECT id, name, owner, claimed_at, chain FROM tiles ORDER BY claimed_at DESC LIMIT ?'
   ).all(limit);
 }
 
@@ -1584,7 +1585,7 @@ export function getPendingMintTiles() {
 export function getPendingMintTilesLimit(limit = 50) {
   const db = getDb();
   return db.prepare(`
-    SELECT id, owner, price_paid, claimed_at
+    SELECT id, owner, price_paid, claimed_at, chain, chain_contract
     FROM tiles
     WHERE tx_hash IS NULL OR tx_hash = ''
     ORDER BY claimed_at ASC

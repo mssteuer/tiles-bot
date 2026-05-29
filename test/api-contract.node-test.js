@@ -9,7 +9,7 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 
-const BASE_URL = 'http://localhost:8084';
+const BASE_URL = process.env.API_CONTRACT_BASE_URL || 'http://localhost:8084';
 
 function get(path) {
   return new Promise((resolve, reject) => {

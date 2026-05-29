@@ -22,9 +22,23 @@ const CHAIN_DEFINITIONS = [
 ];
 
 const ENV_FIELDS = ['NFT_CONTRACT', 'PAYMENT_TOKEN', 'TREASURY', 'RPC_URL', 'EXPLORER', 'X402_FACILITATOR'];
+const defaultChainId = process.env.DEFAULT_CHAIN || 'base';
 
 function getOptionalChainEnv(chainId, field) {
   return process.env[`CHAIN_${chainId.toUpperCase()}_${field}`] || '';
+}
+
+function getFallbackChainEnv(chainId, field) {
+  if (chainId !== 'base' || !process.env.NEXT_PUBLIC_CONTRACT_ADDRESS) return '';
+  const fallbackMap = {
+    NFT_CONTRACT: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
+    PAYMENT_TOKEN: process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    TREASURY: process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000',
+    RPC_URL: process.env.BASE_RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org',
+    EXPLORER: process.env.BASE_EXPLORER_URL || 'https://basescan.org',
+    X402_FACILITATOR: process.env.X402_FACILITATOR_URL || 'https://facilitator.x402.org',
+  };
+  return fallbackMap[field] || '';
 }
 
 function chainNameFor(definition) {
@@ -36,12 +50,12 @@ function loadChainEnv(chainId) {
   const env = {};
   for (const field of ENV_FIELDS) {
     const varName = `${prefix}${field}`;
-    const value = process.env[varName];
+    const value = process.env[varName] || getFallbackChainEnv(chainId, field);
     if (!value) {
-      // During Next.js build phase only, env vars may not be available.
-      // NEXT_PHASE is set by Next.js exclusively during `next build` — not at runtime.
-      // This ensures production runtime still throws on missing config.
-      if (process.env.NEXT_PHASE === 'phase-production-build') {
+      // During Next.js build, env vars may not be available. Non-default chains can
+      // also be partially configured at runtime; callers surface price/config errors
+      // for those chains instead of crashing unrelated Base endpoints.
+      if (process.env.NEXT_PHASE === 'phase-production-build' || chainId !== defaultChainId) {
         env[field] = '';
         continue;
       }
@@ -79,7 +93,6 @@ for (const def of CHAIN_DEFINITIONS) {
 }
 
 // — Resolve default chain
-const defaultChainId = process.env.DEFAULT_CHAIN || 'base';
 if (!registry.has(defaultChainId)) {
   throw new Error(`DEFAULT_CHAIN "${defaultChainId}" is not a registered chain`);
 }
