@@ -23,6 +23,14 @@ const CHAIN_DEFINITIONS = [
 
 const ENV_FIELDS = ['NFT_CONTRACT', 'PAYMENT_TOKEN', 'TREASURY', 'RPC_URL', 'EXPLORER', 'X402_FACILITATOR'];
 
+function getOptionalChainEnv(chainId, field) {
+  return process.env[`CHAIN_${chainId.toUpperCase()}_${field}`] || '';
+}
+
+function chainNameFor(definition) {
+  return definition.caip2?.split(':')[1] || definition.id;
+}
+
 function loadChainEnv(chainId) {
   const prefix = `CHAIN_${chainId.toUpperCase()}_`;
   const env = {};
@@ -49,6 +57,8 @@ function buildChainConfig(definition) {
   return {
     id: definition.id,
     caip2: definition.caip2,
+    chainName: getOptionalChainEnv(definition.id, 'CHAIN_NAME') || chainNameFor(definition),
+    wcsprDomainVersion: getOptionalChainEnv(definition.id, 'WCSPR_DOMAIN_VERSION') || '1',
     name: definition.name,
     addressFormat: definition.addressFormat,
     nftContract: env.NFT_CONTRACT,
