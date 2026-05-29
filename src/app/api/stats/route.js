@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue, getTotalRevenue, getPerChainStats } from '@/lib/db';
-import { getSupportedChains } from '@/lib/chains';
+import {
+  getClaimedCount,
+  getCurrentPrice,
+  TOTAL_TILES,
+  getNextAvailableTileId,
+  getRecentlyClaimed,
+  getTopHolders,
+  getEstimatedSoldOutRevenue,
+  getTotalRevenue,
+  getPerChainStats,
+} from '@/lib/db';
+import { buildChainStatsPayload, getAllChainCurrentPrices } from '@/lib/chain-api';
 
 export async function GET() {
   const claimed = getClaimedCount();
@@ -9,31 +19,24 @@ export async function GET() {
     name: row.name || `Tile #${row.id}`,
     owner: row.owner,
     claimedAt: row.claimed_at,
+    chain: row.chain || 'base',
   }));
   const topHolders = getTopHolders(10).map(row => ({
     owner: row.owner,
     count: row.count,
   }));
 
-  // Per-chain stats in a single GROUP BY query (no N×COUNT overhead)
-  const chains = getSupportedChains();
   const chainStats = getPerChainStats();
-  const perChain = {};
-  for (const chain of chains) {
-    const cs = chainStats[chain.id] || { claimed: 0, currentPrice: 0.01, totalRevenue: 0 };
-    perChain[chain.id] = {
-      name: chain.name,
-      ...cs,
-    };
-  }
+  const chainPrices = await getAllChainCurrentPrices(chainStats);
+  const perChain = buildChainStatsPayload(chainPrices, chainStats);
+  const basePrice = perChain.base?.currentPrice ?? getCurrentPrice();
 
   return NextResponse.json({
     claimed,
     available: TOTAL_TILES - claimed,
     total: TOTAL_TILES,
-    currentPrice: getCurrentPrice(),
+    currentPrice: basePrice,
     nextAvailableTileId: getNextAvailableTileId(),
-    // TODO: floor price from secondary market (OpenSea/Reservoir API)
     floorPrice: null,
     totalRevenue: getTotalRevenue(),
     estimatedSoldOutRevenue: getEstimatedSoldOutRevenue(),

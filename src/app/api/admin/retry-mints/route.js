@@ -1,59 +1,37 @@
-/**
- * POST /api/admin/retry-mints
- *
- * Re-attempts on-chain minting for all tiles that have no tx_hash.
- * These are tiles where:
- *   - USDC payment was collected (price_paid > 0)
- *   - DB row exists (tile is claimed)
- *   - But callOnChainClaim() failed (server wallet was unfunded at claim time)
- *
- * Requires SERVER_WALLET_PRIVATE_KEY to be set AND the wallet to have:
- *   - Sufficient USDC balance (at least currentPrice per tile)
- *   - USDC allowance >= currentPrice for the MillionBotHomepage contract
- *
- * Body (optional): { "limit": 5 }  — process at most N tiles per call (default: 50)
- *
- * Returns: { processed, succeeded, failed, results: [...] }
- */
-
 import { NextResponse } from 'next/server';
 import { getPendingMintTilesLimit, setTileTxHash } from '@/lib/db';
+import { assertSupportedChain } from '@/lib/chain-api';
 import { logMintFailure } from '@/lib/structured-logger';
 
 const RECEIPT_TIMEOUT_MS = 30_000;
 const DEFAULT_LIMIT = 50;
 
-/**
- * Attempt to mint a single tile on-chain.
- * Returns { tileId, success, txHash?, error? }
- */
-async function mintTileOnChain(tileId) {
+async function mintBaseTileOnChain(tileId, chain) {
   if (!process.env.SERVER_WALLET_PRIVATE_KEY) {
     const error = 'SERVER_WALLET_PRIVATE_KEY not set';
     logMintFailure({ tileId, errorMessage: error });
-    return { tileId, success: false, error };
+    return { tileId, chain: chain.id, success: false, error };
   }
 
-  const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-  if (!contractAddress) {
-    const error = 'NEXT_PUBLIC_CONTRACT_ADDRESS not set';
+  if (!chain.nftContract) {
+    const error = 'Base NFT contract not configured';
     logMintFailure({ tileId, errorMessage: error });
-    return { tileId, success: false, error };
+    return { tileId, chain: chain.id, success: false, error };
   }
 
   try {
     const { createWalletClient, createPublicClient, http, parseAbi } = await import('viem');
     const { privateKeyToAccount } = await import('viem/accounts');
-    const { base } = await import('viem/chains');
+    const { base, baseSepolia } = await import('viem/chains');
 
+    const viemChain = String(process.env.NEXT_PUBLIC_CHAIN_ID || '') === '84532' ? baseSepolia : base;
     const account = privateKeyToAccount(process.env.SERVER_WALLET_PRIVATE_KEY);
-    const walletClient = createWalletClient({ account, chain: base, transport: http() });
-    const publicClient = createPublicClient({ chain: base, transport: http() });
+    const walletClient = createWalletClient({ account, chain: viemChain, transport: http(chain.rpcUrl || undefined) });
+    const publicClient = createPublicClient({ chain: viemChain, transport: http(chain.rpcUrl || undefined) });
 
     const CLAIM_ABI = parseAbi(['function claim(uint256 tokenId) external']);
-
     const txHash = await walletClient.writeContract({
-      address: contractAddress,
+      address: chain.nftContract,
       abi: CLAIM_ABI,
       functionName: 'claim',
       args: [BigInt(tileId)],
@@ -67,17 +45,13 @@ async function mintTileOnChain(tileId) {
     if (receipt.status !== 'success') {
       const errMsg = `Transaction reverted: ${txHash}`;
       logMintFailure({ tileId, txHash, errorMessage: errMsg });
-      return { tileId, success: false, txHash, error: errMsg };
+      return { tileId, chain: chain.id, success: false, txHash, error: errMsg };
     }
 
-    // Update the DB record with the confirmed tx_hash
     setTileTxHash(tileId, txHash);
-
-    return { tileId, success: true, txHash };
+    return { tileId, chain: chain.id, success: true, txHash };
   } catch (err) {
     const msg = err?.message || String(err);
-
-    // If contract says already minted — update DB as minted (desync recovery)
     if (
       msg.includes('AlreadyClaimed') ||
       msg.includes('already claimed') ||
@@ -86,6 +60,7 @@ async function mintTileOnChain(tileId) {
       setTileTxHash(tileId, 'on-chain-desync-recovered');
       return {
         tileId,
+        chain: chain.id,
         success: true,
         txHash: 'on-chain-desync-recovered',
         note: 'Was already minted on-chain — DB synced.',
@@ -93,16 +68,30 @@ async function mintTileOnChain(tileId) {
     }
 
     logMintFailure({ tileId, errorMessage: msg });
-    return { tileId, success: false, error: msg };
+    return { tileId, chain: chain.id, success: false, error: msg };
   }
+}
+
+async function mintTileOnCorrectChain(tile) {
+  const chain = assertSupportedChain(tile.chain || 'base');
+  if (chain.id === 'base') return mintBaseTileOnChain(tile.id, chain);
+
+  const error = 'Automated Casper retry minting is not available; Casper deploys must be signed by the tile owner wallet.';
+  logMintFailure({ tileId: tile.id, wallet: tile.owner, errorMessage: error });
+  return { tileId: tile.id, chain: chain.id, success: false, error };
 }
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const limit = Math.min(parseInt(body?.limit || DEFAULT_LIMIT, 10), 100);
+  const requestedChain = body?.chain ? String(body.chain).toLowerCase() : null;
 
   try {
-    const pendingTiles = getPendingMintTilesLimit(limit);
+    let pendingTiles = getPendingMintTilesLimit(limit);
+    if (requestedChain) {
+      assertSupportedChain(requestedChain);
+      pendingTiles = pendingTiles.filter(tile => (tile.chain || 'base') === requestedChain);
+    }
 
     if (pendingTiles.length === 0) {
       return NextResponse.json({
@@ -110,42 +99,33 @@ export async function POST(request) {
         succeeded: 0,
         failed: 0,
         results: [],
-        message: 'No pending mints found — all tiles are fully on-chain.',
+        message: requestedChain
+          ? `No pending ${requestedChain} mints found.`
+          : 'No pending mints found — all tiles are fully on-chain.',
       });
     }
-
-    console.log(`[retry-mints] Processing ${pendingTiles.length} pending mints...`);
 
     const results = [];
     let succeeded = 0;
     let failed = 0;
 
     for (const tile of pendingTiles) {
-      console.log(`[retry-mints] Attempting tile #${tile.id}...`);
-      const result = await mintTileOnChain(tile.id);
+      const result = await mintTileOnCorrectChain(tile);
       results.push(result);
 
       if (result.success) {
         succeeded++;
-        console.log(`[retry-mints] ✅ Tile #${tile.id} minted: ${result.txHash}`);
       } else {
         failed++;
-        console.warn(`[retry-mints] ❌ Tile #${tile.id} failed: ${result.error}`);
-
-        // If server wallet isn't ready, stop trying — all subsequent tiles will fail too
         const isWalletIssue =
           result.error?.includes('SERVER_WALLET_PRIVATE_KEY') ||
           result.error?.includes('insufficient') ||
           result.error?.includes('balance') ||
           result.error?.includes('allowance');
 
-        if (isWalletIssue) {
-          console.warn('[retry-mints] Wallet not ready — stopping batch.');
-          break;
-        }
+        if (isWalletIssue) break;
       }
 
-      // Small delay between transactions to avoid nonce collisions
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 

@@ -1,23 +1,50 @@
 import { NextResponse } from 'next/server';
-import { claimTile, getCurrentPrice, getClaimedCount, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, setTileTxHash, TOTAL_TILES } from '@/lib/db';
+import {
+  claimTile,
+  getClaimedCount,
+  getCurrentPriceByChain,
+  getNextAvailableTileId,
+  getRecentlyClaimed,
+  getTopHolders,
+  setTileTxHash,
+  TOTAL_TILES,
+} from '@/lib/db';
+import {
+  assertSupportedChain,
+  getChainCurrentPrice,
+  resolveRequestedChainId,
+  verifyOwnershipOnChain,
+} from '@/lib/chain-api';
 import { broadcast } from '@/lib/sse-broadcast';
 import { logMintFailure, logRegisterVerificationFailure } from '@/lib/structured-logger';
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || '8453';
+function recentClaimsPayload() {
+  return getRecentlyClaimed(10).map(row => ({
+    id: row.id,
+    name: row.name || `Tile #${row.id}`,
+    owner: row.owner,
+    claimedAt: row.claimed_at,
+    chain: row.chain || 'base',
+  }));
+}
+
+function topHoldersPayload() {
+  return getTopHolders(10).map(row => ({ owner: row.owner, count: row.count }));
+}
+
+async function priceForRegistration(chainId) {
+  try {
+    return (await getChainCurrentPrice(chainId)).currentPrice;
+  } catch {
+    return getCurrentPriceByChain(chainId);
+  }
+}
 
 /**
  * POST /api/tiles/{id}/register
- * 
- * For UI-based claims: user already paid on-chain via MetaMask.
- * We verify on-chain ownership as proof of payment — no x402, no replays.
- * 
- * Body: { wallet: string, txHash?: string }
- * 
- * Security model:
- * - Verifies ownerOf(tileId) == wallet on-chain (the ONLY source of truth)
- * - If the contract says they own it, they paid. Period.
- * - txHash is optional metadata for linking to explorer — not used for auth.
+ *
+ * Body: { wallet: string, txHash?: string, chain?: 'base' | 'casper' }
+ * Defaults to Base for backward compatibility.
  */
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -31,105 +58,85 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'wallet address required' }, { status: 400 });
   }
 
-  let wallet = body.wallet.toLowerCase();
-  const txHash = body.txHash || null;
-
-  if (!CONTRACT_ADDRESS) {
-    return NextResponse.json({ error: 'Contract not configured' }, { status: 500 });
+  const chainId = resolveRequestedChainId(request, body);
+  let chain;
+  try {
+    chain = assertSupportedChain(chainId);
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 400 });
   }
 
-  // Verify on-chain: does this wallet actually own this tile?
+  const txHash = body.txHash || body.deployHash || null;
+  let canonicalOwner = body.wallet;
+
   try {
-    const { createPublicClient, http, parseAbi } = await import('viem');
-    const chains = await import('viem/chains');
-    const chain = CHAIN_ID === '84532' ? chains.baseSepolia : chains.base;
+    const verification = await verifyOwnershipOnChain(chain.id, tileId, body.wallet);
 
-    const publicClient = createPublicClient({
-      chain,
-      transport: http(CHAIN_ID === '84532' ? 'https://sepolia.base.org' : 'https://mainnet.base.org'),
-    });
-
-    const OWNER_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
-
-    let onChainOwner;
-    try {
-      onChainOwner = await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: OWNER_ABI,
-        functionName: 'ownerOf',
-        args: [BigInt(tileId)],
-      });
-    } catch (err) {
-      // ownerOf reverts for non-existent tokens
-      logMintFailure({
-        tileId,
-        wallet: body.wallet,
-        txHash: body.txHash || null,
-        errorMessage: 'Tile not yet minted on-chain — ownerOf reverted',
-      });
-      return NextResponse.json(
-        { error: 'Tile not yet minted on-chain. Complete the MetaMask claim transaction first.' },
-        { status: 404 }
-      );
-    }
-
-    // Accept if wallet matches on-chain owner directly, OR if the on-chain
-    // owner is a smart wallet proxy (Coinbase Smart Wallet / EIP-7702).
-    // The key proof is that the tile IS minted — the claimer paid USDC on-chain.
-    // We record the on-chain owner as the tile owner regardless.
-    const ownerMatch = onChainOwner.toLowerCase() === wallet;
-    if (!ownerMatch) {
-      // Smart wallet: on-chain owner differs from EOA — still register,
-      // but use the on-chain owner as the canonical owner
-      wallet = onChainOwner.toLowerCase();
+    if (!verification.isOwner) {
+      if (chain.id === 'base' && verification.onChainOwner) {
+        // Coinbase Smart Wallet / EIP-7702 path: requester EOA differs from ownerOf().
+        canonicalOwner = verification.canonicalOwner;
+      } else {
+        logMintFailure({
+          tileId,
+          wallet: body.wallet,
+          txHash,
+          errorMessage: `Wallet does not own tile on ${chain.id}`,
+        });
+        return NextResponse.json(
+          { error: `Wallet does not own this tile on ${chain.name}` },
+          { status: 403 }
+        );
+      }
+    } else {
+      canonicalOwner = verification.canonicalOwner || body.wallet;
     }
   } catch (err) {
     console.error('[register] On-chain verification failed:', err);
     logRegisterVerificationFailure({
       tileId,
       wallet: body?.wallet || 'unknown',
-      txHash: body?.txHash || null,
+      txHash,
       errorMessage: err.message || String(err),
     });
+
+    const status = /not minted|ownerOf|does not exist/i.test(err.message || '') ? 404 : 502;
     return NextResponse.json(
-      { error: 'Failed to verify on-chain ownership', detail: err.message },
-      { status: 502 }
+      { error: 'Failed to verify on-chain ownership', detail: err.message, chain: chain.id },
+      { status }
     );
   }
 
-  // On-chain ownership verified — register in DB
-  const price = getCurrentPrice();
-  const tile = claimTile(tileId, body.wallet, price);
+  const price = await priceForRegistration(chain.id);
+  const tile = claimTile(tileId, canonicalOwner, price, chain.id, chain.nftContract);
 
   if (!tile) {
-    // Already in DB — that's fine, maybe a retry
-    return NextResponse.json({ message: 'Tile already registered', tileId }, { status: 200 });
+    return NextResponse.json({ message: 'Tile already registered', tileId, chain: chain.id }, { status: 200 });
   }
 
+  tile.chainContract = chain.nftContract;
   if (txHash) {
     setTileTxHash(tileId, txHash);
     tile.txHash = txHash;
   }
 
-  // Broadcast update
   broadcast({
     type: 'tile_claimed',
     tileId,
+    chain: chain.id,
     tile,
     claimedCount: getClaimedCount(),
-    currentPrice: getCurrentPrice(),
+    currentPrice: await priceForRegistration('base'),
     nextAvailableTileId: getNextAvailableTileId(),
-    recentlyClaimed: getRecentlyClaimed(10).map(row => ({
-      id: row.id,
-      name: row.name || `Tile #${row.id}`,
-      owner: row.owner,
-      claimedAt: row.claimed_at,
-    })),
-    topHolders: getTopHolders(10).map(row => ({
-      owner: row.owner,
-      count: row.count,
-    })),
+    recentlyClaimed: recentClaimsPayload(),
+    topHolders: topHoldersPayload(),
   });
 
-  return NextResponse.json({ tile, pricePaid: price, txHash, verified: 'on-chain' }, { status: 201 });
+  return NextResponse.json({
+    tile,
+    chain: chain.id,
+    pricePaid: price,
+    txHash,
+    verified: 'on-chain',
+  }, { status: 201 });
 }
