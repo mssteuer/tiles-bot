@@ -32,6 +32,24 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
         ],
       },
+      {
+        source: '/api/grid',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=30, stale-while-revalidate=60' },
+        ],
+      },
+      {
+        source: '/api/stats',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=30, stale-while-revalidate=60' },
+        ],
+      },
+      {
+        source: '/api/chains',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=30, stale-while-revalidate=60' },
+        ],
+      },
     ];
   },
 };

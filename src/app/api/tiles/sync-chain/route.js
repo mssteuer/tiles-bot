@@ -22,9 +22,9 @@ import { logChainSyncError } from '@/lib/structured-logger';
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 function parseTileIds(value) {
-  if (!value) return [];
-  return String(value).split(',')
-    .map(v => Number(v.trim()))
+  const rawTileIds = Array.isArray(value) ? value : String(value || '').split(',');
+  return rawTileIds
+    .map(v => Number(String(v).trim()))
     .filter(n => Number.isInteger(n) && n >= 0 && n < TOTAL_TILES);
 }
 
@@ -107,6 +107,7 @@ async function syncBase({ wallet = null } = {}) {
     newlyRegistered: registered.length,
     alreadyInDb: alreadyInDb.length,
     registeredTileIds: registered.map(t => t.id),
+    skipped: [],
   };
 }
 
@@ -124,6 +125,7 @@ async function syncCasper({ wallet = null, tileIds = [] } = {}) {
       newlyRegistered: 0,
       alreadyInDb: 0,
       registeredTileIds: [],
+      skipped: [],
       note: 'Casper historical event scanning is not exposed through RPC; provide wallet + tileIds to verify and register known mints.',
     };
   }
@@ -211,7 +213,7 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const chainId = resolveRequestedChainId(request, body);
   const wallet = body.wallet?.toLowerCase() || null;
-  const tileIds = Array.isArray(body.tileIds) ? body.tileIds : parseTileIds(body.tileIds);
+  const tileIds = parseTileIds(body.tileIds);
 
   try {
     return NextResponse.json(await performSync({ chainId, wallet, tileIds }), { status: 200 });

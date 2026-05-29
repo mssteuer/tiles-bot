@@ -40,6 +40,20 @@ async function priceForRegistration(chainId) {
   }
 }
 
+function isUnmintedTokenError(err) {
+  const message = [
+    err?.message,
+    err?.shortMessage,
+    err?.details,
+    err?.cause?.message,
+    err?.cause?.shortMessage,
+    err?.cause?.details,
+    err?.data?.errorName,
+  ].filter(Boolean).join('\n');
+
+  return /not minted|ownerOf|does not exist|nonexistent token|ERC721NonexistentToken|ERC721: invalid token ID|invalid token id/i.test(message);
+}
+
 /**
  * POST /api/tiles/{id}/register
  *
@@ -100,7 +114,7 @@ export async function POST(request, { params }) {
       errorMessage: err.message || String(err),
     });
 
-    const status = /not minted|ownerOf|does not exist/i.test(err.message || '') ? 404 : 502;
+    const status = isUnmintedTokenError(err) ? 404 : 502;
     return NextResponse.json(
       { error: 'Failed to verify on-chain ownership', detail: err.message, chain: chain.id },
       { status }
