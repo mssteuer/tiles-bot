@@ -70,7 +70,7 @@ describe('casper-x402: buildCasperPaymentRequirements', () => {
     assert.equal(result.extra.name, 'WrappedCSPR');
     assert.equal(result.extra.symbol, 'wCSPR');
     assert.equal(result.extra.decimals, 9);
-    assert.ok(result.extra.version);
+    assert.equal(result.extra.version, '1');
   });
 
   it('payTo is a valid Casper public key', () => {
@@ -187,6 +187,7 @@ describe('casper-x402: verifyCasperPayment', () => {
       assert.equal(result.valid, true);
       assert.equal(captured.url, 'https://x402-facilitator.cspr.cloud/verify');
       assert.equal(captured.options.method, 'POST');
+      assert.ok(captured.options.signal instanceof AbortSignal);
       assert.equal(captured.options.headers['Content-Type'], 'application/json');
       assert.equal(captured.options.headers['X-API-Key'], 'test-api-key-12345');
       assert.deepEqual(JSON.parse(captured.options.body), {
@@ -206,6 +207,26 @@ describe('casper-x402: verifyCasperPayment', () => {
 
     assert.equal(result.valid, false);
     assert.ok(result.error, 'Should return an error message for empty payment');
+  });
+
+  it('returns a timeout error when facilitator verify is aborted', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = async (url, options) => {
+      options.signal.dispatchEvent(new Event('abort'));
+      throw new DOMException('The operation was aborted', 'AbortError');
+    };
+
+    try {
+      const result = await casperX402.verifyCasperPayment(
+        'signed-payment-header',
+        { network: 'casper:casper', maxAmountRequired: '10000000' }
+      );
+
+      assert.equal(result.valid, false);
+      assert.match(result.error, /timed out after 10000ms/);
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });
 
@@ -251,6 +272,7 @@ describe('casper-x402: settleCasperPayment', () => {
       assert.equal(result.txHash, 'abc123');
       assert.equal(captured.url, 'https://x402-facilitator.cspr.cloud/settle');
       assert.equal(captured.options.method, 'POST');
+      assert.ok(captured.options.signal instanceof AbortSignal);
       assert.equal(captured.options.headers['Content-Type'], 'application/json');
       assert.equal(captured.options.headers['X-API-Key'], 'test-api-key-12345');
       assert.deepEqual(JSON.parse(captured.options.body), {
