@@ -8,10 +8,16 @@
 // — wCSPR EIP-712 domain info (required by facilitator for transfer_with_authorization)
 const WCSPR_DOMAIN = {
   name: 'WrappedCSPR',
-  version: '1.0.0',
+  // CSPR.live shows the deployed wCSPR package at contract_version 1 and the
+  // contract has no version named key; EIP-712 domains conventionally encode
+  // that as the string "1". Override with CHAIN_CASPER_WCSPR_DOMAIN_VERSION
+  // if a later deployed token advertises a different domain version.
+  version: process.env.CHAIN_CASPER_WCSPR_DOMAIN_VERSION || '1',
   symbol: 'wCSPR',
   decimals: 9,
 };
+
+const FACILITATOR_TIMEOUT_MS = 10_000;
 
 // — Convert CSPR (human-readable) to motes (raw, 9 decimals)
 function csprToMotes(cspr) {
@@ -39,7 +45,7 @@ function buildCasperPaymentRequirements({ tileId, priceInMotes, chainConfig, res
     description: `Claim tile #${tileId} on tiles.bot`,
     extra: {
       name: WCSPR_DOMAIN.name,
-      version: WCSPR_DOMAIN.version,
+      version: chainConfig.wcsprDomainVersion || WCSPR_DOMAIN.version,
       symbol: WCSPR_DOMAIN.symbol,
       decimals: WCSPR_DOMAIN.decimals,
     },
@@ -85,31 +91,53 @@ function getFacilitatorApiKey() {
   return process.env.CASPER_FACILITATOR_API_KEY || '';
 }
 
+function facilitatorErrorMessage(action, err) {
+  if (err.name === 'AbortError') {
+    return `Facilitator ${action} timed out after ${FACILITATOR_TIMEOUT_MS}ms`;
+  }
+  return `Facilitator ${action} error: ${err.message}`;
+}
+
+async function fetchFacilitator(endpoint, payload) {
+  const facilitatorUrl = getFacilitatorUrl();
+  if (!facilitatorUrl) {
+    return { configured: false, response: null };
+  }
+
+  const apiKey = getFacilitatorApiKey();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FACILITATOR_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${facilitatorUrl}/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    return { configured: true, response };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // — Verify payment via Casper facilitator REST API
 async function verifyCasperPayment(paymentHeader, paymentRequirements) {
   if (!paymentHeader) {
     return { valid: false, error: 'Missing x-payment header' };
   }
 
-  const facilitatorUrl = getFacilitatorUrl();
-  if (!facilitatorUrl) {
-    return { valid: false, error: 'Casper facilitator URL not configured' };
-  }
-
-  const apiKey = getFacilitatorApiKey();
-
   try {
-    const resp = await fetch(`${facilitatorUrl}/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
-      },
-      body: JSON.stringify({
-        payment: paymentHeader,
-        paymentRequirements,
-      }),
+    const { configured, response: resp } = await fetchFacilitator('verify', {
+      payment: paymentHeader,
+      paymentRequirements,
     });
+    if (!configured) {
+      return { valid: false, error: 'Casper facilitator URL not configured' };
+    }
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');
@@ -119,7 +147,7 @@ async function verifyCasperPayment(paymentHeader, paymentRequirements) {
     const data = await resp.json();
     return { valid: !!data.valid, error: data.error || null };
   } catch (err) {
-    return { valid: false, error: `Facilitator verify error: ${err.message}` };
+    return { valid: false, error: facilitatorErrorMessage('verify', err) };
   }
 }
 
@@ -129,25 +157,14 @@ async function settleCasperPayment(paymentHeader, paymentRequirements) {
     return { settled: false, error: 'Missing x-payment header' };
   }
 
-  const facilitatorUrl = getFacilitatorUrl();
-  if (!facilitatorUrl) {
-    return { settled: false, error: 'Casper facilitator URL not configured' };
-  }
-
-  const apiKey = getFacilitatorApiKey();
-
   try {
-    const resp = await fetch(`${facilitatorUrl}/settle`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
-      },
-      body: JSON.stringify({
-        payment: paymentHeader,
-        paymentRequirements,
-      }),
+    const { configured, response: resp } = await fetchFacilitator('settle', {
+      payment: paymentHeader,
+      paymentRequirements,
     });
+    if (!configured) {
+      return { settled: false, error: 'Casper facilitator URL not configured' };
+    }
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');
@@ -157,7 +174,7 @@ async function settleCasperPayment(paymentHeader, paymentRequirements) {
     const data = await resp.json();
     return { settled: !!data.settled, txHash: data.txHash || null, error: data.error || null };
   } catch (err) {
-    return { settled: false, error: `Facilitator settle error: ${err.message}` };
+    return { settled: false, error: facilitatorErrorMessage('settle', err) };
   }
 }
 
@@ -168,4 +185,5 @@ module.exports = {
   verifyCasperPayment,
   settleCasperPayment,
   WCSPR_DOMAIN,
+  FACILITATOR_TIMEOUT_MS,
 };

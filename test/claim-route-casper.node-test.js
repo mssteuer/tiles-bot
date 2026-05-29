@@ -28,6 +28,7 @@ function loadRouteWithMocks(overrides = {}) {
   const casperConfig = {
     id: 'casper',
     caip2: 'casper:casper',
+    chainName: 'casper-test',
     name: 'Casper',
     nftContract: 'hash-nft-contract',
     paymentToken: 'hash-wcspr-token',
@@ -134,6 +135,10 @@ function loadRouteWithMocks(overrides = {}) {
     .replace(/import \{\n  csprToMotes,\n  buildCasperPaymentRequirements,\n  buildCasperClaimInstructions,\n  verifyCasperPayment,\n  settleCasperPayment,\n\} from '@\/lib\/casper-x402';/, "const { csprToMotes, buildCasperPaymentRequirements, buildCasperClaimInstructions, verifyCasperPayment, settleCasperPayment } = __mocks.casperX402;")
     .replace('export async function POST(request, context) {', 'async function POST(request, context) {');
 
+  if (/^import |^export /m.test(source)) {
+    throw new Error('Route test mocks failed to replace all ESM imports/exports');
+  }
+
   const context = {
     __mocks: mocks,
     module: { exports: {} },
@@ -166,12 +171,13 @@ describe('claim route Casper x402 integration', () => {
     const body = await response.json();
 
     assert.equal(response.status, 402);
-    assert.equal(body.error, 'Payment required');
+    assert.equal(body.error, 'Missing x-payment header');
     assert.equal(body.accepts.length, 1);
     assert.equal(body.accepts[0].network, 'casper:casper');
     assert.equal(body.accepts[0].maxAmountRequired, '10000000');
     assert.equal(body.accepts[0].asset, 'hash-wcspr-token');
     assert.equal(calls.createClient.length, 1);
+    assert.equal(calls.createClient[0].chainName, 'casper-test');
     assert.equal(calls.buildRequirements.length, 1);
     assert.equal(calls.verify.length, 0);
     assert.equal(calls.baseHandler, 0);

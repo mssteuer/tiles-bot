@@ -97,7 +97,7 @@ async function buildCasperPaymentContext(request, tileId) {
   const client = createCasperClient({
     rpcUrl: chainConfig.rpcUrl,
     contractHash: chainConfig.nftContract,
-    chainName: 'casper',
+    chainName: chainConfig.chainName,
   });
   const price = await client.getCurrentPrice();
   const priceInMotes = csprToMotes(price);
@@ -131,8 +131,9 @@ async function casperClaimHandler(request, { tileId }) {
   const wallet = extractWalletFromPaymentHeader(paymentHeader);
 
   if (!paymentHeader) {
-    logPaymentFailure({ tileId, wallet, status: 402, error: 'Missing x-payment header' });
-    return casperPaymentRequired(paymentRequirements);
+    const error = 'Missing x-payment header';
+    logPaymentFailure({ tileId, wallet, status: 402, error });
+    return casperPaymentRequired(paymentRequirements, error);
   }
 
   const verification = await verifyCasperPayment(paymentHeader, paymentRequirements);
