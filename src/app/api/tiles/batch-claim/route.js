@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { claimTile, getClaimedCount, TOTAL_TILES, getCurrentPrice } from '@/lib/db';
+import { claimTile, getClaimedCount, TOTAL_TILES, getCurrentPriceByChain } from '@/lib/db';
+import { assertSupportedChain, resolveRequestedChainId } from '@/lib/chain-api';
 
 /**
  * POST /api/tiles/batch-claim
@@ -36,16 +37,23 @@ export async function POST(request) {
 
   // Use a placeholder wallet if not provided (for demo/dev mode)
   const ownerWallet = wallet || '0x0000000000000000000000000000000000000000';
+  const chainId = resolveRequestedChainId(request, body);
+  let chain;
+  try {
+    chain = assertSupportedChain(chainId);
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 400 });
+  }
 
   const claimed = [];
   const skipped = [];
   let totalPrice = 0;
 
   for (const id of tileIds) {
-    const price = getCurrentPrice();
-    const tile = claimTile(id, ownerWallet, price);
+    const price = getCurrentPriceByChain(chain.id);
+    const tile = claimTile(id, ownerWallet, price, chain.id, chain.nftContract);
     if (tile) {
-      claimed.push({ id, price });
+      claimed.push({ id, price, chain: chain.id });
       totalPrice += price;
     } else {
       skipped.push(id);
@@ -54,6 +62,7 @@ export async function POST(request) {
 
   return NextResponse.json({
     success: true,
+    chain: chain.id,
     claimed: claimed.length,
     skipped: skipped.length,
     totalPrice,
@@ -62,7 +71,7 @@ export async function POST(request) {
     stats: {
       totalClaimed: getClaimedCount(),
       total: TOTAL_TILES,
-      currentPrice: getCurrentPrice(),
+      currentPrice: getCurrentPriceByChain(chain.id),
     },
   });
 }

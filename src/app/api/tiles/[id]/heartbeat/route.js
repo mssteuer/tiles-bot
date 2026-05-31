@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { heartbeat, logEvent, TOTAL_TILES } from '@/lib/db';
+import { assertSupportedChain, resolveRequestedChainId } from '@/lib/chain-api';
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -13,16 +14,26 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'wallet address required' }, { status: 400 });
   }
 
+  const requestedChainId = resolveRequestedChainId(request, body);
+  let requestedChain;
+  try {
+    requestedChain = assertSupportedChain(requestedChainId);
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 400 });
+  }
+
   const tile = heartbeat(tileId, body.wallet);
   if (!tile) {
     return NextResponse.json({ error: 'Tile not found or not owned by wallet' }, { status: 404 });
   }
 
+  const eventChain = tile.chain || requestedChain.id;
+
   // Log heartbeat to events_log so it appears in the activity feed
   logEvent('heartbeat', tileId, body.wallet, {
     tileName: tile.name || `Tile #${tileId}`,
     tileAvatar: tile.avatar || null,
-  });
+  }, eventChain);
 
-  return NextResponse.json(tile);
+  return NextResponse.json({ ...tile, chain: eventChain });
 }
