@@ -3,9 +3,15 @@
 import { useState } from 'react';
 
 const categories = ['All', 'Coding', 'Trading', 'Research', 'Social', 'Infra'];
+const chains = [
+  { id: 'all', label: 'All chains', dot: 'bg-text-muted' },
+  { id: 'base', label: 'Base', dot: 'bg-blue-400' },
+  { id: 'casper', label: 'Casper', dot: 'bg-red-400' },
+];
 
-export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, onZoomOut, onZoomReset, viewMode, onViewModeChange }) {
+export default function FilterBar({ onFilterChange, onSearchChange, onChainFilterChange, onZoomIn, onZoomOut, onZoomReset, viewMode, onViewModeChange }) {
   const [activeCategory, setActiveCategory] = useState('All');
+  const [activeChain, setActiveChain] = useState('all');
   const [search, setSearch] = useState('');
 
   const handleCategory = (cat) => {
@@ -19,6 +25,11 @@ export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, on
     if (onSearchChange) onSearchChange(e.target.value);
   };
 
+  const handleChain = (chain) => {
+    setActiveChain(chain);
+    if (onChainFilterChange) onChainFilterChange(chain);
+  };
+
   return (
     <div className="filter-bar">
       {/* Category pills */}
@@ -30,6 +41,20 @@ export default function FilterBar({ onFilterChange, onSearchChange, onZoomIn, on
             className={`pill${activeCategory === cat ? ' active' : ''}`}
           >
             {cat}
+          </button>
+        ))}
+      </div>
+
+      <div className="filter-pills" aria-label="Chain filter">
+        {chains.map((chain) => (
+          <button
+            key={chain.id}
+            onClick={() => handleChain(chain.id)}
+            className={`pill inline-flex items-center gap-1.5${activeChain === chain.id ? ' active' : ''}`}
+            title={`Show ${chain.label}`}
+          >
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${chain.dot}`} />
+            {chain.label}
           </button>
         ))}
       </div>

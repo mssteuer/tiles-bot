@@ -11,8 +11,9 @@ import TileTooltip from './TileTooltip';
 import SelectionOverlay from './SelectionOverlay';
 import ToolToggle from './ToolToggle';
 import { GRID_SIZE, TILE_SIZE, GRID_PX, CATEGORY_COLORS, HB_GREEN, HB_YELLOW, imageCache, getTileActivityScore, heatmapColor, getThumbUrl, scheduleFetch, loadTileImage, getHeartbeatGlowColor, tileMatchesFilter, hasActiveFilter, getFirstMatchingTile } from './utils';
+const { getChainVisual } = require('@/lib/chainVisuals');
 
-export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles, pixelWars, pixelWarsChampions, ctfFlag = null, tdInvasions = [] }) {
+export default function Grid({ tiles, connections, pendingRequests, onConnectionsChange, onTileClick, selectedTile, zoom, onZoomChange, viewMode, searchQuery, categoryFilter, chainFilter, heatmapMode, blocks, spans, onBlockClaimRequest, onSpanClaimRequest, flyToTileId, actionAnimation, introReady, onIntroFinished, initialCamera, alliances, bountyTiles, pixelWars, pixelWarsChampions, ctfFlag = null, tdInvasions = [] }) {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const containerRef = useRef(null);
@@ -345,7 +346,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    const isFilterActive = hasActiveFilter(searchQuery, categoryFilter);
+    const isFilterActive = hasActiveFilter(searchQuery, categoryFilter, chainFilter);
     const cam = cameraRef.current;
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
@@ -593,7 +594,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
         if (tile) {
           const baseColor = tile.color || CATEGORY_COLORS[tile.category] || '#333';
-          const tileMatches = !isFilterActive || tileMatchesFilter(tile, searchQuery, categoryFilter);
+          const chainVisual = getChainVisual(tile);
+          const tileMatches = !isFilterActive || tileMatchesFilter(tile, searchQuery, categoryFilter, chainFilter);
 
           ctx.save();
           if (!tileMatches) ctx.globalAlpha = 0.25;
@@ -749,8 +751,8 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
             }
           }
 
-          // Border (collected for batch stroke below)
-          tileBorders.push({ x: x + 1, y: y + 1, w: TILE_SIZE - 2, h: TILE_SIZE - 2, color: baseColor });
+          // Chain border (collected for batch stroke below): Base blue, Casper red, unclaimed none.
+          tileBorders.push({ x: x + 1, y: y + 1, w: TILE_SIZE - 2, h: TILE_SIZE - 2, color: chainVisual.borderColor || baseColor });
 
           // Status dot, verification badges, and name overlays disabled for clean tile display
 
@@ -1202,7 +1204,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
     }
 
     ctx.restore();
-  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter]); // camera via ref, connections via ref
+  }, [tiles, hoveredTile, selectedTile, viewMode, searchQuery, categoryFilter, chainFilter]); // camera via ref, connections via ref
 
   // Animation loop for pulsing glow
   useEffect(() => {
@@ -1274,9 +1276,9 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
   // Auto-center the grid on the first matching tile when filters change.
   useEffect(() => {
     if (viewMode === 'list') return;
-    if (!hasActiveFilter(searchQuery, categoryFilter)) return;
+    if (!hasActiveFilter(searchQuery, categoryFilter, chainFilter)) return;
 
-    const firstMatch = getFirstMatchingTile(tiles, searchQuery, categoryFilter);
+    const firstMatch = getFirstMatchingTile(tiles, searchQuery, categoryFilter, chainFilter);
     if (!firstMatch) return;
 
     const targetX = (firstMatch.id % GRID_SIZE) * TILE_SIZE + TILE_SIZE / 2;
@@ -1292,7 +1294,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
         zoom: Math.max(prev.zoom, 0.6),
       };
     });
-  }, [tiles, searchQuery, categoryFilter, viewMode]);
+  }, [tiles, searchQuery, categoryFilter, chainFilter, viewMode]);
 
   // Resize
   useEffect(() => {
@@ -1668,7 +1670,7 @@ export default function Grid({ tiles, connections, pendingRequests, onConnection
 
   // ─── List view ───────────────────────────────────────────────────────────
   if (viewMode === 'list') {
-    return <ListView tiles={tiles} searchQuery={searchQuery} categoryFilter={categoryFilter} onTileClick={onTileClick} selectedTile={selectedTile} />;
+    return <ListView tiles={tiles} searchQuery={searchQuery} categoryFilter={categoryFilter} chainFilter={chainFilter} onTileClick={onTileClick} selectedTile={selectedTile} />;
   }
 
   // ─── Canvas grid view ────────────────────────────────────────────────────

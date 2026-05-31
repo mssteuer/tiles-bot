@@ -120,6 +120,12 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
             />
           </div>
           <span className="text-[10px] text-text-light">{pct.toFixed(2)}%</span>
+          {(perChain.base || perChain.casper) && (
+            <span className="ml-1 flex items-center gap-2 text-[10px]">
+              {perChain.base && <span className="text-blue-400" title="Base claimed">● Base {Number(perChain.base.claimed || 0).toLocaleString()}</span>}
+              {perChain.casper && <span className="text-red-400" title="Casper claimed">● Casper {Number(perChain.casper.claimed || 0).toLocaleString()}</span>}
+            </span>
+          )}
         </div>
 
         <span className="text-text-muted">│</span>

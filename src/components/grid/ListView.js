@@ -1,11 +1,12 @@
 'use client';
 
 import { CATEGORY_COLORS, getThumbUrl, tileMatchesFilter, hasActiveFilter } from './utils';
+const { getChainVisual } = require('@/lib/chainVisuals');
 
-export default function ListView({ tiles, searchQuery, categoryFilter, onTileClick, selectedTile }) {
-  const isFilterActive = hasActiveFilter(searchQuery, categoryFilter);
+export default function ListView({ tiles, searchQuery, categoryFilter, chainFilter, onTileClick, selectedTile }) {
+  const isFilterActive = hasActiveFilter(searchQuery, categoryFilter, chainFilter);
   const tileList = Object.values(tiles)
-    .filter(tile => !isFilterActive || tileMatchesFilter(tile, searchQuery, categoryFilter))
+    .filter(tile => !isFilterActive || tileMatchesFilter(tile, searchQuery, categoryFilter, chainFilter))
     .sort((a, b) => a.id - b.id);
 
   return (
@@ -15,6 +16,7 @@ export default function ListView({ tiles, searchQuery, categoryFilter, onTileCli
           <tr className="text-left text-[11px] uppercase tracking-[1px] text-text-muted">
             <th className="border-b border-border-dim px-1 py-2">#</th>
             <th className="border-b border-border-dim px-1 py-2">Agent</th>
+            <th className="border-b border-border-dim px-1 py-2">Chain</th>
             <th className="border-b border-border-dim px-1 py-2">Category</th>
             <th className="border-b border-border-dim px-1 py-2">X / GitHub</th>
             <th className="border-b border-border-dim px-1 py-2">Status</th>
@@ -27,6 +29,7 @@ export default function ListView({ tiles, searchQuery, categoryFilter, onTileCli
             const categoryColor = CATEGORY_COLORS[tile.category] || '#94a3b8';
             const isSelected = selectedTile === tile.id;
             const isOnline = tile.status === 'online';
+            const chainVisual = getChainVisual(tile);
             return (
               <tr
                 key={tile.id}
@@ -43,6 +46,12 @@ export default function ListView({ tiles, searchQuery, categoryFilter, onTileCli
                     )}
                     <span className="font-medium text-text">{tile.name}</span>
                   </div>
+                </td>
+                <td className="px-1 py-1.5">
+                  <span className={`inline-flex items-center gap-1 text-[12px] ${chainVisual.textClass}`} title={`${chainVisual.label} chain`}>
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+                    {chainVisual.label}
+                  </span>
                 </td>
                 <td className="px-1 py-1.5">
                   <span

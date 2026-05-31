@@ -14,6 +14,10 @@ function run() {
   const claimModal = read('../src/components/ClaimModal.js');
   const batchClaimModal = read('../src/components/BatchClaimModal.js');
   const header = read('../src/components/Header.js');
+  const filterBar = read('../src/components/FilterBar.js');
+  const grid = read('../src/components/grid/Grid.js');
+  const tooltip = read('../src/components/grid/TileTooltip.js');
+  const aboutTab = read('../src/components/tile-panel/AboutTab.js');
 
   for (const [name, source] of [
     ['ClaimModal', claimModal],
@@ -35,6 +39,14 @@ function run() {
   assertContains(batchClaimModal, /Connect your Casper wallet/, 'BatchClaimModal has Casper-specific wallet prompt');
   assertContains(header, /Base Wallet/, 'Header labels the EVM wallet button as Base Wallet');
   assertContains(header, /Casper Wallet/, 'Header labels the Casper wallet button');
+  assertContains(header, /Base claimed/, 'Header stats bar shows Base claimed count');
+  assertContains(header, /Casper claimed/, 'Header stats bar shows Casper claimed count');
+  assertContains(filterBar, /All chains/, 'FilterBar renders all-chain filter');
+  assertContains(filterBar, /onChainFilterChange/, 'FilterBar emits chain filter changes');
+  assertContains(grid, /chainVisual\.borderColor/, 'Grid uses chain visual color for tile borders');
+  assertContains(tooltip, /chainVisual\.label/, 'Tile tooltip shows chain label');
+  assertContains(aboutTab, /buildChainExplorerLinks/, 'About tab builds chain-specific explorer links');
+  assertContains(aboutTab, /formatAddressForChain/, 'About tab formats addresses by chain');
 
   console.log('chain selection UI source tests: ok');
 }

@@ -3,7 +3,13 @@
 import { useState, useEffect } from 'react';
 import ShareButton from './ShareButton';
 import { VerificationBadge } from './VerificationBadge';
-import { getSizedImageUrl, truncateAddress, truncateTx, CONTRACT_ADDRESS, CATEGORY_COLORS, X_ICON_STYLE } from './utils';
+import { getSizedImageUrl, truncateTx, CATEGORY_COLORS, X_ICON_STYLE } from './utils';
+const {
+  getTileChainId,
+  getChainVisual,
+  buildChainExplorerLinks,
+  formatAddressForChain,
+} = require('@/lib/chainVisuals');
 
 function EmbedCodeButton({ tileId }) {
   const [copied, setCopied] = useState(false);
@@ -57,11 +63,25 @@ function withAlpha(hex, alpha) {
 export default function AboutTab({ tile, isOwner }) {
   const [viewStats, setViewStats] = useState(null);
   const [repBreakdown, setRepBreakdown] = useState(null);
+  const [chainConfigs, setChainConfigs] = useState({});
 
   const tileStatusClass = tile.status === 'online' ? 'bg-accent-green' : tile.status === 'busy' ? 'bg-accent-amber' : 'bg-accent-red';
   const categoryColor = CATEGORY_COLORS[tile.category] || '#333';
   const tileCardStyle = { background: '#1a1a2e', borderColor: withAlpha(tile.color || '#333333', '33') || '#33333333' };
   const categoryStyle = { background: withAlpha(categoryColor, '22') || 'transparent', borderColor: withAlpha(categoryColor, '44') || 'transparent', color: categoryColor };
+  const chainId = getTileChainId(tile) || 'base';
+  const chainVisual = getChainVisual(tile);
+  const chainConfig = chainConfigs[chainId] || { id: chainId, explorer: chainId === 'casper' ? 'https://cspr.live' : 'https://basescan.org', nftContract: tile.chainContract };
+  const chainLinks = buildChainExplorerLinks({ tile, chainConfig });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/chains')
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.chains) setChainConfigs(d.chains); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (tile.id == null) return;
@@ -189,15 +209,36 @@ export default function AboutTab({ tile, isOwner }) {
             )}
           </div>
         )}
+        <div className="flex items-center gap-1.5">
+          <span className="text-text-dim">Chain:</span>
+          <span className={`inline-flex items-center gap-1 font-semibold ${chainVisual.textClass}`}>
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            {chainVisual.label}
+          </span>
+        </div>
+        {chainLinks.contractAddress && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-text-dim">Contract:</span>
+            {chainLinks.contractUrl ? (
+              <a href={chainLinks.contractUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-accent-blue no-underline">
+                {formatAddressForChain(chainLinks.contractAddress, chainId)}
+              </a>
+            ) : (
+              <span className="font-mono text-text-dim">{formatAddressForChain(chainLinks.contractAddress, chainId)}</span>
+            )}
+          </div>
+        )}
         {tile.owner ? (
           <div className="flex items-center gap-1.5">
             <span className="text-text-dim">Owner:</span>
-            <a href={`https://basescan.org/address/${tile.owner}`} target="_blank" rel="noopener noreferrer" className="font-mono text-accent-blue no-underline">
-              {truncateAddress(tile.owner)}
+            <a href={chainLinks.ownerUrl || '#'} target="_blank" rel="noopener noreferrer" className="font-mono text-accent-blue no-underline">
+              {formatAddressForChain(tile.owner, chainId)}
             </a>
-            <a href={`https://opensea.io/${tile.owner}`} target="_blank" rel="noopener noreferrer" title="View on OpenSea" className="text-[10px] text-text-dim no-underline">
-              OS
-            </a>
+            {chainId === 'base' && (
+              <a href={`https://opensea.io/${tile.owner}`} target="_blank" rel="noopener noreferrer" title="View owner on OpenSea" className="text-[10px] text-text-dim no-underline">
+                OS
+              </a>
+            )}
           </div>
         ) : (
           <span className="text-text-dim">Owner: demo</span>
@@ -205,7 +246,7 @@ export default function AboutTab({ tile, isOwner }) {
         {tile.txHash ? (
           <div className="flex items-center gap-1.5">
             <span className="text-text-dim">Tx:</span>
-            <a href={`https://basescan.org/tx/${tile.txHash}`} target="_blank" rel="noopener noreferrer" className="font-mono text-accent-blue no-underline">
+            <a href={chainLinks.txUrl || '#'} target="_blank" rel="noopener noreferrer" className="font-mono text-accent-blue no-underline">
               {truncateTx(tile.txHash)}
             </a>
           </div>
@@ -228,18 +269,22 @@ export default function AboutTab({ tile, isOwner }) {
         </a>
       )}
 
-      {CONTRACT_ADDRESS && CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000' && (
+      {chainLinks.marketplaceUrl ? (
         <div>
           <a
-            href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tile.id}`}
+            href={chainLinks.marketplaceUrl}
             target="_blank"
             rel="noopener noreferrer"
             className={`btn-retro flex w-full items-center justify-center gap-2 text-[13px] no-underline ${isOwner ? 'border-accent-purple/30 text-accent-purple' : 'border-accent-blue/30 text-accent-blue'}`}
           >
-            {isOwner ? '💰 List for Sale' : '◇ View on OpenSea'}
+            {isOwner ? '💰 List for Sale on OpenSea' : '◇ View on OpenSea'}
           </a>
         </div>
-      )}
+      ) : chainId === 'casper' ? (
+        <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-center text-[12px] text-red-300">
+          Casper tiles trade directly on the grid — no external marketplace yet.
+        </div>
+      ) : null}
 
       <ShareButton tileId={tile.id} />
       {isOwner && <EmbedCodeButton tileId={tile.id} />}

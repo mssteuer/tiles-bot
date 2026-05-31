@@ -118,6 +118,7 @@ function HomeInner() {
   const [stats, setStats] = useState({ claimed: 0, total: 65536, currentPrice: 1.0, perChain: {} });
   const [zoom, setZoom] = useState(() => savedCamera?.zoom ?? DEFAULT_ZOOM);
   const [filterCategory, setFilterCategory] = useState('All');
+  const [chainFilter, setChainFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [heatmapMode, setHeatmapMode] = useState(false);
@@ -372,6 +373,7 @@ function HomeInner() {
       <FilterBar
         onFilterChange={setFilterCategory}
         onSearchChange={setSearchQuery}
+        onChainFilterChange={setChainFilter}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onZoomReset={handleZoomReset}
@@ -425,6 +427,7 @@ function HomeInner() {
           viewMode={viewMode}
           searchQuery={searchQuery}
           categoryFilter={filterCategory}
+          chainFilter={chainFilter}
           heatmapMode={heatmapMode}
           alliances={alliances}
           bountyTiles={bountyTiles}
