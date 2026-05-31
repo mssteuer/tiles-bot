@@ -21,6 +21,10 @@ process.env.CHAIN_BASE_TREASURY = '0x67439832C52C92B5ba8DE28a202E72D09CCEB42f';
 process.env.CHAIN_BASE_RPC_URL = 'https://sepolia.base.example/rpc';
 process.env.CHAIN_BASE_EXPLORER = 'https://sepolia.basescan.org';
 process.env.CHAIN_BASE_X402_FACILITATOR = 'https://x402.base.example';
+process.env.NEXT_PUBLIC_CONTRACT_ADDRESS = '0xB2915C42329edFfC26037eed300D620C302b5791';
+process.env.NEXT_PUBLIC_USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+process.env.X402_PAY_TO_ADDRESS = '0x67439832C52C92B5ba8DE28a202E72D09CCEB42f';
+process.env.X402_NETWORK = 'base-sepolia';
 process.env.CHAIN_CASPER_NFT_CONTRACT = 'hash-casper-nft';
 process.env.CHAIN_CASPER_PAYMENT_TOKEN = 'hash-wcspr-token';
 process.env.CHAIN_CASPER_TREASURY = '01' + 'a'.repeat(64);
@@ -92,6 +96,8 @@ function loadBatchClaimRoute(overrides = {}) {
   };
 
   let source = fs.readFileSync(path.join(ROOT, 'src/app/api/tiles/batch-claim/route.js'), 'utf8');
+  // Keep the import-shape variants next to the import-leak guard below. If the
+  // route import changes, the guard turns that maintenance debt into a loud test failure.
   source = source
     .replace("import { NextResponse } from 'next/server';", 'const { NextResponse } = __mocks.nextServer;')
     .replace("import { claimTile, getClaimedCount, TOTAL_TILES, getCurrentPrice } from '@/lib/db';", 'const { claimTile, getClaimedCount, TOTAL_TILES, getCurrentPrice, getCurrentPriceByChain } = __mocks.db;')
@@ -156,6 +162,200 @@ function loadHeartbeatRoute(overrides = {}) {
   return { POST: context.module.exports.POST, calls };
 }
 
+function paymentHeaderFor(wallet) {
+  return Buffer.from(JSON.stringify({
+    payload: { authorization: { from: wallet } },
+  })).toString('base64');
+}
+
+function loadClaimRoute(overrides = {}) {
+  const calls = {
+    baseRequirements: [],
+    baseVerify: [],
+    baseSettle: [],
+    createClient: [],
+    buildCasperRequirements: [],
+    casperVerify: [],
+    casperSettle: [],
+    buildCasperInstructions: [],
+    logs: [],
+  };
+  const casperConfig = {
+    id: 'casper',
+    caip2: 'casper:casper',
+    chainName: 'casper-test',
+    name: 'Casper',
+    nftContract: 'hash-casper-nft',
+    paymentToken: 'hash-wcspr-token',
+    treasury: '01' + 'a'.repeat(64),
+    rpcUrl: 'https://node.testnet.casper.example/rpc',
+    explorer: 'https://testnet.cspr.live',
+    x402Facilitator: 'https://x402.casper.example',
+  };
+  const mocks = {
+    nextServer: { NextResponse: { json: jsonResponse } },
+    x402Next: {
+      withX402(handler, payTo, requirementsFactory) {
+        return async (request, context) => {
+          const requirements = await requirementsFactory(request);
+          calls.baseRequirements.push({ payTo, requirements });
+          const paymentHeader = request.headers.get('x-payment') || '';
+          if (!paymentHeader) {
+            return jsonResponse({ x402Version: 1, error: 'Payment required', accepts: [requirements] }, { status: 402 });
+          }
+
+          calls.baseVerify.push({ paymentHeader, requirements });
+          calls.baseSettle.push({ paymentHeader, requirements, txHash: '0xbase-settlement' });
+          return handler(request, context);
+        };
+      },
+    },
+    db: {
+      TOTAL_TILES: 65536,
+      getTile: () => null,
+      getCurrentPrice: () => 0.03,
+      getNextAvailableTileId: () => 123,
+    },
+    logger: { logX402Failure: (payload) => calls.logs.push(payload) },
+    chains: {
+      getChain(chainId) {
+        assert.equal(chainId, 'casper');
+        return casperConfig;
+      },
+    },
+    casperClient: {
+      createClient(options) {
+        calls.createClient.push(options);
+        return { getCurrentPrice: async () => 0.02 };
+      },
+    },
+    casperX402: {
+      csprToMotes(value) {
+        assert.equal(value, 0.02);
+        return '20000000';
+      },
+      buildCasperPaymentRequirements(args) {
+        calls.buildCasperRequirements.push(args);
+        return {
+          scheme: 'exact',
+          network: args.chainConfig.caip2,
+          payTo: args.chainConfig.treasury,
+          maxAmountRequired: args.priceInMotes,
+          asset: args.chainConfig.paymentToken,
+          resource: args.resource,
+          description: `Claim tile #${args.tileId} on tiles.bot`,
+        };
+      },
+      async verifyCasperPayment(paymentHeader, paymentRequirements) {
+        calls.casperVerify.push({ paymentHeader, paymentRequirements });
+        return { valid: true };
+      },
+      async settleCasperPayment(paymentHeader, paymentRequirements) {
+        calls.casperSettle.push({ paymentHeader, paymentRequirements });
+        return { settled: true, txHash: 'deploy-casper-settlement' };
+      },
+      buildCasperClaimInstructions(args) {
+        calls.buildCasperInstructions.push(args);
+        return {
+          step1_approve: { entryPoint: 'approve', contract: args.chainConfig.paymentToken },
+          step2_claim: { entryPoint: 'claim', contract: args.chainConfig.nftContract, args: { token_id: args.tileId } },
+          step3_register: { method: 'POST', body: { chain: 'casper' } },
+        };
+      },
+    },
+    ...overrides,
+  };
+
+  let source = fs.readFileSync(path.join(ROOT, 'src/app/api/tiles/[id]/claim/route.js'), 'utf8');
+  source = source
+    .replace("import { NextResponse } from 'next/server';", 'const { NextResponse } = __mocks.nextServer;')
+    .replace("import { withX402 } from 'x402-next';", 'const { withX402 } = __mocks.x402Next;')
+    .replace(/import \{\n  getCurrentPrice,\n  getNextAvailableTileId,\n  getTile,\n  TOTAL_TILES,\n\} from '@\/lib\/db';/, 'const { getCurrentPrice, getNextAvailableTileId, getTile, TOTAL_TILES } = __mocks.db;')
+    .replace("import { logX402Failure } from '@/lib/structured-logger';", 'const { logX402Failure } = __mocks.logger;')
+    .replace("import { getChain } from '@/lib/chains';", 'const { getChain } = __mocks.chains;')
+    .replace("import { createClient as createCasperClient } from '@/lib/casper-client';", 'const { createClient: createCasperClient } = __mocks.casperClient;')
+    .replace(/import \{\n  csprToMotes,\n  buildCasperPaymentRequirements,\n  buildCasperClaimInstructions,\n  verifyCasperPayment,\n  settleCasperPayment,\n\} from '@\/lib\/casper-x402';/, 'const { csprToMotes, buildCasperPaymentRequirements, buildCasperClaimInstructions, verifyCasperPayment, settleCasperPayment } = __mocks.casperX402;')
+    .replace('export async function POST(request, context) {', 'async function POST(request, context) {');
+
+  if (/^import |^export /m.test(source)) {
+    throw new Error('Claim route mocks failed to replace all imports/exports');
+  }
+
+  const context = {
+    __mocks: mocks,
+    module: { exports: {} },
+    process: { env: { ...process.env } },
+    Buffer,
+    Response,
+    Headers,
+    URL,
+    console,
+  };
+  vm.runInNewContext(`${source}\nmodule.exports = { POST };`, context, {
+    filename: path.join(ROOT, 'src/app/api/tiles/[id]/claim/route.js'),
+  });
+  return { POST: context.module.exports.POST, calls };
+}
+
+function loadStatsRoute(overrides = {}) {
+  const calls = { chainPrices: [], buildPayload: [] };
+  const chainStats = {
+    base: { claimed: 4, totalRevenue: 0.09, currentPrice: 0.04 },
+    casper: { claimed: 2, totalRevenue: 0.02, currentPrice: 0.02 },
+  };
+  const mocks = {
+    nextServer: { NextResponse: { json: jsonResponse } },
+    db: {
+      getClaimedCount: () => 6,
+      getCurrentPrice: () => 0.99,
+      TOTAL_TILES: 65536,
+      getNextAvailableTileId: () => 124,
+      getRecentlyClaimed: () => [
+        { id: 122, name: 'Casper Agent', owner: '01' + 'b'.repeat(64), claimed_at: '2026-05-31T00:00:00.000Z', chain: 'casper' },
+      ],
+      getTopHolders: () => [{ owner: '0xbase-wallet', count: 4 }],
+      getEstimatedSoldOutRevenue: () => 123456,
+      getTotalRevenue: () => 0.11,
+      getPerChainStats: () => chainStats,
+    },
+    chainApi: {
+      CHAIN_PRICE_CACHE_CONTROL: 'public, max-age=30',
+      async getCachedAllChainCurrentPrices(stats) {
+        calls.chainPrices.push(stats);
+        return {
+          base: { currentPrice: 0.04, source: 'on-chain' },
+          casper: { currentPrice: 0.02, source: 'on-chain' },
+        };
+      },
+      buildChainStatsPayload(chainPrices, stats) {
+        calls.buildPayload.push({ chainPrices, stats });
+        return {
+          base: { claimed: stats.base.claimed, totalRevenue: stats.base.totalRevenue, currentPrice: chainPrices.base.currentPrice, source: chainPrices.base.source },
+          casper: { claimed: stats.casper.claimed, totalRevenue: stats.casper.totalRevenue, currentPrice: chainPrices.casper.currentPrice, source: chainPrices.casper.source },
+        };
+      },
+    },
+    ...overrides,
+  };
+
+  let source = fs.readFileSync(path.join(ROOT, 'src/app/api/stats/route.js'), 'utf8');
+  source = source
+    .replace("import { NextResponse } from 'next/server';", 'const { NextResponse } = __mocks.nextServer;')
+    .replace(/import \{\n  getClaimedCount,\n  getCurrentPrice,\n  TOTAL_TILES,\n  getNextAvailableTileId,\n  getRecentlyClaimed,\n  getTopHolders,\n  getEstimatedSoldOutRevenue,\n  getTotalRevenue,\n  getPerChainStats,\n\} from '@\/lib\/db';/, 'const { getClaimedCount, getCurrentPrice, TOTAL_TILES, getNextAvailableTileId, getRecentlyClaimed, getTopHolders, getEstimatedSoldOutRevenue, getTotalRevenue, getPerChainStats } = __mocks.db;')
+    .replace("import { buildChainStatsPayload, CHAIN_PRICE_CACHE_CONTROL, getCachedAllChainCurrentPrices } from '@/lib/chain-api';", 'const { buildChainStatsPayload, CHAIN_PRICE_CACHE_CONTROL, getCachedAllChainCurrentPrices } = __mocks.chainApi;')
+    .replace('export async function GET() {', 'async function GET() {');
+
+  if (/^import |^export /m.test(source)) {
+    throw new Error('Stats route mocks failed to replace all imports/exports');
+  }
+
+  const context = { __mocks: mocks, module: { exports: {} }, Response, Headers, console };
+  vm.runInNewContext(`${source}\nmodule.exports = { GET };`, context, {
+    filename: path.join(ROOT, 'src/app/api/stats/route.js'),
+  });
+  return { GET: context.module.exports.GET, calls };
+}
+
 describe('DB-backed multi-chain grid and pricing', () => {
   let tmpDir;
   let db;
@@ -166,6 +366,9 @@ describe('DB-backed multi-chain grid and pricing', () => {
     const dbUrl = `${pathToFileURL(path.join(ROOT, 'src/lib/db.js')).href}?suite=${Date.now()}`;
     db = await import(dbUrl);
   });
+
+  // This block intentionally shares one tmp DB: each test adds claims so the
+  // stats assertion proves accumulated Base/Casper counts in the shared namespace.
 
   after(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -273,6 +476,97 @@ describe('API route chain context', () => {
     assert.equal(body.chain, 'casper');
     assert.equal(calls.logEvent.length, 1);
     assert.equal(calls.logEvent[0][4], 'casper');
+  });
+
+  it('Base claim route runs the x402 challenge, payment header, and settlement lifecycle', async () => {
+    const { POST, calls } = loadClaimRoute();
+    const wallet = '0xBaseWallet000000000000000000000000000000000';
+
+    const challenge = await POST(
+      requestFor('https://tiles.bot/api/tiles/50/claim'),
+      { params: Promise.resolve({ id: '50' }) }
+    );
+    const challengeBody = await challenge.json();
+
+    assert.equal(challenge.status, 402);
+    assert.equal(challengeBody.accepts[0].price, '$0.03');
+    assert.equal(challengeBody.accepts[0].network, 'base-sepolia');
+    assert.equal(calls.baseVerify.length, 0);
+    assert.equal(calls.baseSettle.length, 0);
+
+    const paid = await POST(
+      requestFor('https://tiles.bot/api/tiles/50/claim', {}, { 'x-payment': paymentHeaderFor(wallet) }),
+      { params: Promise.resolve({ id: '50' }) }
+    );
+    const paidBody = await paid.json();
+
+    assert.equal(paid.status, 200);
+    assert.equal(paidBody.ok, true);
+    assert.equal(paidBody.tileId, 50);
+    assert.equal(paidBody.instructions.step2_claim.contract, process.env.NEXT_PUBLIC_CONTRACT_ADDRESS);
+    assert.equal(calls.baseRequirements.length, 2);
+    assert.equal(calls.baseVerify.length, 1);
+    assert.equal(calls.baseSettle.length, 1);
+    assert.equal(calls.baseVerify[0].paymentHeader, paymentHeaderFor(wallet));
+    assert.equal(calls.createClient.length, 0);
+    assert.equal(calls.casperVerify.length, 0);
+  });
+
+  it('Casper claim route runs payment requirements, verify, settle, and claim instructions', async () => {
+    const { POST, calls } = loadClaimRoute();
+    const paymentHeader = paymentHeaderFor('01' + 'c'.repeat(64));
+
+    const challenge = await POST(
+      requestFor('https://tiles.bot/api/tiles/51/claim?chain=casper'),
+      { params: Promise.resolve({ id: '51' }) }
+    );
+    const challengeBody = await challenge.json();
+
+    assert.equal(challenge.status, 402);
+    assert.equal(challengeBody.accepts[0].network, 'casper:casper');
+    assert.equal(challengeBody.accepts[0].maxAmountRequired, '20000000');
+    assert.equal(calls.casperVerify.length, 0);
+    assert.equal(calls.casperSettle.length, 0);
+
+    const paid = await POST(
+      requestFor('https://tiles.bot/api/tiles/51/claim?chain=casper', {}, { 'x-payment': paymentHeader }),
+      { params: Promise.resolve({ id: '51' }) }
+    );
+    const paidBody = await paid.json();
+
+    assert.equal(paid.status, 200);
+    assert.equal(paidBody.chain, 'casper');
+    assert.equal(paidBody.payment.verified, true);
+    assert.equal(paidBody.payment.settled, true);
+    assert.equal(paidBody.payment.txHash, 'deploy-casper-settlement');
+    assert.equal(paidBody.instructions.step2_claim.entryPoint, 'claim');
+    assert.equal(paidBody.instructions.step2_claim.args.token_id, 51);
+    assert.equal(calls.createClient.length, 2);
+    assert.equal(calls.buildCasperRequirements.length, 2);
+    assert.equal(calls.casperVerify.length, 1);
+    assert.equal(calls.casperSettle.length, 1);
+    assert.equal(calls.casperVerify[0].paymentHeader, paymentHeader);
+    assert.equal(calls.baseVerify.length, 0);
+  });
+
+  it('/api/stats HTTP route returns per-chain payload and Base-compatible currentPrice', async () => {
+    const { GET, calls } = loadStatsRoute();
+
+    const response = await GET();
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=30');
+    assert.equal(body.claimed, 6);
+    assert.equal(body.available, 65530);
+    assert.equal(body.currentPrice, 0.04);
+    assert.equal(body.perChain.base.claimed, 4);
+    assert.equal(body.perChain.casper.claimed, 2);
+    assert.equal(body.perChain.base.currentPrice, 0.04);
+    assert.equal(body.perChain.casper.currentPrice, 0.02);
+    assert.equal(body.recentlyClaimed[0].chain, 'casper');
+    assert.equal(calls.chainPrices.length, 1);
+    assert.equal(calls.buildPayload.length, 1);
   });
 });
 
