@@ -7,31 +7,68 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 const API_BASE = process.env.TILES_BOT_API || 'https://tiles.bot';
+const DEFAULT_CHAIN = 'base';
+const SUPPORTED_CHAINS = ['base', 'casper'] as const;
 
-async function api(path: string, options?: RequestInit) {
-  const res = await fetch(`${API_BASE}${path}`, {
+export const serverVersion = '0.3.0';
+
+type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+type SupportedChain = typeof SUPPORTED_CHAINS[number];
+
+const chainProperty = {
+  type: 'string',
+  enum: SUPPORTED_CHAINS,
+  default: DEFAULT_CHAIN,
+  description: 'Blockchain to query/use. Defaults to Base for backward compatibility.',
+};
+
+function normalizeChain(chain?: unknown): SupportedChain {
+  const value = String(chain || DEFAULT_CHAIN).trim().toLowerCase();
+  if (!SUPPORTED_CHAINS.includes(value as SupportedChain)) {
+    throw new Error(`Unsupported chain: ${value}`);
+  }
+  return value as SupportedChain;
+}
+
+function pathWithChain(path: string, chain?: unknown) {
+  const resolved = normalizeChain(chain);
+  return `${path}${path.includes('?') ? '&' : '?'}chain=${encodeURIComponent(resolved)}`;
+}
+
+function pathWithQuery(path: string, params: Record<string, unknown>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  }
+  const suffix = query.toString();
+  return suffix ? `${path}?${suffix}` : path;
+}
+
+async function requestJson(path: string, options: RequestInit | undefined, fetchImpl: FetchLike) {
+  const res = await fetchImpl(`${API_BASE}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options?.headers },
   });
   return res.json();
 }
 
-async function apiRaw(path: string, options?: RequestInit) {
-  return fetch(`${API_BASE}${path}`, options);
+async function requestRaw(path: string, options: RequestInit | undefined, fetchImpl: FetchLike) {
+  return fetchImpl(`${API_BASE}${path}`, options);
 }
 
-const server = new Server(
-  { name: 'tiles-bot-mcp', version: '0.2.0' },
-  { capabilities: { tools: {} } }
-);
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
+export const tools: any[] = [
     // — Grid & Discovery —
     {
       name: 'tiles_get_stats',
-      description: 'Get grid statistics: claimed count, current price, bonding curve, top holders, revenue',
-      inputSchema: { type: 'object' as const, properties: {} },
+      description: 'Get grid statistics for Base (default), Casper, or combined API payload: claimed count, current price, bonding curve, top holders, revenue',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          chain: chainProperty,
+        },
+      },
     },
     {
       name: 'tiles_get_info',
@@ -40,14 +77,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: 'object' as const,
         properties: {
           tileId: { type: 'number', description: 'Tile ID (0-65535)' },
+          chain: chainProperty,
         },
         required: ['tileId'],
       },
     },
     {
       name: 'tiles_get_grid',
-      description: 'Get all claimed tiles on the grid (sparse — only returns tiles with data)',
-      inputSchema: { type: 'object' as const, properties: {} },
+      description: 'Get all claimed tiles on the grid for Base (default), Casper, or combined API payload',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          chain: chainProperty,
+        },
+      },
     },
     {
       name: 'tiles_get_neighbors',
@@ -86,6 +129,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ['address'],
       },
     },
+    {
+      name: 'get-supported-chains',
+      description: 'Get supported tiles.bot chains with contract addresses, payment tokens, prices, and default chain',
+      inputSchema: { type: 'object' as const, properties: {} },
+    },
+    {
+      name: 'get-chain-config',
+      description: 'Get config for one supported chain (Base by default, or Casper)',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          chain: chainProperty,
+        },
+      },
+    },
 
     // — Claiming & Purchasing —
     {
@@ -100,8 +158,49 @@ Contract: 0xB2915C42329edFfC26037eed300D620C302b5791, USDC: 0x833589fCD6eDb6E08f
         properties: {
           tileId: { type: 'number', description: 'Tile ID to claim (0-65535)' },
           wallet: { type: 'string', description: 'Your wallet address (will own the NFT)' },
+          chain: chainProperty,
         },
         required: ['tileId', 'wallet'],
+      },
+    },
+    {
+      name: 'casper-claim-tile',
+      description: 'Casper-specific helper for claiming a tile. Calls /api/tiles/:id/claim with chain=casper and returns wCSPR/x402 + Casper on-chain instructions.',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          tileId: { type: 'number', description: 'Tile ID to claim (0-65535)' },
+          wallet: { type: 'string', description: 'Your Casper public key (will own the NFT)' },
+        },
+        required: ['tileId', 'wallet'],
+      },
+    },
+    {
+      name: 'tiles_check_owner',
+      description: 'Check whether a wallet owns a tile on Base (default) or Casper',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          tileId: { type: 'number', description: 'Tile ID to check' },
+          wallet: { type: 'string', description: 'Wallet address/public key' },
+          chain: chainProperty,
+        },
+        required: ['tileId', 'wallet'],
+      },
+    },
+    {
+      name: 'tiles_batch_register',
+      description: 'Register multiple tiles after an on-chain batch claim on Base or Casper',
+      inputSchema: {
+        type: 'object' as const,
+        properties: {
+          tileIds: { type: 'array', items: { type: 'number' }, description: 'Array of tile IDs to register' },
+          wallet: { type: 'string', description: 'Wallet address/public key' },
+          txHash: { type: 'string', description: 'Base transaction hash' },
+          deployHash: { type: 'string', description: 'Casper deploy hash' },
+          chain: chainProperty,
+        },
+        required: ['tileIds', 'wallet'],
       },
     },
     {
@@ -113,6 +212,7 @@ After x402 payment, call batchClaim(uint256[] tokenIds) from YOUR wallet, then t
         properties: {
           tileIds: { type: 'array', items: { type: 'number' }, description: 'Array of tile IDs to claim (max 256)' },
           wallet: { type: 'string', description: 'Your wallet address (will own the NFTs)' },
+          chain: chainProperty,
         },
         required: ['tileIds', 'wallet'],
       },
@@ -125,7 +225,10 @@ After x402 payment, call batchClaim(uint256[] tokenIds) from YOUR wallet, then t
         properties: {
           tileId: { type: 'number', description: 'Tile ID to register' },
           wallet: { type: 'string', description: 'Wallet address (must be on-chain owner)' },
+          txHash: { type: 'string', description: 'Base transaction hash' },
+          deployHash: { type: 'string', description: 'Casper deploy hash' },
           name: { type: 'string', description: 'Agent/bot name' },
+          chain: chainProperty,
         },
         required: ['tileId', 'wallet'],
       },
@@ -351,24 +454,39 @@ After x402 payment, call batchClaim(uint256[] tokenIds) from YOUR wallet, then t
         },
       },
     },
-  ],
-}));
+  ];
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+export function createTilesBotServer() {
+  const server = new Server(
+    { name: 'tiles-bot-mcp', version: serverVersion },
+    { capabilities: { tools: {} } }
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return callTool(name, args || {});
+  });
+
+  return server;
+}
+
+export async function callTool(name: string, args: any = {}, fetchImpl: FetchLike = fetch) {
   const a = args || {};
+  const api = (path: string, options?: RequestInit) => requestJson(path, options, fetchImpl);
+  const apiRaw = (path: string, options?: RequestInit) => requestRaw(path, options, fetchImpl);
 
   try {
     switch (name) {
       // — Grid & Discovery —
       case 'tiles_get_stats':
-        return txt(await api('/api/stats'));
+        return txt(await api(pathWithChain('/api/stats', a.chain)));
 
       case 'tiles_get_info':
-        return txt(await api(`/api/tiles/${a.tileId}`));
+        return txt(await api(pathWithChain(`/api/tiles/${a.tileId}`, a.chain)));
 
       case 'tiles_get_grid':
-        return txt(await api('/api/grid'));
+        return txt(await api(pathWithChain('/api/grid', a.chain)));
 
       case 'tiles_get_neighbors':
         return txt(await api(`/api/tiles/${a.tileId}/connect`));
@@ -382,15 +500,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'tiles_get_owner_tiles':
         return txt(await api(`/api/owner/${a.address}`));
 
+      case 'get-supported-chains':
+        return txt(await api('/api/chains'));
+
+      case 'get-chain-config': {
+        const chain = normalizeChain(a.chain);
+        const data = await api('/api/chains');
+        return txt({ defaultChain: data.defaultChain, chain: data.chains?.[chain] || null });
+      }
+
       // — Claiming —
       case 'tiles_claim': {
-        const res = await apiRaw(`/api/tiles/${a.tileId}/claim`, {
+        const chain = normalizeChain(a.chain);
+        const res = await apiRaw(pathWithChain(`/api/tiles/${a.tileId}/claim`, chain), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: a.name, description: a.description, category: a.category,
             url: a.url, xHandle: a.xHandle, avatar: a.avatar, color: a.color,
-            wallet: a.wallet,
+            wallet: a.wallet, chain,
           }),
         });
         const data = await res.json();
@@ -400,12 +528,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return txt(data);
       }
 
+      case 'casper-claim-tile': {
+        const res = await apiRaw(pathWithChain(`/api/tiles/${a.tileId}/claim`, 'casper'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: a.wallet, chain: 'casper' }),
+        });
+        const data = await res.json();
+        if (res.status === 402) {
+          return txt({ status: 402, message: 'Payment required', ...data });
+        }
+        return txt(data);
+      }
+
+      case 'tiles_check_owner':
+        return txt(await api(pathWithQuery(`/api/tiles/${a.tileId}/check-owner`, {
+          wallet: a.wallet,
+          chain: normalizeChain(a.chain),
+        })));
+
+      case 'tiles_batch_register':
+        return txt(await api('/api/tiles/batch-register', {
+          method: 'POST',
+          body: JSON.stringify({
+            tileIds: a.tileIds,
+            wallet: a.wallet,
+            txHash: a.txHash,
+            deployHash: a.deployHash,
+            chain: normalizeChain(a.chain),
+          }),
+        }));
+
       case 'tiles_batch_claim': {
-        const res = await apiRaw('/api/tiles/batch-claim', {
+        const chain = normalizeChain(a.chain);
+        const res = await apiRaw(pathWithChain('/api/tiles/batch-claim', chain), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            tileIds: a.tileIds, name: a.name, wallet: a.wallet, category: a.category,
+            tileIds: a.tileIds, name: a.name, wallet: a.wallet, category: a.category, chain,
           }),
         });
         const data = await res.json();
@@ -418,7 +578,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'tiles_register':
         return txt(await api(`/api/tiles/${a.tileId}/register`, {
           method: 'POST',
-          body: JSON.stringify({ wallet: a.wallet, name: a.name }),
+          body: JSON.stringify({
+            wallet: a.wallet,
+            name: a.name,
+            txHash: a.txHash,
+            deployHash: a.deployHash,
+            chain: normalizeChain(a.chain),
+          }),
         }));
 
       // — Tile Management —
@@ -538,15 +704,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   } catch (err: any) {
     return { content: [{ type: 'text', text: `Error: ${err.message}` }] };
   }
-});
+}
 
 function txt(data: any) {
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
 }
 
 async function main() {
+  const server = createTilesBotServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  main().catch(console.error);
+}
