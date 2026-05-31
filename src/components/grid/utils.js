@@ -162,10 +162,13 @@ function getHeartbeatGlowColor(lastHeartbeat) {
   return null; // >30 min: no glow
 }
 
-function tileMatchesFilter(tile, searchQuery, categoryFilter) {
+const { tileMatchesChainFilter } = require('@/lib/chainVisuals');
+
+function tileMatchesFilter(tile, searchQuery, categoryFilter, chainFilter = 'all') {
   const normalizedCategoryFilter = categoryFilter?.toLowerCase();
   const matchesCategory = !normalizedCategoryFilter || normalizedCategoryFilter === 'all' ||
     tile.category?.toLowerCase() === normalizedCategoryFilter;
+  const matchesChain = tileMatchesChainFilter(tile, chainFilter);
   const normalizedSearch = searchQuery?.toLowerCase();
   const matchesSearch = !normalizedSearch ||
     tile.name?.toLowerCase().includes(normalizedSearch) ||
@@ -173,17 +176,20 @@ function tileMatchesFilter(tile, searchQuery, categoryFilter) {
     tile.description?.toLowerCase().includes(normalizedSearch) ||
     tile.xHandle?.toLowerCase().replace(/^@/, '').includes(normalizedSearch.replace(/^@/, '')) ||
     tile.githubUsername?.toLowerCase().includes(normalizedSearch);
-  return matchesCategory && matchesSearch;
+  return matchesCategory && matchesChain && matchesSearch;
 }
 
-function hasActiveFilter(searchQuery, categoryFilter) {
+function hasActiveFilter(searchQuery, categoryFilter, chainFilter = 'all') {
   const normalizedCategoryFilter = categoryFilter?.toLowerCase();
-  return Boolean(searchQuery && searchQuery.length > 0) || Boolean(normalizedCategoryFilter && normalizedCategoryFilter !== 'all');
+  const normalizedChainFilter = chainFilter?.toLowerCase();
+  return Boolean(searchQuery && searchQuery.length > 0) ||
+    Boolean(normalizedCategoryFilter && normalizedCategoryFilter !== 'all') ||
+    Boolean(normalizedChainFilter && normalizedChainFilter !== 'all');
 }
 
-function getFirstMatchingTile(tiles, searchQuery, categoryFilter) {
+function getFirstMatchingTile(tiles, searchQuery, categoryFilter, chainFilter = 'all') {
   return Object.values(tiles)
-    .filter(tile => tileMatchesFilter(tile, searchQuery, categoryFilter))
+    .filter(tile => tileMatchesFilter(tile, searchQuery, categoryFilter, chainFilter))
     .sort((a, b) => a.id - b.id)[0] || null;
 }
 

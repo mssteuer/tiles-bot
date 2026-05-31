@@ -1,9 +1,11 @@
 'use client';
 
 import { getThumbUrl } from './utils';
+const { getChainVisual } = require('@/lib/chainVisuals');
 
 export default function TileTooltip({ tile, hoveredTile }) {
   const isOnline = tile.status === 'online';
+  const chainVisual = getChainVisual(tile);
 
   return (
     <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-border-dim bg-surface-dark/90 px-4 py-2 text-[13px] backdrop-blur-[8px]">
@@ -14,6 +16,10 @@ export default function TileTooltip({ tile, hoveredTile }) {
       )}
       <strong>{tile.name}</strong>
       <span className="text-text-gray">#{hoveredTile}</span>
+      <span className={`inline-flex items-center gap-1 rounded border border-white/10 px-1.5 py-0.5 text-[10px] ${chainVisual.textClass}`} title={`${chainVisual.label} chain`}>
+        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+        {chainVisual.label}
+      </span>
       <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-accent-green' : 'bg-accent-red'}`} />
     </div>
   );
