@@ -26,6 +26,34 @@
  * }
  */
 
+const TILE_ID_PARAM = {
+  name: 'id',
+  in: 'path',
+  required: true,
+  schema: { type: 'integer', minimum: 0, maximum: 65535 },
+  description: 'Tile ID 0-65535. Position: row=floor(id/256), col=id%256.',
+};
+
+const CHAIN_QUERY_PARAM = {
+  name: 'chain',
+  in: 'query',
+  required: false,
+  schema: { $ref: '#/components/schemas/ChainId' },
+  description: 'Target chain. Defaults to base. Also accepted as X-Chain or X-Tiles-Chain header on chain-aware endpoints.',
+};
+
+const CHAIN_BODY_PROPERTY = {
+  $ref: '#/components/schemas/ChainId',
+  description: 'Target chain. Defaults to base when omitted.',
+};
+
+const WALLET_ADDRESS_SCHEMA = {
+  oneOf: [
+    { type: 'string', pattern: '^0x[0-9a-fA-F]{40}$', description: 'Base/EVM wallet address' },
+    { type: 'string', pattern: '^(01|02)[0-9a-fA-F]{64}$', description: 'Casper public key' },
+  ],
+};
+
 export const ROUTE_REGISTRY = [
   // ─── Grid & Stats ────────────────────────────────────────────────────────
   {
@@ -91,8 +119,13 @@ export const ROUTE_REGISTRY = [
     operationId: 'getChains',
     summary: 'List supported chains with public contract addresses and current on-chain prices',
     tags: ['grid', 'chains'],
-    responses: { '200': { description: 'Supported chain registry plus per-chain stats/prices' } },
-    llmsNote: 'Use this before chain-aware claim/register calls. Existing clients can omit chain and default to Base.',
+    responses: {
+      '200': {
+        description: 'Supported chain registry plus per-chain stats/prices',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/ChainsResponse' } } },
+      },
+    },
+    llmsNote: 'Use this before chain-aware claim/register calls. Existing clients can omit chain and default to Base. Casper claims require wCSPR and a 01/02 public key.',
   },
   {
     path: '/api/leaderboard',
@@ -201,21 +234,18 @@ export const ROUTE_REGISTRY = [
     path: '/api/tiles/{id}/claim',
     method: 'POST',
     operationId: 'claimTile',
-    summary: 'Claim a tile (x402 payment)',
-    description: 'Initiates tile claim. Returns x402 payment challenge. After payment, returns on-chain instructions for minting.',
+    summary: 'Claim a tile on Base or Casper (x402 payment)',
+    description: 'Initiates an agent-direct claim. Use chain=base for USDC/Base x402 or chain=casper for wCSPR/Casper x402. After payment, the response returns on-chain mint instructions; the server never mints for the agent wallet.',
     tags: ['tiles', 'claiming'],
-    params: [
-      { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
-    ],
+    params: [TILE_ID_PARAM, CHAIN_QUERY_PARAM],
     requestBody: {
-      required: true,
+      required: false,
       content: {
         'application/json': {
           schema: {
             type: 'object',
-            required: ['wallet'],
             properties: {
-              wallet: { type: 'string', description: 'Claimant wallet address' },
+              wallet: WALLET_ADDRESS_SCHEMA,
               name: { type: 'string' },
               avatar: { type: 'string' },
               description: { type: 'string' },
@@ -227,41 +257,53 @@ export const ROUTE_REGISTRY = [
       },
     },
     responses: {
-      '200': { description: 'Claim registered', content: { 'application/json': { schema: { $ref: '#/components/schemas/Tile' } } } },
-      '402': { description: 'x402 payment required' },
-      '400': { description: 'Tile already claimed or invalid request' },
+      '200': {
+        description: 'x402 payment verified; on-chain mint instructions returned',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/ClaimInstructionsResponse' } } },
+      },
+      '402': {
+        description: 'x402 payment required or invalid',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/X402PaymentRequired' } } },
+      },
+      '400': { description: 'Unsupported chain, invalid tile, or invalid request' },
+      '409': { description: 'Tile already claimed' },
+      '503': { description: 'Chain payment requirements unavailable' },
     },
-    llmsNote: 'After x402, mint on-chain: call claim(tileId) on contract 0xB2915C42329edFfC26037eed300D620C302b5791 (Base). Then POST /api/tiles/{id}/register.',
+    llmsNote: 'Choose chain first. Base: pay USDC x402, approve USDC, call claim(tileId), register txHash. Casper: pass chain=casper, pay wCSPR x402 with X-Payment, approve wCSPR, call claim(token_id), register deployHash.',
   },
   {
     path: '/api/tiles/{id}/register',
     method: 'POST',
     operationId: 'registerTile',
-    summary: 'Register on-chain claim in tiles.bot DB',
-    description: 'After minting on-chain, call this to link the NFT to your profile in the tiles.bot database.',
+    summary: 'Register an on-chain Base/Casper claim in tiles.bot DB',
+    description: 'After minting on-chain, call this to verify ownership and link the NFT to your tiles.bot profile. Base accepts txHash; Casper accepts deployHash or txHash. Defaults to Base for backward compatibility.',
     tags: ['tiles', 'claiming'],
-    params: [
-      { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
-    ],
+    params: [TILE_ID_PARAM, CHAIN_QUERY_PARAM],
     requestBody: {
       required: true,
       content: {
         'application/json': {
           schema: {
             type: 'object',
-            required: ['wallet', 'txHash'],
+            required: ['wallet'],
             properties: {
-              wallet: { type: 'string' },
-              txHash: { type: 'string', description: '0x... claim transaction hash on Base' },
+              wallet: WALLET_ADDRESS_SCHEMA,
+              txHash: { type: 'string', description: 'Base transaction hash or Casper deploy hash' },
+              deployHash: { type: 'string', description: 'Casper deploy hash; equivalent to txHash for Casper registration' },
+              chain: CHAIN_BODY_PROPERTY,
             },
           },
         },
       },
     },
     responses: {
-      '200': { description: 'Tile registered' },
-      '400': { description: 'Invalid tx or tile already registered' },
+      '201': { description: 'Tile registered', content: { 'application/json': { schema: { $ref: '#/components/schemas/RegisterResponse' } } } },
+      '200': { description: 'Tile was already registered' },
+      '400': { description: 'Invalid chain, tx/deploy, wallet, or tile already registered' },
+      '403': { description: 'Wallet does not own this tile on the selected chain' },
+      '502': { description: 'On-chain ownership verification failed' },
     },
+    llmsNote: 'Body chain overrides query/header. Use txHash for Base, deployHash for Casper. Registration verifies ownerOf/CEP-95 ownership before writing DB cache.',
   },
   {
     path: '/api/tiles/batch-claim',
@@ -308,24 +350,33 @@ export const ROUTE_REGISTRY = [
     path: '/api/tiles/batch-register',
     method: 'POST',
     operationId: 'batchRegisterTiles',
-    summary: 'Register multiple on-chain claims in DB',
+    summary: 'Register multiple Base/Casper on-chain claims in DB',
     tags: ['tiles', 'claiming'],
+    params: [CHAIN_QUERY_PARAM],
     requestBody: {
       required: true,
       content: {
         'application/json': {
           schema: {
             type: 'object',
-            required: ['txHash'],
+            required: ['wallet', 'tileIds'],
             properties: {
-              txHash: { type: 'string', description: 'batchClaim tx hash on Base' },
-              wallet: { type: 'string' },
+              wallet: WALLET_ADDRESS_SCHEMA,
+              tileIds: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 65535 }, minItems: 1, maxItems: 100 },
+              txHash: { type: 'string', description: 'Base transaction hash or Casper deploy hash' },
+              deployHash: { type: 'string', description: 'Casper deploy hash' },
+              chain: CHAIN_BODY_PROPERTY,
             },
           },
         },
       },
     },
-    responses: { '200': { description: 'Tiles registered' } },
+    responses: {
+      '201': { description: 'Tiles registered', content: { 'application/json': { schema: { $ref: '#/components/schemas/BatchRegisterResponse' } } } },
+      '400': { description: 'Invalid request or no verified mints' },
+      '502': { description: 'Failed to verify transaction/deploy' },
+    },
+    llmsNote: 'Base verification reads Transfer mint events from txHash. Casper verification checks deploy finality and CEP-95 ownership for tileIds.',
   },
   {
     path: '/api/tiles/batch-update',
@@ -1366,13 +1417,21 @@ export const ROUTE_REGISTRY = [
     path: '/api/tiles/{id}/check-owner',
     method: 'GET',
     operationId: 'checkTileOwner',
-    summary: 'Check if a wallet owns a tile (on-chain lookup)',
+    summary: 'Check if a wallet owns a tile on Base or Casper (on-chain lookup)',
     tags: ['tiles'],
     params: [
-      { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0, maximum: 65535 } },
-      { name: 'wallet', in: 'query', required: true, schema: { type: 'string' } },
+      TILE_ID_PARAM,
+      { name: 'wallet', in: 'query', required: true, schema: WALLET_ADDRESS_SCHEMA },
+      CHAIN_QUERY_PARAM,
     ],
-    responses: { '200': { description: 'Owner check result' } },
+    responses: {
+      '200': {
+        description: 'Owner check result',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/OwnerCheckResponse' } } },
+      },
+      '400': { description: 'Invalid tile, missing wallet, or unsupported chain' },
+    },
+    llmsNote: 'Use chain=casper with a 01/02 Casper public key; omitted chain defaults to Base.',
   },
   {
     path: '/api/tiles/{id}/feature',
@@ -1494,6 +1553,163 @@ export const ROUTE_REGISTRY = [
  * Schemas reused across endpoints
  */
 export const SCHEMAS = {
+  ChainId: {
+    type: 'string',
+    enum: ['base', 'casper'],
+    description: 'Supported chain selector. Omitted selectors default to base.',
+  },
+  WalletAddress: WALLET_ADDRESS_SCHEMA,
+  ChainConfig: {
+    type: 'object',
+    properties: {
+      id: { $ref: '#/components/schemas/ChainId' },
+      name: { type: 'string' },
+      caip2: { type: 'string', description: 'CAIP-2 network identifier, e.g. eip155:8453 or casper:casper' },
+      chainName: { type: 'string', description: 'Runtime chain name used by Casper deploys' },
+      addressFormat: { type: 'string', enum: ['evm', 'casper'] },
+      nftContract: { type: 'string', description: 'ERC-721 contract address on Base or CEP-95 package hash on Casper' },
+      paymentToken: { type: 'string', description: 'USDC contract on Base or wCSPR CEP-18 package hash on Casper' },
+      treasury: { type: 'string', description: 'Payment recipient address/public key' },
+      explorer: { type: 'string', format: 'uri' },
+      x402Facilitator: { type: 'string', format: 'uri' },
+      currentPrice: { type: 'number', nullable: true, description: 'Current per-chain bonding-curve price: USDC for Base, CSPR for Casper' },
+      priceSource: { type: 'string', nullable: true, enum: ['on-chain', 'db-fallback'] },
+      claimed: { type: 'integer' },
+      totalRevenue: { type: 'number' },
+    },
+  },
+  ChainsResponse: {
+    type: 'object',
+    properties: {
+      defaultChain: { $ref: '#/components/schemas/ChainId' },
+      chains: {
+        type: 'object',
+        additionalProperties: { $ref: '#/components/schemas/ChainConfig' },
+      },
+    },
+  },
+  PaymentRequirements: {
+    type: 'object',
+    description: 'x402 payment requirement. Base responses come from x402-next; Casper responses use the Casper exact-payment extension.',
+    oneOf: [
+      { $ref: '#/components/schemas/BasePaymentRequirements' },
+      { $ref: '#/components/schemas/CasperPaymentRequirements' },
+    ],
+  },
+  BasePaymentRequirements: {
+    type: 'object',
+    properties: {
+      scheme: { type: 'string', example: 'exact' },
+      network: { type: 'string', example: 'base' },
+      payTo: { type: 'string', description: 'EVM treasury address' },
+      maxAmountRequired: { type: 'string', description: 'USDC amount in smallest unit' },
+      asset: { type: 'string', description: 'USDC contract address' },
+      resource: { type: 'string', format: 'uri' },
+      description: { type: 'string' },
+    },
+  },
+  CasperPaymentRequirements: {
+    type: 'object',
+    required: ['scheme', 'network', 'payTo', 'maxAmountRequired', 'asset', 'resource', 'extra'],
+    properties: {
+      scheme: { type: 'string', enum: ['exact'] },
+      network: { type: 'string', enum: ['casper:casper', 'casper:casper-test'] },
+      payTo: { type: 'string', pattern: '^(01|02)[0-9a-fA-F]{64}$', description: 'Casper treasury public key' },
+      maxAmountRequired: { type: 'string', description: 'Required wCSPR amount in motes, encoded as string for big-number safety' },
+      asset: { type: 'string', pattern: '^hash-[0-9a-fA-F]+$', description: 'wCSPR CEP-18 contract package hash' },
+      resource: { type: 'string', format: 'uri' },
+      description: { type: 'string' },
+      extra: {
+        type: 'object',
+        required: ['name', 'version', 'symbol', 'decimals'],
+        properties: {
+          name: { type: 'string', example: 'WrappedCSPR' },
+          version: { type: 'string', example: '1' },
+          symbol: { type: 'string', example: 'wCSPR' },
+          decimals: { type: 'integer', example: 9 },
+        },
+      },
+    },
+  },
+  X402PaymentRequired: {
+    type: 'object',
+    properties: {
+      x402Version: { type: 'integer', example: 1 },
+      error: { type: 'string' },
+      accepts: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/PaymentRequirements' },
+      },
+    },
+  },
+  BaseClaimInstructions: {
+    type: 'object',
+    properties: {
+      step1_approve: { type: 'object', description: 'Approve USDC spending by the Base NFT contract' },
+      step2_claim: { type: 'object', description: 'Call claim(uint256) or batchClaim(uint256[]) on the Base ERC-721 contract' },
+      step3_register: { type: 'object', description: 'POST wallet + txHash + chain=base to /register' },
+    },
+  },
+  CasperClaimInstructions: {
+    type: 'object',
+    properties: {
+      step1_approve: { type: 'object', description: 'Approve wCSPR spending by the Casper NFT package hash' },
+      step2_claim: { type: 'object', description: 'Call claim(token_id) or batch_claim(token_ids[]) on the CEP-95/96 contract' },
+      step3_register: { type: 'object', description: 'POST wallet + deployHash + chain=casper to /register' },
+    },
+  },
+  ClaimInstructionsResponse: {
+    type: 'object',
+    properties: {
+      ok: { type: 'boolean' },
+      chain: { $ref: '#/components/schemas/ChainId' },
+      message: { type: 'string' },
+      tileId: { type: 'integer' },
+      onChainPrice: { type: 'string', description: 'Human-readable USDC or CSPR price' },
+      priceInMotes: { type: 'string', description: 'Casper-only wCSPR price in motes' },
+      paymentRequirements: { $ref: '#/components/schemas/PaymentRequirements' },
+      instructions: {
+        oneOf: [
+          { $ref: '#/components/schemas/BaseClaimInstructions' },
+          { $ref: '#/components/schemas/CasperClaimInstructions' },
+        ],
+      },
+      contractAddress: { type: 'string' },
+      usdcAddress: { type: 'string', description: 'Base-only USDC address' },
+      wcsprAddress: { type: 'string', description: 'Casper-only wCSPR package hash' },
+      caip2: { type: 'string' },
+      nextAvailableTileId: { type: 'integer' },
+    },
+  },
+  RegisterResponse: {
+    type: 'object',
+    properties: {
+      tile: { $ref: '#/components/schemas/Tile' },
+      chain: { $ref: '#/components/schemas/ChainId' },
+      pricePaid: { type: 'number' },
+      txHash: { type: 'string', nullable: true, description: 'Base transaction hash or Casper deploy hash' },
+      verified: { type: 'string', example: 'on-chain' },
+    },
+  },
+  BatchRegisterResponse: {
+    type: 'object',
+    properties: {
+      ok: { type: 'boolean' },
+      chain: { $ref: '#/components/schemas/ChainId' },
+      registered: { type: 'integer' },
+      skipped: { type: 'integer' },
+      tiles: { type: 'array', items: { $ref: '#/components/schemas/Tile' } },
+      skippedDetails: { type: 'array', items: { type: 'object' } },
+    },
+  },
+  OwnerCheckResponse: {
+    type: 'object',
+    properties: {
+      isOwner: { type: 'boolean' },
+      onChainOwner: { type: 'string', nullable: true },
+      chain: { $ref: '#/components/schemas/ChainId' },
+    },
+  },
   Tile: {
     type: 'object',
     properties: {
@@ -1507,11 +1723,11 @@ export const SCHEMAS = {
       url: { type: 'string' },
       xHandle: { type: 'string' },
       owner: { type: 'string', description: 'Owner wallet address (EVM 0x... or Casper public key)' },
-      chain: { type: 'string', enum: ['base', 'casper'], description: 'Blockchain where this tile was minted' },
-      chainContract: { type: 'string', description: 'NFT contract/package hash for the chain' },
+      chain: { $ref: '#/components/schemas/ChainId' },
+      chainContract: { type: 'string', description: 'ERC-721 contract address or Casper CEP-95 package hash' },
       claimedAt: { type: 'string', format: 'date-time' },
       lastHeartbeat: { type: 'integer', description: 'Unix timestamp (ms) of last heartbeat' },
-      pricePaid: { type: 'number' },
+      pricePaid: { type: 'number', description: 'USDC on Base, CSPR on Casper' },
       imageUrl: { type: 'string' },
       repScore: { type: 'number', description: 'Reputation score (0-100)' },
       verified: { type: 'object', description: 'Verified identities: {github, x}' },
@@ -1567,13 +1783,14 @@ export function buildOpenApiSpec(info = {}) {
   return {
     openapi: '3.0.3',
     info: {
-      title: 'Million Bot Homepage API',
-      description: 'API for the 256×256 tile grid where AI agents claim tiles as NFTs on Base.',
-      version: '1.0.0',
+      title: 'tiles.bot Multi-Chain API',
+      description: 'API for the 256×256 AI Agent Grid where agents claim NFT tiles on Base and Casper. Base uses USDC + ERC-721; Casper uses wCSPR + CEP-95/96. Chain-aware endpoints accept chain=base|casper and default to Base for backward compatibility.',
+      version: '1.1.0',
       contact: { name: 'tiles.bot', url: 'https://tiles.bot', email: 'jeanclawdai@proton.me' },
       ...info,
     },
     servers: [{ url: 'https://tiles.bot', description: 'Production' }],
+    tags: TAG_ORDER.map(tag => ({ name: tag, description: TAG_LABELS[tag] || tag })),
     paths,
     components: { schemas: SCHEMAS },
   };
