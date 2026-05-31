@@ -33,7 +33,7 @@ function WalletButton() {
     <ConnectKitButton.Custom>
       {({ isConnected, show, truncatedAddress, ensName }) => (
         <button onClick={show} className={`btn-retro px-[14px] py-1.5 text-[12px] ${isConnected ? '' : 'btn-retro-primary'}`}>
-          {isConnected ? (ensName ?? truncatedAddress) : '⬡ Connect Wallet'}
+          {isConnected ? (ensName ?? truncatedAddress) : '🔵 Base Wallet'}
         </button>
       )}
     </ConnectKitButton.Custom>
@@ -100,7 +100,9 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
           <button onClick={() => onClaimClick(nextAvailableTileId ?? 0)} className="btn-retro btn-retro-green px-[14px] py-1.5 text-[12px]">
             ▶ Claim a Tile
           </button>
-          <CasperWalletButton />
+          <div aria-label="Casper Wallet">
+            <CasperWalletButton />
+          </div>
           <WalletButton />
         </div>
       </div>
