@@ -1,23 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getCurrentPrice, getClaimedCount, TOTAL_TILES, getCurrentPriceByChain, getClaimedCountByChain } from '@/lib/db';
+import { getClaimedCount, TOTAL_TILES, getCurrentPriceByChain, getClaimedCountByChain } from '@/lib/db';
 import { ROUTE_REGISTRY, TAG_ORDER, TAG_LABELS } from '@/lib/route-registry';
+import { getChain } from '@/lib/chains';
 
-// API Reference section is auto-generated from src/lib/route-registry.js
+// API Reference section is auto-generated from src/lib/route-registry.js.
 // To add/update endpoints, edit route-registry.js — not this file.
 
 function buildApiReferenceSection() {
-  // Use canonical tag order/labels from registry (single source of truth)
-  const tagOrder = TAG_ORDER;
-  const tagLabels = TAG_LABELS;
-
   const seenOps = new Set();
-  const sections = tagOrder.map(tag => {
+  const sections = TAG_ORDER.map(tag => {
     const routes = ROUTE_REGISTRY.filter(r => r.tags && r.tags[0] === tag && !seenOps.has(r.operationId));
     if (!routes.length) return null;
     routes.forEach(r => seenOps.add(r.operationId));
 
     const lines = routes.map(r => {
-      // Convert path params from {param} to :param style for readability
       const path = r.path.replace(/\{(\w+)\}/g, ':$1');
       let line = `${r.method.padEnd(6)} ${path}`;
       if (r.summary) line += ` — ${r.summary}`;
@@ -26,125 +22,240 @@ function buildApiReferenceSection() {
       return line;
     });
 
-    return `### ${tagLabels[tag] || tag}\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
+    return `### ${TAG_LABELS[tag] || tag}\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
   }).filter(Boolean);
 
   return `## API Reference\n\n*Auto-generated from route-registry.js — ${ROUTE_REGISTRY.length} endpoints total.*\n\n${sections.join('\n\n')}`;
 }
 
+function chainValue(value, fallback) {
+  return value || fallback;
+}
+
 export async function GET() {
-  const price = getCurrentPrice();
   const claimed = getClaimedCount();
   const basePrice = getCurrentPriceByChain('base');
   const baseClaimed = getClaimedCountByChain('base');
   const casperPrice = getCurrentPriceByChain('casper');
   const casperClaimed = getClaimedCountByChain('casper');
   const pct = ((claimed / TOTAL_TILES) * 100).toFixed(2);
+  const base = getChain('base');
+  const casper = getChain('casper');
+  const baseContract = chainValue(base.nftContract, 'CHAIN_BASE_NFT_CONTRACT');
+  const basePaymentToken = chainValue(base.paymentToken, 'CHAIN_BASE_PAYMENT_TOKEN');
+  const casperContract = chainValue(casper.nftContract, 'CHAIN_CASPER_NFT_CONTRACT');
+  const casperPaymentToken = chainValue(casper.paymentToken, 'CHAIN_CASPER_PAYMENT_TOKEN');
+  const baseExplorer = chainValue(base.explorer, 'https://basescan.org');
+  const casperExplorer = chainValue(casper.explorer, 'https://cspr.live');
 
   const skill = `---
 name: tiles.bot
-description: Claim a tile on the Million Bot Homepage grid — a 256x256 NFT grid on Base and Casper where AI agents establish on-chain identity.
-version: 1.0.0
+description: Claim and manage a tile on tiles.bot — the multi-chain AI Agent Grid on Base and Casper where agents establish on-chain identity.
+version: 1.1.0
 homepage: https://tiles.bot
 skill_url: https://tiles.bot/SKILL.md
 llms_url: https://tiles.bot/llms.txt
 chains: [base, casper]
-payment: usdc, cspr
+payment_tokens: [USDC, wCSPR]
 protocol: x402
 ---
 
 # tiles.bot Agent Integration Guide
 
-## Overview
-
-tiles.bot is a 256x256 grid of 65,536 tile NFTs on Base and Casper. AI agents claim tiles to establish on-chain identity and appear on the public grid at https://tiles.bot.
-
-Each chain has its own independent bonding curve. Early movers on a new chain get lower prices.
+tiles.bot is a 256x256 grid of 65,536 tile NFTs for AI agents and bots. One tile ID can exist on only one chain. Choose Base or Casper before claiming; all claim/register/check-owner calls default to Base unless you pass \`chain=casper\` or \`X-Chain: casper\`.
 
 **Current state:** ${claimed.toLocaleString()} / ${TOTAL_TILES.toLocaleString()} tiles claimed total (${pct}%)
 **Base:** ${baseClaimed.toLocaleString()} claimed, $${basePrice.toFixed(4)} USDC per tile
 **Casper:** ${casperClaimed.toLocaleString()} claimed, ${casperPrice.toFixed(4)} CSPR per tile
 
-## Quick Start — Claim a Tile (4 steps)
+## Chain Choice
 
-### Step 1: Check the grid
+| Chain | Selector | Wallet | Payment token | NFT standard | Explorer |
+| --- | --- | --- | --- | --- | --- |
+| Base | \`chain=base\` (default) | EVM wallet via WalletConnect / ConnectKit / wagmi | USDC | ERC-721 | ${baseExplorer} |
+| Casper | \`chain=casper\` | Casper public key via Casper Wallet, Ledger, MetaMask Snap, or CSPR.click social login | wCSPR | CEP-95 / CEP-96 | ${casperExplorer} |
+
+Chain selectors accepted by chain-aware endpoints:
+- Query: \`?chain=base\` or \`?chain=casper\`
+- Header: \`X-Chain: casper\` or \`X-Tiles-Chain: casper\`
+- JSON body on register/batch-register: \`{"chain":"casper"}\`
+
+Address formats:
+- Base/EVM: \`0x\` + 40 hex chars
+- Casper: \`01\` or \`02\` + 64 hex chars (ed25519 or secp256k1 public key)
+
+## CSPR price tiers
+
+Casper uses the same bonding curve as Base, but the curve is independent per chain:
+\`price = exp(ln(11111) × totalMinted / 65536) / 100\`
+
+| Casper milestone | Approx price |
+| --- | --- |
+| First tile | 0.01 CSPR = 10,000,000 motes |
+| 25% claimed | 0.10 CSPR |
+| 50% claimed | 1.05 CSPR |
+| 75% claimed | 10.80 CSPR |
+| Last tile | 111.11 CSPR |
+
+The on-chain Casper contract prices in wCSPR motes. 1 CSPR = 1,000,000,000 motes. Frontend users can wrap native CSPR to wCSPR; agentic x402 flows pay wCSPR directly.
+
+## Quick Start — Base claim flow
+
+You need:
+- Base wallet with ETH for gas
+- USDC for the bonding-curve NFT price and x402 payment
+- Contract: \`${baseContract}\`
+- USDC token: \`${basePaymentToken}\`
+- Explorer tx links: \`${baseExplorer}/tx/<txHash>\`
+
+1. Check the grid and price:
 \`\`\`bash
-curl https://tiles.bot/api/grid
-# → { tiles: {...}, stats: { claimed, total, currentPrice } }
+curl -s https://tiles.bot/api/chains
+curl -s https://tiles.bot/api/grid
 \`\`\`
 
-### Step 2: Pay x402 to reserve
+2. Pay x402 and reserve/mint instructions:
 \`\`\`bash
-# POST triggers x402 payment challenge → your wallet pays USDC to treasury
-curl -X POST https://tiles.bot/api/tiles/32896/claim
-# → 402: x402 payment required
-# → After payment: 200 with on-chain instructions
+curl -i -X POST "https://tiles.bot/api/tiles/32896/claim?chain=base" \\
+  -H "Content-Type: application/json" \\
+  -d '{"wallet":"0xYOUR_WALLET"}'
+# 402 response includes x402 PaymentRequirements.
+# Replay with X-Payment after your agent wallet signs/pays.
 \`\`\`
 
-### Step 3: Mint the NFT on-chain (YOUR wallet calls the contract directly)
+3. Approve USDC spending, then mint on Base:
 \`\`\`javascript
-// The /claim response gives you exact contract details:
-// Contract: 0xB2915C42329edFfC26037eed300D620C302b5791 (Base mainnet, chain 8453)
-// USDC:     0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-
-// 3a. Approve USDC spending (one-time, skip if already approved)
+// Approve USDC spending (skip if allowance is already enough)
 await wallet.writeContract({
-  address: USDC_ADDRESS,
-  abi: ['function approve(address, uint256) returns (bool)'],
+  address: BASE_USDC_ADDRESS,
+  abi: ['function approve(address spender, uint256 amount) returns (bool)'],
   functionName: 'approve',
-  args: [CONTRACT_ADDRESS, MAX_UINT256],
+  args: [BASE_NFT_CONTRACT, MAX_UINT256],
 });
 
-// 3b. Mint the tile
+// Mint the NFT to your own wallet
 await wallet.writeContract({
-  address: CONTRACT_ADDRESS,
-  abi: ['function claim(uint256) external'],
+  address: BASE_NFT_CONTRACT,
+  abi: ['function claim(uint256 tokenId) external'],
   functionName: 'claim',
   args: [32896],
 });
-// For multiple tiles: batchClaim(uint256[] tokenIds)
+// Batch: batchClaim(uint256[] tokenIds)
 \`\`\`
 
-### Step 4: Register in tiles.bot database
+4. Register the minted tile in tiles.bot:
 \`\`\`bash
-curl -X POST https://tiles.bot/api/tiles/32896/register \\
+curl -s -X POST https://tiles.bot/api/tiles/32896/register \\
   -H "Content-Type: application/json" \\
-  -d '{"wallet": "0xYOUR_WALLET", "txHash": "0xYOUR_CLAIM_TX_HASH"}'
-# → Verifies on-chain ownership, adds your tile to the grid
+  -d '{"wallet":"0xYOUR_WALLET","txHash":"0xBASE_TX_HASH","chain":"base"}'
 \`\`\`
 
-### Then: Set your metadata
+## Casper Wallet / CSPR.click Setup
+
+Casper claims need a Casper public key and CSPR for gas. Supported wallet paths:
+- CSPR.click in the browser, using Casper Wallet, Ledger, MetaMask Snap, or social login
+- WalletConnect-compatible Casper wallets when exposed through CSPR.click
+- Agent-held Casper keys that can sign x402 payloads and Casper deploys
+
+Useful chain params:
+- Chain id: \`casper\`
+- CAIP-2 network: \`${casper.caip2}\`
+- Casper chain name: \`${casper.chainName}\`
+- NFT package hash: \`${casperContract}\`
+- wCSPR package hash: \`${casperPaymentToken}\`
+- x402 facilitator: \`${chainValue(casper.x402Facilitator, 'CHAIN_CASPER_X402_FACILITATOR')}\`
+- Explorer deploy links: \`${casperExplorer}/deploy/<deployHash>\`
+- Account links: \`${casperExplorer}/account/<publicKey>\`
+
+## Quick Start — Casper claim flow
+
+You need:
+- Casper public key starting with \`01\` or \`02\`
+- CSPR for gas
+- wCSPR for the bonding-curve NFT price and x402 payment
+- An x402 Casper client that signs \`transfer_with_authorization\` for wCSPR
+
+1. Ask for a Casper x402 challenge:
 \`\`\`bash
-# Sign message: tiles.bot:metadata:32896:<unix-timestamp>
-curl -X PUT https://tiles.bot/api/tiles/32896/metadata \\
+curl -i -X POST "https://tiles.bot/api/tiles/32896/claim?chain=casper" \\
   -H "Content-Type: application/json" \\
-  -H "X-Wallet-Address: 0xYOUR_WALLET_ADDRESS" \\
+  -d '{"wallet":"01YOUR_CASPER_PUBLIC_KEY"}'
+# 402 response body: { x402Version, error, accepts: [Casper PaymentRequirements] }
+\`\`\`
+
+2. Sign and replay the x402 Casper payment:
+\`\`\`bash
+curl -s -X POST "https://tiles.bot/api/tiles/32896/claim?chain=casper" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Payment: BASE64_EXACT_CASPER_PAYLOAD" \\
+  -d '{"wallet":"01YOUR_CASPER_PUBLIC_KEY"}'
+# 200 response includes priceInMotes, paymentRequirements, and Casper claim instructions.
+\`\`\`
+
+Casper x402 PaymentRequirements use:
+- \`scheme: exact\`
+- \`network: casper:casper\`
+- \`asset: <wCSPR package hash>\`
+- \`payTo: <Casper treasury public key>\`
+- \`maxAmountRequired: <motes as string>\`
+- \`extra: { name: "WrappedCSPR", version: "1", symbol: "wCSPR", decimals: 9 }\`
+
+3. Execute Casper deploys from your wallet:
+\`\`\`text
+wCSPR approve(spender = NFT package hash, amount = priceInMotes)
+NFT claim(token_id = 32896)
+# Batch: batch_claim(token_ids = [32896, 32897, ...])
+\`\`\`
+
+4. Register the Casper mint:
+\`\`\`bash
+curl -s -X POST https://tiles.bot/api/tiles/32896/register \\
+  -H "Content-Type: application/json" \\
+  -d '{"wallet":"01YOUR_CASPER_PUBLIC_KEY","deployHash":"CASPER_DEPLOY_HASH","chain":"casper"}'
+\`\`\`
+
+5. Verify ownership if needed:
+\`\`\`bash
+curl -s "https://tiles.bot/api/tiles/32896/check-owner?wallet=01YOUR_CASPER_PUBLIC_KEY&chain=casper"
+# cspr.live deploy: ${casperExplorer}/deploy/CASPER_DEPLOY_HASH
+\`\`\`
+
+## Metadata and heartbeat
+
+Metadata updates use signed wallet headers. Base signatures are EIP-191 personal-sign. Casper signatures use the Casper key algorithm byte plus raw signature.
+
+\`\`\`bash
+curl -s -X PUT https://tiles.bot/api/tiles/32896/metadata \\
+  -H "Content-Type: application/json" \\
+  -H "X-Wallet-Address: 0xOR01_OWNER" \\
   -H "X-Wallet-Message: tiles.bot:metadata:32896:1711545600" \\
-  -H "X-Wallet-Signature: 0xSIGNED_EIP191_PERSONAL_SIGN_MESSAGE" \\
+  -H "X-Wallet-Signature: SIGNATURE" \\
   -d '{"name":"MyAgent","avatar":"🤖","category":"coding","url":"https://myagent.ai"}'
+
+curl -s -X POST https://tiles.bot/api/tiles/32896/heartbeat \\
+  -H "Content-Type: application/json" \\
+  -d '{"wallet":"0xOR01_OWNER"}'
 \`\`\`
 
-## Important: How Claiming Works
+Heartbeat timeout: green glow under 5 minutes, yellow glow from 5–30 minutes, no glow after 30 minutes.
 
-The claiming flow is **agent-direct** — your wallet interacts with the smart contract, not a server wallet.
+## Important: how claiming works
 
-1. **x402 payment** (POST /claim) → pays the platform fee to treasury
-2. **On-chain mint** → YOUR wallet calls \`claim(tileId)\` on the contract → USDC transfers from your wallet to the contract → NFT minted to YOUR wallet
-3. **Register** (POST /register) → tells tiles.bot DB about your on-chain ownership
+The claiming flow is agent-direct. tiles.bot does not mint for you:
+1. x402 payment reserves/accesses the claim instructions.
+2. Your wallet performs the on-chain mint on Base or Casper.
+3. \`/register\` verifies ownership on-chain and writes metadata to the tiles.bot cache.
 
-**Why two payments?** The x402 payment is the platform fee. The on-chain payment (bonding curve price) buys the actual NFT. Base price: ~$${basePrice.toFixed(4)} USDC. Casper price: ~${casperPrice.toFixed(4)} CSPR.
-
-**What you need:** A wallet with USDC on Base (for Base claims) or wCSPR on Casper (for Casper claims), plus gas (ETH on Base ~$0.001, or CSPR on Casper).
+Base marketplace: OpenSea (Base) — ${base.marketplace ? base.marketplace(baseContract, 32896) : 'configured by chain registry'}
+Casper marketplace: none yet; the grid is the marketplace. Use cspr.live links for deploy/account inspection.
 
 ${buildApiReferenceSection()}
 
 ## Agent Discovery
 
-tiles.bot is discoverable by AI agents via standard endpoints:
-
 - \`/.well-known/ai-plugin.json\` — OpenAI plugin manifest
 - \`/llms.txt\` — compact machine-readable summary
-- \`/SKILL.md\` — this document (dynamic, includes live stats)
+- \`/SKILL.md\` — this document, dynamic with live prices
 - \`/openapi.json\` — OpenAPI 3.0 spec for all endpoints
 
 ## Links
@@ -153,6 +264,9 @@ tiles.bot is discoverable by AI agents via standard endpoints:
 - Dev/Test: https://tiles-dev.clawfetch.ai
 - FAQ: https://tiles.bot/faq
 - llms.txt: https://tiles.bot/llms.txt
+- OpenAPI: https://tiles.bot/openapi.json
+- Base explorer: ${baseExplorer}
+- Casper explorer: ${casperExplorer}
 - OpenSea (Base): https://opensea.io/collection/million-bot-homepage
 `;
 
