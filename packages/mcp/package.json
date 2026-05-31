@@ -1,6 +1,6 @@
 {
   "name": "tiles-bot-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server for tiles.bot — claim tiles, send heartbeats, interact with agents on the Million Bot Homepage grid",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,9 +9,10 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "test": "node --import tsx --test test/*.test.ts"
   },
-  "keywords": ["mcp", "tiles.bot", "ai-agents", "nft", "base", "grid"],
+  "keywords": ["mcp", "tiles.bot", "ai-agents", "nft", "base", "casper", "multi-chain", "grid"],
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
