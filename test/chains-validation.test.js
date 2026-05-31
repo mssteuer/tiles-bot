@@ -27,7 +27,7 @@ describe('chains.js startup validation', () => {
     `;
 
     const projectRoot = path.resolve(__dirname, '..');
-    const result = execFileSync('node', ['-e', script], {
+    const result = execFileSync(process.execPath, ['-e', script], {
       cwd: projectRoot,
       encoding: 'utf8',
       env: {} // clean environment — no CHAIN_* vars inherited
@@ -65,7 +65,7 @@ describe('chains.js startup validation', () => {
     `;
 
     const projectRoot = path.resolve(__dirname, '..');
-    const result = execFileSync('node', ['-e', script], {
+    const result = execFileSync(process.execPath, ['-e', script], {
       cwd: projectRoot,
       encoding: 'utf8',
       env: {}
