@@ -28,6 +28,7 @@ const CasperWalletContext = createContext({
   isConnected: false,
   publicKey: null,
   truncatedKey: null,
+  signIn: () => {},
   signOut: () => {},
 });
 
@@ -77,6 +78,12 @@ export function CasperWalletProvider({ children }) {
     ref.on('csprclick:signed_out', handleSignedOut);
   }, [handleSignedIn, handleSwitchedAccount, handleDisconnected, handleSignedOut]);
 
+  const signIn = useCallback(() => {
+    if (clickRef.current) {
+      clickRef.current.signIn();
+    }
+  }, []);
+
   const signOut = useCallback(() => {
     if (clickRef.current) {
       clickRef.current.signOut();
@@ -91,6 +98,7 @@ export function CasperWalletProvider({ children }) {
     isConnected: !!activeAccount,
     publicKey,
     truncatedKey: truncatePublicKey(publicKey),
+    signIn,
     signOut,
     attachListeners,
   };
