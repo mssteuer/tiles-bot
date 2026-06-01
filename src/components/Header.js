@@ -41,7 +41,10 @@ function WalletButton() {
 }
 
 function formatChainPrice(value, chain) {
-  if (value == null || Number.isNaN(Number(value))) return '…';
+  // null/NaN means the chain price isn't live yet (e.g. Casper contract unconfigured,
+  // /api/stats returns currentPrice=null). Render an explicit "not live" dash rather
+  // than a loading-style ellipsis that would otherwise hang forever.
+  if (value == null || Number.isNaN(Number(value))) return '—';
   const n = Number(value);
   if (chain === 'casper') {
     if (n >= 1000) return `${Math.round(n).toLocaleString()} CSPR`;
