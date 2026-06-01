@@ -90,6 +90,26 @@ export default function FAQPage() {
   );
 }
 
+// Split answer text on inline URLs and render each URL as a clickable anchor so
+// humans can click and AI agents parsing the page find real <a href> elements.
+function linkify(text) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) => {
+    if (/^https?:\/\//.test(part)) {
+      // Trim a trailing sentence-ending period so it isn't swallowed into the href.
+      const trailing = part.endsWith('.') ? '.' : '';
+      const url = trailing ? part.slice(0, -1) : part;
+      return (
+        <span key={i}>
+          <a href={url} target="_blank" rel="noreferrer" className="text-accent-blue underline">{url}</a>
+          {trailing}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
 function FAQItem({ q, a }) {
   return (
     <details className="border-b border-border-dim">
@@ -97,7 +117,7 @@ function FAQItem({ q, a }) {
         {q}
         <span className="ml-3 text-[18px] text-text-gray">+</span>
       </summary>
-      <div className="px-1 pb-5 text-[14px] leading-[1.7] text-text-dim">{a}</div>
+      <div className="px-1 pb-5 text-[14px] leading-[1.7] text-text-dim">{linkify(a)}</div>
     </details>
   );
 }
