@@ -86,7 +86,7 @@ function logPaymentFailure({ tileId, wallet, status, error }) {
 
 function casperPaymentRequired(paymentRequirements, error = 'Payment required') {
   return NextResponse.json({
-    x402Version: 1,
+    x402Version: paymentRequirements.x402Version,
     error,
     accepts: [paymentRequirements],
   }, { status: 402 });

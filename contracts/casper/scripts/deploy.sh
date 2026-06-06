@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# deploy.sh -- One-command TilesBot NFT deployment for Casper testnet or devnet
+# deploy.sh -- One-command TilesBot NFT deployment for Casper mainnet, testnet, or devnet
 #
 # Usage:
-#   ./scripts/deploy.sh testnet   # deploy to Casper Testnet
-#   ./scripts/deploy.sh devnet    # deploy to local casper-devnet
+#   ./scripts/deploy.sh mainnet   # deploy NFT to Casper Mainnet with canonical wCSPR
+#   ./scripts/deploy.sh testnet   # deploy NFT + mock wCSPR to Casper Testnet
+#   ./scripts/deploy.sh devnet    # deploy NFT + mock wCSPR to local casper-devnet
 #
 # Prerequisites:
-#   testnet: funded wallet at ~/.casper/testnet-deploy-key/
+#   mainnet/testnet: funded wallet at ~/.casper/testnet-deploy-key/
 #   devnet:  casper-devnet running (4+ nodes)
 #
 set -euo pipefail
@@ -34,6 +35,16 @@ echo "================================="
 
 # -- Configure by target
 case "$TARGET" in
+    mainnet)
+        export ODRA_CASPER_LIVENET_SECRET_KEY_PATH="${ODRA_CASPER_LIVENET_SECRET_KEY_PATH:-$HOME/.casper/testnet-deploy-key/secret_key.pem}"
+        export ODRA_CASPER_LIVENET_NODE_ADDRESS="${ODRA_CASPER_LIVENET_NODE_ADDRESS:-https://node.mainnet.casper.network}"
+        export ODRA_CASPER_LIVENET_EVENTS_URL="${ODRA_CASPER_LIVENET_EVENTS_URL:-https://node.mainnet.casper.network/events}"
+        export ODRA_CASPER_LIVENET_CHAIN_NAME="casper"
+        export ODRA_CASPER_LIVENET_ENV="casper"
+        export TILES_BOT_WCSPR_PACKAGE_HASH="${TILES_BOT_WCSPR_PACKAGE_HASH:-hash-8df5d26790e18cf0404502c62ce5dc9025800ad6975c97466e20506c39c505b6}"
+        PUBKEY_FILE="$HOME/.casper/testnet-deploy-key/public_key_hex"
+        EXPLORER="https://cspr.live"
+        ;;
     testnet)
         # Load .env.testnet if it exists
         if [ -f "$CONTRACT_DIR/.env.testnet" ]; then
@@ -63,7 +74,7 @@ case "$TARGET" in
         EXPLORER="(local devnet)"
         ;;
     *)
-        fail "Unknown target: $TARGET. Use 'testnet' or 'devnet'."
+        fail "Unknown target: $TARGET. Use 'mainnet', 'testnet' or 'devnet'."
         ;;
 esac
 
@@ -94,11 +105,16 @@ ok "WASM artifact: $WASM_SIZE bytes"
 
 # 3. Tests pass
 echo "Running unit tests..."
-cargo test --quiet 2>&1 || fail "Unit tests failed"
+env -u ODRA_CASPER_LIVENET_SECRET_KEY_PATH \
+    -u ODRA_CASPER_LIVENET_NODE_ADDRESS \
+    -u ODRA_CASPER_LIVENET_EVENTS_URL \
+    -u ODRA_CASPER_LIVENET_CHAIN_NAME \
+    -u ODRA_CASPER_LIVENET_ENV \
+    cargo test --quiet 2>&1 || fail "Unit tests failed"
 ok "All unit tests pass"
 
-# 4. Check balance (testnet only)
-if [ "$TARGET" = "testnet" ] && [ -n "$PUBKEY_FILE" ] && [ -f "$PUBKEY_FILE" ]; then
+# 4. Check balance (mainnet/testnet only)
+if [ "$TARGET" != "devnet" ] && [ -n "$PUBKEY_FILE" ] && [ -f "$PUBKEY_FILE" ]; then
     PUBKEY=$(cat "$PUBKEY_FILE")
     echo "Checking balance for $PUBKEY..."
     BAL_OUTPUT=$(casper-client query-balance \
@@ -106,12 +122,14 @@ if [ "$TARGET" = "testnet" ] && [ -n "$PUBKEY_FILE" ] && [ -f "$PUBKEY_FILE" ]; 
         --purse-identifier "$PUBKEY" 2>&1) || true
     if echo "$BAL_OUTPUT" | grep -q "Purse not found"; then
         fail "Account not funded. Visit ${EXPLORER}/tools/faucet with Casper Wallet"
-    elif echo "$BAL_OUTPUT" | grep -q "balance_value"; then
-        BAL=$(echo "$BAL_OUTPUT" | grep -oP '"balance_value"\s*:\s*"\K[0-9]+' || echo "?")
+    elif echo "$BAL_OUTPUT" | grep -Eq '"(balance|balance_value)"'; then
+        BAL=$(echo "$BAL_OUTPUT" | grep -oP '"(balance|balance_value)"\s*:\s*"\K[0-9]+' | head -1 || echo "?")
         if [ "$BAL" != "?" ]; then
             BAL_CSPR=$((BAL / 1000000000))
-            if [ "$BAL_CSPR" -lt 500 ]; then
-                fail "Insufficient balance: ${BAL_CSPR} CSPR (need at least 500)"
+            MIN_BALANCE=500
+            if [ "$TARGET" = "mainnet" ]; then MIN_BALANCE=800; fi
+            if [ "$BAL_CSPR" -lt "$MIN_BALANCE" ]; then
+                fail "Insufficient balance: ${BAL_CSPR} CSPR (need at least ${MIN_BALANCE})"
             fi
             ok "Balance: ${BAL_CSPR} CSPR"
         fi
@@ -126,16 +144,22 @@ echo ""
 # ODRA_CASPER_LIVENET_SECRET_KEY_PATH env var (set above).
 # We use cargo test directly because cargo odra test has arg-ordering
 # bugs with --nocapture, and the WASM build step is already done above.
-cargo test --test deploy_livenet deploy_and_verify -- --nocapture || fail "Deployment failed"
+if [ "$TARGET" = "mainnet" ]; then
+    cargo test --test deploy_livenet deploy_nft_with_existing_wcspr -- --nocapture || fail "Deployment failed"
+else
+    cargo test --test deploy_livenet deploy_and_verify -- --nocapture || fail "Deployment failed"
+fi
 
 echo ""
 ok "Deployment complete!"
 echo ""
 
-# Also run the mint test to verify end-to-end
-echo "-- Running Mint Test --"
-echo ""
-cargo test --test deploy_livenet deploy_and_test_mint -- --nocapture || warn "Mint test failed (deployment may still be valid)"
+if [ "$TARGET" != "mainnet" ]; then
+    # Also run the mint test to verify end-to-end on non-mainnet targets.
+    echo "-- Running Mint Test --"
+    echo ""
+    cargo test --test deploy_livenet deploy_and_test_mint -- --nocapture || warn "Mint test failed (deployment may still be valid)"
+fi
 
 echo ""
 ok "All deployment steps complete!"
@@ -144,7 +168,7 @@ echo "Next steps:"
 echo "  1. Note the contract addresses from output above"
 echo "  2. Update .env.local with:"
 echo "     CHAIN_CASPER_NFT_CONTRACT=<nft-contract-hash>"
-echo "     CHAIN_CASPER_PAYMENT_TOKEN=<wcspr-contract-hash>"
+echo "     CHAIN_CASPER_PAYMENT_TOKEN=${TILES_BOT_WCSPR_PACKAGE_HASH:-<wcspr-contract-hash>}"
 echo "  3. Run: ./scripts/verify-deployment.sh <nft-contract-hash>"
 echo "  4. Test mint: cargo odra test --backend casper -t deploy_and_test_mint -- --nocapture"
 echo ""

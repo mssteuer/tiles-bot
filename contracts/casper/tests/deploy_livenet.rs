@@ -11,7 +11,7 @@
 //!   cargo test --test deploy_livenet -- --nocapture
 
 use odra::casper_types::U256;
-use odra::host::{Deployer, HostEnv};
+use odra::host::{Deployer, HostEnv, InstallConfig};
 use odra::prelude::*;
 
 use tiles_bot_nft::mock_wcspr::{MockWcspr, MockWcsprInitArgs};
@@ -26,6 +26,62 @@ fn get_env() -> HostEnv {
         eprintln!("== MOCK MODE: using Odra VM (no real deployment) ==");
         odra_test::env()
     }
+}
+
+const MAINNET_WCSPR_PACKAGE_HASH: &str =
+    "hash-8df5d26790e18cf0404502c62ce5dc9025800ad6975c97466e20506c39c505b6";
+
+fn wcspr_address_from_env() -> Address {
+    // Address::new() is const-only in Odra 2.7.0, so keep the canonical
+    // package hash explicit here. This test is for mainnet deployment only;
+    // mock/test tokens stay in the other deploy tests.
+    let package_hash = std::env::var("TILES_BOT_WCSPR_PACKAGE_HASH")
+        .unwrap_or_else(|_| MAINNET_WCSPR_PACKAGE_HASH.to_string());
+    assert_eq!(
+        package_hash, MAINNET_WCSPR_PACKAGE_HASH,
+        "Unexpected wCSPR package hash; update this deploy test intentionally before using a different token"
+    );
+    Address::new(MAINNET_WCSPR_PACKAGE_HASH).unwrap()
+}
+
+#[test]
+fn deploy_nft_with_existing_wcspr() {
+    let env = get_env();
+    let deployer = env.get_account(0);
+    let wcspr_address = wcspr_address_from_env();
+
+    println!("== TilesBot NFT Mainnet Deployment ==");
+    println!("Deployer / owner / treasury: {:?}", deployer);
+    println!("wCSPR package: {:?}", wcspr_address);
+
+    env.set_gas(800_000_000_000u64); // 800 CSPR for NFT deploy
+    let nft = TilesBotNft::deploy_with_cfg(
+        &env,
+        TilesBotNftInitArgs {
+            name: "TilesBot".to_string(),
+            symbol: "TILE".to_string(),
+            wcspr_address,
+            treasury: deployer,
+            contract_name: Some("TilesBot Grid".to_string()),
+            contract_description: Some("AI Agent Grid on Casper".to_string()),
+            contract_icon_uri: Some("https://tiles.bot/icon-512.png".to_string()),
+            contract_project_uri: Some("https://tiles.bot".to_string()),
+        },
+        InstallConfig::upgradable::<TilesBotNft>(),
+    );
+    let nft_address = nft.address();
+
+    assert_eq!(nft.name(), "TilesBot");
+    assert_eq!(nft.symbol(), "TILE");
+    assert_eq!(nft.total_minted(), 0);
+    assert_eq!(nft.get_owner(), deployer);
+    assert!(!nft.is_paused());
+    assert_eq!(nft.contract_name(), Some("TilesBot Grid".to_string()));
+
+    println!("\n== Mainnet NFT Deployment SUCCESSFUL ==");
+    println!("TilesBot NFT: {:?}", nft_address);
+    println!("wCSPR:        {:?}", wcspr_address);
+    println!("Treasury:     {:?}", deployer);
 }
 
 #[test]
@@ -63,7 +119,7 @@ fn deploy_and_verify() {
             treasury: deployer,
             contract_name: Some("TilesBot Grid".to_string()),
             contract_description: Some("AI Agent Grid on Casper".to_string()),
-            contract_icon_uri: Some("https://tiles.bot/icon.png".to_string()),
+            contract_icon_uri: Some("https://tiles.bot/icon-512.png".to_string()),
             contract_project_uri: Some("https://tiles.bot".to_string()),
         },
     );
@@ -114,7 +170,7 @@ fn deploy_and_test_mint() {
             treasury: deployer,
             contract_name: Some("TilesBot Grid".to_string()),
             contract_description: Some("AI Agent Grid on Casper".to_string()),
-            contract_icon_uri: Some("https://tiles.bot/icon.png".to_string()),
+            contract_icon_uri: Some("https://tiles.bot/icon-512.png".to_string()),
             contract_project_uri: Some("https://tiles.bot".to_string()),
         },
     );

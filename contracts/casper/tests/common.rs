@@ -49,7 +49,7 @@ pub fn setup() -> (
             treasury: owner,
             contract_name: Some("TilesBot Grid".to_string()),
             contract_description: Some("AI Agent Grid on Casper".to_string()),
-            contract_icon_uri: Some("https://tiles.bot/icon.png".to_string()),
+            contract_icon_uri: Some("https://tiles.bot/icon-512.png".to_string()),
             contract_project_uri: Some("https://tiles.bot".to_string()),
         },
     );

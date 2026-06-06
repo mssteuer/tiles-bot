@@ -16,7 +16,7 @@ fn cep96_collection_metadata() {
     );
     assert_eq!(
         nft.contract_icon_uri(),
-        Some("https://tiles.bot/icon.png".to_string())
+        Some("https://tiles.bot/icon-512.png".to_string())
     );
     assert_eq!(
         nft.contract_project_uri(),
@@ -53,10 +53,7 @@ fn set_tile_uri_by_owner() {
         .iter()
         .find(|(k, _)| k == "uri")
         .map(|(_, v)| v.clone());
-    assert_eq!(
-        uri,
-        Some("https://tiles.bot/api/tiles/42".to_string())
-    );
+    assert_eq!(uri, Some("https://tiles.bot/api/tiles/42".to_string()));
 }
 
 #[test]

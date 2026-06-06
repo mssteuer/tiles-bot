@@ -93,6 +93,7 @@ function loadRouteWithMocks(overrides = {}) {
       buildCasperPaymentRequirements(args) {
         calls.buildRequirements.push(args);
         return {
+          x402Version: 2,
           scheme: 'exact',
           network: args.chainConfig.caip2,
           payTo: args.chainConfig.treasury,
@@ -171,8 +172,10 @@ describe('claim route Casper x402 integration', () => {
     const body = await response.json();
 
     assert.equal(response.status, 402);
+    assert.equal(body.x402Version, 2);
     assert.equal(body.error, 'Missing x-payment header');
     assert.equal(body.accepts.length, 1);
+    assert.equal(body.accepts[0].x402Version, 2);
     assert.equal(body.accepts[0].network, 'casper:casper');
     assert.equal(body.accepts[0].maxAmountRequired, '10000000');
     assert.equal(body.accepts[0].asset, 'hash-wcspr-token');
