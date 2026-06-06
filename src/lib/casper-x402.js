@@ -36,6 +36,7 @@ function csprToMotes(cspr) {
 // — Build x402 PaymentRequirements for Casper
 function buildCasperPaymentRequirements({ tileId, priceInMotes, chainConfig, resource }) {
   return {
+    x402Version: 2,
     scheme: 'exact',
     network: chainConfig.caip2,
     payTo: chainConfig.treasury,
@@ -98,7 +99,19 @@ function facilitatorErrorMessage(action, err) {
   return `Facilitator ${action} error: ${err.message}`;
 }
 
-async function fetchFacilitator(endpoint, payload) {
+// — Decode the x402 X-PAYMENT header into the structured paymentPayload object.
+// Per the x402 standard the header is base64-encoded JSON of the signed payload
+// ({ x402Version, resource, accepted, payload }). The CSPR.cloud facilitator's
+// /verify and /settle endpoints expect that decoded object under `paymentPayload`.
+function decodePaymentPayload(paymentHeader) {
+  try {
+    return JSON.parse(Buffer.from(paymentHeader, 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function fetchFacilitator(endpoint, paymentPayload, paymentRequirements) {
   const facilitatorUrl = getFacilitatorUrl();
   if (!facilitatorUrl) {
     return { configured: false, response: null };
@@ -113,9 +126,11 @@ async function fetchFacilitator(endpoint, payload) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+        // CSPR.cloud authenticates via a bare `Authorization: <token>` header.
+        // (X-API-Key returns 401 "authorization is not provided".)
+        ...(apiKey ? { Authorization: apiKey } : {}),
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ paymentPayload, paymentRequirements }),
       signal: controller.signal,
     });
     return { configured: true, response };
@@ -130,11 +145,17 @@ async function verifyCasperPayment(paymentHeader, paymentRequirements) {
     return { valid: false, error: 'Missing x-payment header' };
   }
 
+  const paymentPayload = decodePaymentPayload(paymentHeader);
+  if (!paymentPayload) {
+    return { valid: false, error: 'Malformed x-payment header (expected base64-encoded JSON)' };
+  }
+
   try {
-    const { configured, response: resp } = await fetchFacilitator('verify', {
-      payment: paymentHeader,
-      paymentRequirements,
-    });
+    const { configured, response: resp } = await fetchFacilitator(
+      'verify',
+      paymentPayload,
+      paymentRequirements
+    );
     if (!configured) {
       return { valid: false, error: 'Casper facilitator URL not configured' };
     }
@@ -145,7 +166,11 @@ async function verifyCasperPayment(paymentHeader, paymentRequirements) {
     }
 
     const data = await resp.json();
-    return { valid: !!data.valid, error: data.error || null };
+    // CSPR.cloud returns { isValid, payer?, invalidReason?, invalidMessage? }
+    return {
+      valid: !!data.isValid,
+      error: data.isValid ? null : (data.invalidMessage || data.invalidReason || null),
+    };
   } catch (err) {
     return { valid: false, error: facilitatorErrorMessage('verify', err) };
   }
@@ -157,11 +182,17 @@ async function settleCasperPayment(paymentHeader, paymentRequirements) {
     return { settled: false, error: 'Missing x-payment header' };
   }
 
+  const paymentPayload = decodePaymentPayload(paymentHeader);
+  if (!paymentPayload) {
+    return { settled: false, error: 'Malformed x-payment header (expected base64-encoded JSON)' };
+  }
+
   try {
-    const { configured, response: resp } = await fetchFacilitator('settle', {
-      payment: paymentHeader,
-      paymentRequirements,
-    });
+    const { configured, response: resp } = await fetchFacilitator(
+      'settle',
+      paymentPayload,
+      paymentRequirements
+    );
     if (!configured) {
       return { settled: false, error: 'Casper facilitator URL not configured' };
     }
@@ -172,7 +203,12 @@ async function settleCasperPayment(paymentHeader, paymentRequirements) {
     }
 
     const data = await resp.json();
-    return { settled: !!data.settled, txHash: data.txHash || null, error: data.error || null };
+    // CSPR.cloud returns { success, transaction?, network?, payer?, errorReason?, errorMessage? }
+    return {
+      settled: !!data.success,
+      txHash: data.transaction || null,
+      error: data.success ? null : (data.errorMessage || data.errorReason || null),
+    };
   } catch (err) {
     return { settled: false, error: facilitatorErrorMessage('settle', err) };
   }

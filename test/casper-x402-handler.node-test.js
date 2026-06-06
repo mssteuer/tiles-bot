@@ -170,17 +170,20 @@ describe('casper-x402: verifyCasperPayment', () => {
     let captured;
     global.fetch = async (url, options) => {
       captured = { url, options };
-      return new Response(JSON.stringify({ valid: true }), {
+      return new Response(JSON.stringify({ isValid: true, payer: '00abc' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     };
 
     const paymentRequirements = { network: 'casper:casper', maxAmountRequired: '10000000' };
+    // x402 X-PAYMENT header: base64-encoded JSON of the signed payload
+    const payload = { x402Version: 2, accepted: { scheme: 'exact', network: 'casper:casper' } };
+    const paymentHeader = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
 
     try {
       const result = await casperX402.verifyCasperPayment(
-        'signed-payment-header',
+        paymentHeader,
         paymentRequirements
       );
 
@@ -189,11 +192,46 @@ describe('casper-x402: verifyCasperPayment', () => {
       assert.equal(captured.options.method, 'POST');
       assert.ok(captured.options.signal instanceof AbortSignal);
       assert.equal(captured.options.headers['Content-Type'], 'application/json');
-      assert.equal(captured.options.headers['X-API-Key'], 'test-api-key-12345');
+      // CSPR.cloud authenticates via bare Authorization header, NOT X-API-Key
+      assert.equal(captured.options.headers.Authorization, 'test-api-key-12345');
+      assert.equal(captured.options.headers['X-API-Key'], undefined);
+      // Envelope is { paymentPayload: <decoded object>, paymentRequirements }
       assert.deepEqual(JSON.parse(captured.options.body), {
-        payment: 'signed-payment-header',
+        paymentPayload: payload,
         paymentRequirements,
       });
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('maps facilitator isValid:false to valid:false with invalidMessage', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({ isValid: false, invalidReason: 'unsupported_scheme', invalidMessage: 'bad scheme' }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+
+    const paymentHeader = Buffer.from(JSON.stringify({ x402Version: 2 }), 'utf8').toString('base64');
+    try {
+      const result = await casperX402.verifyCasperPayment(paymentHeader, { network: 'casper:casper' });
+      assert.equal(result.valid, false);
+      assert.equal(result.error, 'bad scheme');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('rejects a malformed (non-base64-JSON) payment header before calling facilitator', async () => {
+    const originalFetch = global.fetch;
+    let called = false;
+    global.fetch = async () => { called = true; return new Response('{}'); };
+    try {
+      const result = await casperX402.verifyCasperPayment('!!!not base64 json!!!', { network: 'casper:casper' });
+      assert.equal(result.valid, false);
+      assert.match(result.error, /[Mm]alformed/);
+      assert.equal(called, false, 'facilitator must not be called for malformed header');
     } finally {
       global.fetch = originalFetch;
     }
@@ -216,9 +254,10 @@ describe('casper-x402: verifyCasperPayment', () => {
       throw new DOMException('The operation was aborted', 'AbortError');
     };
 
+    const paymentHeader = Buffer.from(JSON.stringify({ x402Version: 2 }), 'utf8').toString('base64');
     try {
       const result = await casperX402.verifyCasperPayment(
-        'signed-payment-header',
+        paymentHeader,
         { network: 'casper:casper', maxAmountRequired: '10000000' }
       );
 
@@ -254,31 +293,54 @@ describe('casper-x402: settleCasperPayment', () => {
     let captured;
     global.fetch = async (url, options) => {
       captured = { url, options };
-      return new Response(JSON.stringify({ settled: true, txHash: 'abc123' }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ success: true, transaction: 'abc123', network: 'casper:casper', payer: '00abc' }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
     };
 
     const paymentRequirements = { network: 'casper:casper', maxAmountRequired: '10000000' };
+    const payload = { x402Version: 2, accepted: { scheme: 'exact', network: 'casper:casper' } };
+    const paymentHeader = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
 
     try {
       const result = await casperX402.settleCasperPayment(
-        'signed-payment-header',
+        paymentHeader,
         paymentRequirements
       );
 
       assert.equal(result.settled, true);
+      // txHash maps from the facilitator's `transaction` field
       assert.equal(result.txHash, 'abc123');
       assert.equal(captured.url, 'https://x402-facilitator.cspr.cloud/settle');
       assert.equal(captured.options.method, 'POST');
       assert.ok(captured.options.signal instanceof AbortSignal);
       assert.equal(captured.options.headers['Content-Type'], 'application/json');
-      assert.equal(captured.options.headers['X-API-Key'], 'test-api-key-12345');
+      assert.equal(captured.options.headers.Authorization, 'test-api-key-12345');
+      assert.equal(captured.options.headers['X-API-Key'], undefined);
       assert.deepEqual(JSON.parse(captured.options.body), {
-        payment: 'signed-payment-header',
+        paymentPayload: payload,
         paymentRequirements,
       });
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('maps facilitator success:false to settled:false with errorMessage', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({ success: false, errorReason: 'put_deploy_failed', errorMessage: 'node rejected deploy', transaction: '', payer: '' }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+
+    const paymentHeader = Buffer.from(JSON.stringify({ x402Version: 2 }), 'utf8').toString('base64');
+    try {
+      const result = await casperX402.settleCasperPayment(paymentHeader, { network: 'casper:casper' });
+      assert.equal(result.settled, false);
+      assert.equal(result.txHash, null);
+      assert.equal(result.error, 'node rejected deploy');
     } finally {
       global.fetch = originalFetch;
     }
