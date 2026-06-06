@@ -33,6 +33,27 @@ fn cep95_name_and_symbol() {
 }
 
 #[test]
+fn contract_icon_uri_is_owner_updatable() {
+    let (_env, mut nft, _, owner, _, _) = common::setup();
+    let uri = "https://tiles.bot/icon-512-v2.png".to_string();
+
+    nft.set_contract_icon_uri(uri.clone());
+
+    assert_eq!(nft.contract_icon_uri(), Some(uri));
+    assert_eq!(nft.get_owner(), owner);
+}
+
+#[test]
+fn contract_icon_uri_by_non_owner_reverts() {
+    let (env, mut nft, _, _, user1, _) = common::setup();
+
+    env.set_caller(user1);
+    let result = nft.try_set_contract_icon_uri("https://tiles.bot/nope.png".to_string());
+
+    assert!(result.is_err());
+}
+
+#[test]
 fn set_tile_uri_by_owner() {
     let (env, mut nft, mut wcspr, _owner, user1, _) = common::setup();
     let nft_address = nft.address();

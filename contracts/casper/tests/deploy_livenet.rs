@@ -11,7 +11,7 @@
 //!   cargo test --test deploy_livenet -- --nocapture
 
 use odra::casper_types::U256;
-use odra::host::{Deployer, HostEnv, InstallConfig};
+use odra::host::{Deployer, HostEnv, HostRefLoader, InstallConfig, NoArgs};
 use odra::prelude::*;
 
 use tiles_bot_nft::mock_wcspr::{MockWcspr, MockWcsprInitArgs};
@@ -44,6 +44,46 @@ fn wcspr_address_from_env() -> Address {
     Address::new(MAINNET_WCSPR_PACKAGE_HASH).unwrap()
 }
 
+fn deploy_mock_upgradable_nft(env: &HostEnv, deployer: Address) -> Address {
+    env.set_gas(500_000_000_000u64);
+    let wcspr = MockWcspr::deploy(
+        env,
+        MockWcsprInitArgs {
+            symbol: "wCSPR".to_string(),
+            name: "Wrapped CSPR".to_string(),
+            decimals: 9,
+            initial_supply: U256::from(1_000_000_000_000_000u64),
+        },
+    );
+
+    env.set_gas(800_000_000_000u64);
+    TilesBotNft::deploy_with_cfg(
+        env,
+        TilesBotNftInitArgs {
+            name: "TilesBot".to_string(),
+            symbol: "TILE".to_string(),
+            wcspr_address: wcspr.address(),
+            treasury: deployer,
+            contract_name: Some("TilesBot Grid".to_string()),
+            contract_description: Some("AI Agent Grid on Casper".to_string()),
+            contract_icon_uri: Some("https://tiles.bot/icon-512.png".to_string()),
+            contract_project_uri: Some("https://tiles.bot".to_string()),
+        },
+        InstallConfig::upgradable::<TilesBotNft>(),
+    )
+    .address()
+}
+
+fn nft_address_to_upgrade(env: &HostEnv, deployer: Address) -> Address {
+    if let Ok(package_hash) = std::env::var("TILES_BOT_NFT_PACKAGE_HASH") {
+        let package_hash: &'static str = Box::leak(package_hash.into_boxed_str());
+        Address::new(package_hash)
+            .expect("TILES_BOT_NFT_PACKAGE_HASH must be a contract package hash")
+    } else {
+        deploy_mock_upgradable_nft(env, deployer)
+    }
+}
+
 #[test]
 fn deploy_nft_with_existing_wcspr() {
     let env = get_env();
@@ -64,7 +104,7 @@ fn deploy_nft_with_existing_wcspr() {
             treasury: deployer,
             contract_name: Some("TilesBot Grid".to_string()),
             contract_description: Some("AI Agent Grid on Casper".to_string()),
-            contract_icon_uri: Some("https://tiles.bot/icon-512.png".to_string()),
+            contract_icon_uri: Some("https://tiles.bot/icon-512-v2.png".to_string()),
             contract_project_uri: Some("https://tiles.bot".to_string()),
         },
         InstallConfig::upgradable::<TilesBotNft>(),
@@ -82,6 +122,63 @@ fn deploy_nft_with_existing_wcspr() {
     println!("TilesBot NFT: {:?}", nft_address);
     println!("wCSPR:        {:?}", wcspr_address);
     println!("Treasury:     {:?}", deployer);
+}
+
+#[test]
+fn upgrade_existing_nft_and_set_icon_uri() {
+    if std::env::var("ODRA_CASPER_LIVENET_SECRET_KEY_PATH").is_err() {
+        eprintln!("== SKIP: livenet env not configured ==");
+        return;
+    }
+
+    let env = get_env();
+    let deployer = env.get_account(0);
+    let nft_address = nft_address_to_upgrade(&env, deployer);
+    let icon_uri = "https://tiles.bot/icon-512-v2.png".to_string();
+
+    println!("== TilesBot NFT Upgrade + Icon Refresh ==");
+    println!("NFT package: {:?}", nft_address);
+    println!("New icon:   {}", icon_uri);
+
+    env.set_gas(800_000_000_000u64);
+    let _registered = TilesBotNft::load(&env, nft_address);
+    let mut nft = TilesBotNft::try_upgrade(&env, nft_address, NoArgs).expect("NFT upgrade failed");
+
+    env.set_gas(50_000_000_000u64);
+    nft.set_contract_icon_uri(icon_uri.clone());
+
+    assert_eq!(nft.contract_icon_uri(), Some(icon_uri));
+    assert_eq!(nft.get_owner(), deployer);
+
+    println!("\n== Upgrade + icon metadata update SUCCESSFUL ==");
+    println!("TilesBot NFT: {:?}", nft.address());
+}
+
+#[test]
+fn set_existing_nft_icon_uri() {
+    if std::env::var("ODRA_CASPER_LIVENET_SECRET_KEY_PATH").is_err() {
+        eprintln!("== SKIP: livenet env not configured ==");
+        return;
+    }
+
+    let env = get_env();
+    let deployer = env.get_account(0);
+    let nft_address = nft_address_to_upgrade(&env, deployer);
+    let icon_uri = "https://tiles.bot/icon-512-v2.png".to_string();
+
+    println!("== TilesBot NFT Icon Refresh ==");
+    println!("NFT package: {:?}", nft_address);
+    println!("New icon:   {}", icon_uri);
+
+    let mut nft = TilesBotNft::load(&env, nft_address);
+
+    env.set_gas(50_000_000_000u64);
+    nft.set_contract_icon_uri(icon_uri.clone());
+
+    assert_eq!(nft.contract_icon_uri(), Some(icon_uri));
+    assert_eq!(nft.get_owner(), deployer);
+
+    println!("\n== Icon metadata update SUCCESSFUL ==");
 }
 
 #[test]
@@ -119,7 +216,7 @@ fn deploy_and_verify() {
             treasury: deployer,
             contract_name: Some("TilesBot Grid".to_string()),
             contract_description: Some("AI Agent Grid on Casper".to_string()),
-            contract_icon_uri: Some("https://tiles.bot/icon-512.png".to_string()),
+            contract_icon_uri: Some("https://tiles.bot/icon-512-v2.png".to_string()),
             contract_project_uri: Some("https://tiles.bot".to_string()),
         },
     );
@@ -170,7 +267,7 @@ fn deploy_and_test_mint() {
             treasury: deployer,
             contract_name: Some("TilesBot Grid".to_string()),
             contract_description: Some("AI Agent Grid on Casper".to_string()),
-            contract_icon_uri: Some("https://tiles.bot/icon-512.png".to_string()),
+            contract_icon_uri: Some("https://tiles.bot/icon-512-v2.png".to_string()),
             contract_project_uri: Some("https://tiles.bot".to_string()),
         },
     );

@@ -16,6 +16,8 @@ use crate::bonding_curve::{self, MAX_BATCH_SIZE, MAX_SUPPLY};
 use crate::errors::TilesBotError;
 use crate::events::{TileClaimed, TreasuryWithdrawal};
 
+const KEY_CONTRACT_ICON_URI: &str = "contract_icon_uri";
+
 // -- CEP-18 external contract interface for wCSPR interaction
 
 #[odra::external_contract]
@@ -178,6 +180,13 @@ impl TilesBotNft {
         }
         self.cep95
             .set_metadata(token_id, vec![("uri".to_string(), uri)]);
+    }
+
+    /// Set the CEP-96 collection icon URI. Owner only.
+    pub fn set_contract_icon_uri(&mut self, uri: String) {
+        let caller = self.env().caller();
+        self.ownable.assert_owner(&caller);
+        self.env().set_named_value(KEY_CONTRACT_ICON_URI, uri);
     }
 
     // -- View functions
