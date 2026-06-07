@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { CONTENT_MODE } from '@make-software/csprclick-core-types';
 
 // — CSPR.click SDK configuration
 
@@ -9,7 +10,7 @@ const IS_TESTNET = process.env.NEXT_PUBLIC_CASPER_NETWORK === 'casper-test';
 export const CSPR_CLICK_OPTIONS = {
   appName: 'tiles.bot',
   appId: process.env.NEXT_PUBLIC_CSPRCLICK_APP_ID || '',
-  contentMode: 'popup',
+  contentMode: CONTENT_MODE.IFRAME,
   providers: [
     'casper-wallet',
     'ledger',

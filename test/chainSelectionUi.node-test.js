@@ -14,6 +14,8 @@ function run() {
   const claimModal = read('../src/components/ClaimModal.js');
   const batchClaimModal = read('../src/components/BatchClaimModal.js');
   const header = read('../src/components/Header.js');
+  const casperWallet = read('../src/lib/casper-wallet.js');
+  const providers = read('../src/components/Providers.js');
   const filterBar = read('../src/components/FilterBar.js');
   const grid = read('../src/components/grid/Grid.js');
   const tooltip = read('../src/components/grid/TileTooltip.js');
@@ -39,6 +41,9 @@ function run() {
   assertContains(batchClaimModal, /Connect your Casper wallet/, 'BatchClaimModal has Casper-specific wallet prompt');
   assertContains(header, /Base Wallet/, 'Header labels the EVM wallet button as Base Wallet');
   assertContains(header, /Casper Wallet/, 'Header labels the Casper wallet button');
+  assertContains(casperWallet, /contentMode:\s*CONTENT_MODE\.IFRAME/, 'CSPR.click uses iframe mode, not deprecated popup mode');
+  assertContains(casperWallet, /chainName:\s*IS_TESTNET \? 'casper-test' : 'casper'/, 'CSPR.click uses the configured Casper network');
+  assertContains(providers, /ClickUI[\s\S]*rootAppElement="body"/, 'Providers mount CSPR.click modal UI with the Next app root');
   assertContains(header, /Base claimed/, 'Header stats bar shows Base claimed count');
   assertContains(header, /Casper claimed/, 'Header stats bar shows Casper claimed count');
   assertContains(filterBar, /All chains/, 'FilterBar renders all-chain filter');
