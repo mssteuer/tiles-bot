@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useModal } from 'connectkit';
 import { playSound } from '@/lib/sound';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
-import { parseAbi } from 'viem';
+import { isAddress, parseAbi } from 'viem';
 import { TARGET_CHAIN } from '@/lib/wagmi';
 import { useCasperWallet } from '@/lib/casper-wallet';
 
@@ -172,10 +172,38 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
   }), [chainStats, unclaimed.length]);
 
   const selectedEstimate = selectedChain === 'casper' ? estimates.casper : estimates.base;
-  const wrongChain = selectedChain === 'base' && isConnected && chainId !== TARGET_CHAIN.id;
+  const hasBaseAddress = isConnected && isAddress(address || '');
+  const hasBaseConfig = isAddress(CONTRACT_ADDRESS || '') && isAddress(USDC_ADDRESS || '');
+  const wrongChain = selectedChain === 'base' && hasBaseAddress && chainId !== TARGET_CHAIN.id;
+
+  function baseErrorMessage(err) {
+    const msg = err?.shortMessage || err?.message || String(err || 'Transaction failed');
+    if (msg.includes('Address "undefined" is invalid') || msg.includes('Address undefined is invalid')) {
+      return 'MetaMask did not return a valid Base account. Reconnect your Base wallet and try again.';
+    }
+    if (msg.includes('eth.merkle.io') || msg.includes('CORS') || msg.includes('Failed to fetch')) {
+      return 'Base wallet/RPC connection failed. Reconnect MetaMask, make sure it is on Base, and try again.';
+    }
+    return msg;
+  }
+
+  function ensureBaseReady() {
+    if (!hasBaseConfig) {
+      setError('Base claiming is temporarily misconfigured. The NFT contract or USDC address is missing.');
+      setStep('error');
+      return false;
+    }
+    if (!hasBaseAddress) {
+      setError('MetaMask did not return a valid Base account. Reconnect your Base wallet and try again.');
+      setStep('error');
+      return false;
+    }
+    return true;
+  }
 
   const handleBatchClaim = async () => {
-    if (!isConnected || unclaimed.length === 0 || selectedChain !== 'base') return;
+    if (unclaimed.length === 0 || selectedChain !== 'base') return;
+    if (!ensureBaseReady()) return;
 
     try {
       frozenTiles.current = { unclaimed: [...unclaimed], alreadyClaimed: [...alreadyClaimed], wasCapped };
@@ -217,7 +245,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
       playSound('batch-claim');
       if (onClaimed) onClaimed(unclaimed);
     } catch (err) {
-      const msg = err?.shortMessage || err?.message || 'Transaction failed';
+      const msg = baseErrorMessage(err);
       if (msg.toLowerCase().includes('reject') || msg.toLowerCase().includes('denied')) {
         frozenTiles.current = null;
         setStep('preview');
@@ -296,11 +324,21 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
   }
 
   function renderBaseFlow() {
-    if (!isConnected) {
+    if (!hasBaseAddress) {
       return (
         <div className="text-center text-[14px] text-text-dim">
-          <p className="mb-4">Connect your Base wallet to batch claim these tiles with USDC.</p>
+          <p className={`mb-4 ${isConnected ? 'text-amber-500' : ''}`}>
+            {isConnected ? 'MetaMask is connected, but no valid Base account was returned. Reconnect your wallet.' : 'Connect your Base wallet to batch claim these tiles with USDC.'}
+          </p>
           <button onClick={() => openConnectModal(true)} className="btn-retro btn-retro-primary w-full px-3 py-3.5 text-[15px]">Connect your Base wallet</button>
+        </div>
+      );
+    }
+
+    if (!hasBaseConfig) {
+      return (
+        <div className="rounded-[2px] border border-red-500/25 bg-red-500/10 px-3.5 py-2.5 text-[13px] text-accent-red">
+          Base claiming is temporarily misconfigured. The NFT contract or USDC address is missing.
         </div>
       );
     }

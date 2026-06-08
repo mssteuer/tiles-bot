@@ -37,8 +37,12 @@ function run() {
 
   assertContains(claimModal, /Connect your Base wallet/, 'ClaimModal has Base-specific wallet prompt');
   assertContains(claimModal, /Connect your Casper wallet/, 'ClaimModal has Casper-specific wallet prompt');
+  assertContains(claimModal, /hasBaseAddress = isConnected && isAddress\(address \|\| ''\)/, 'ClaimModal requires a valid EVM account before Base actions');
+  assertContains(claimModal, /MetaMask did not return a valid Base account/, 'ClaimModal normalizes undefined Base wallet address errors');
   assertContains(batchClaimModal, /Connect your Base wallet/, 'BatchClaimModal has Base-specific wallet prompt');
   assertContains(batchClaimModal, /Connect your Casper wallet/, 'BatchClaimModal has Casper-specific wallet prompt');
+  assertContains(batchClaimModal, /hasBaseAddress = isConnected && isAddress\(address \|\| ''\)/, 'BatchClaimModal requires a valid EVM account before Base actions');
+  assertContains(batchClaimModal, /MetaMask did not return a valid Base account/, 'BatchClaimModal normalizes undefined Base wallet address errors');
   assertContains(header, /Base Wallet/, 'Header labels the EVM wallet button as Base Wallet');
   assertContains(header, /Casper Wallet/, 'Header labels the Casper wallet button');
   assertContains(casperWallet, /contentMode:\s*CONTENT_MODE\.IFRAME/, 'CSPR.click uses iframe mode, not deprecated popup mode');

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { playSound } from '@/lib/sound';
 import { useAccount, useWriteContract, useReadContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { useModal } from 'connectkit';
-import { parseUnits, formatUnits } from 'viem';
+import { isAddress, parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, MBH_ABI, ERC20_ABI, TARGET_CHAIN } from '@/lib/wagmi';
 import { useCasperWallet } from '@/lib/casper-wallet';
 
@@ -110,7 +110,9 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   const casperPriceDisplay = chainPrices.casper ?? 0.01;
   const hasAllowance = allowance !== undefined && allowance >= basePrice;
   const hasBalance = usdcBalance === undefined || usdcBalance >= basePrice;
-  const wrongChain = selectedChain === 'base' && isConnected && chainId !== TARGET_CHAIN.id;
+  const hasBaseAddress = isConnected && isAddress(address || '');
+  const hasBaseConfig = isAddress(CONTRACT_ADDRESS || '') && isAddress(USDC_ADDRESS || '');
+  const wrongChain = selectedChain === 'base' && hasBaseAddress && chainId !== TARGET_CHAIN.id;
   const selectedPrice = selectedChain === 'casper'
     ? formatCspr(casperPriceDisplay)
     : `${formatUsd(basePriceDisplay)} USDC`;
@@ -118,8 +120,31 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   function extractError(e) {
     if (!e) return 'Unknown error';
     if (typeof e === 'string') return e;
-    if (typeof e === 'object') return e.shortMessage || e.message || e.details || JSON.stringify(e);
+    if (typeof e === 'object') {
+      const msg = e.shortMessage || e.message || e.details || JSON.stringify(e);
+      if (msg.includes('Address "undefined" is invalid') || msg.includes('Address undefined is invalid')) {
+        return 'MetaMask did not return a valid Base account. Reconnect your Base wallet and try again.';
+      }
+      if (msg.includes('eth.merkle.io') || msg.includes('CORS') || msg.includes('Failed to fetch')) {
+        return 'Base wallet/RPC connection failed. Reconnect MetaMask, make sure it is on Base, and try again.';
+      }
+      return msg;
+    }
     return String(e);
+  }
+
+  function ensureBaseReady() {
+    if (!hasBaseConfig) {
+      setErrorMsg('Base claiming is temporarily misconfigured. The NFT contract or USDC address is missing.');
+      setStep('error');
+      return false;
+    }
+    if (!hasBaseAddress) {
+      setErrorMsg('MetaMask did not return a valid Base account. Reconnect your Base wallet and try again.');
+      setStep('error');
+      return false;
+    }
+    return true;
   }
 
   function chooseChain(chain) {
@@ -130,6 +155,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   }
 
   async function handleApprove() {
+    if (!ensureBaseReady()) return;
     setStep('approve');
     setErrorMsg('');
     try {
@@ -158,6 +184,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   }
 
   async function handleClaim() {
+    if (!ensureBaseReady()) return;
     setStep('claim');
     setErrorMsg('');
     try {
@@ -290,11 +317,21 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   }
 
   function renderBaseFlow() {
-    if (!isConnected) {
+    if (!hasBaseAddress) {
       return (
         <div className="text-center">
-          <p className="mb-4 text-[14px] text-text-dim">Connect your Base wallet to claim this tile with USDC.</p>
+          <p className={`mb-4 text-[14px] ${isConnected ? 'text-amber-500' : 'text-text-dim'}`}>
+            {isConnected ? 'MetaMask is connected, but no valid Base account was returned. Reconnect your wallet.' : 'Connect your Base wallet to claim this tile with USDC.'}
+          </p>
           <button onClick={() => openConnectModal(true)} className="btn-retro btn-retro-primary w-full px-3 py-3.5 text-[15px]">Connect your Base wallet</button>
+        </div>
+      );
+    }
+
+    if (!hasBaseConfig) {
+      return (
+        <div className="rounded-[2px] border border-red-500/25 bg-red-500/10 px-3.5 py-2.5 text-[13px] text-accent-red">
+          Base claiming is temporarily misconfigured. The NFT contract or USDC address is missing.
         </div>
       );
     }
