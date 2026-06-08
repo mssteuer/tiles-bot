@@ -2,7 +2,7 @@
 
 import { getDefaultConfig } from 'connectkit';
 import { createConfig, http } from 'wagmi';
-import { base, baseSepolia } from 'wagmi/chains';
+import { base, baseSepolia, mainnet } from 'wagmi/chains';
 import { parseAbi } from 'viem';
 
 const IS_TESTNET = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
@@ -13,11 +13,21 @@ const WALLET_CONNECT_PROJECT_ID = '46f60652765d233f1af2dad782c25ca3';
 
 export const wagmiConfig = createConfig(
   getDefaultConfig({
-    chains: [TARGET],
+    // ConnectKit performs ENS/avatar lookups on Ethereum mainnet. If mainnet is
+    // not in the app config, ConnectKit falls back to viem's default public RPC
+    // (`https://eth.merkle.io`), which fails browser CORS preflights and floods
+    // the console. Keep Base as the target chain, but provide a CORS-safe
+    // mainnet transport for those background reads.
+    chains: [TARGET, mainnet],
     transports: {
       [TARGET.id]: http(IS_TESTNET ? 'https://sepolia.base.org' : 'https://mainnet.base.org', {
         batch: true,
         retryCount: 2,
+        retryDelay: 1000,
+      }),
+      [mainnet.id]: http('https://ethereum.publicnode.com', {
+        batch: true,
+        retryCount: 1,
         retryDelay: 1000,
       }),
     },

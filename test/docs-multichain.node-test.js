@@ -50,6 +50,7 @@ describe('agentic multi-chain docs', () => {
     assert.ok(claim.parameters.some(p => p.name === 'chain' && p.in === 'query'));
     assert.ok(claim.responses['402'].content['application/json'].schema.$ref.includes('X402PaymentRequired'));
     assert.ok(register.requestBody.content['application/json'].schema.properties.chain);
+    assert.ok(register.responses['202'], 'register documents transient on-chain propagation as 202, not browser-noisy 404');
     assert.ok(checkOwner.parameters.some(p => p.name === 'chain' && p.in === 'query'));
   });
 });

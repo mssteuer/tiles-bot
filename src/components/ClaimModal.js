@@ -154,6 +154,31 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
     setStep('info');
   }
 
+  async function registerBaseClaim(hash) {
+    let lastMessage = 'Tile registration did not complete yet.';
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
+      const res = await fetch(`/api/tiles/${tileId}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: address, txHash: hash, chain: selectedChain }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 202) {
+        lastMessage = data.message || data.error || lastMessage;
+        continue;
+      }
+      if (!res.ok) {
+        throw new Error(data.error || data.detail || `Tile registration failed (${res.status})`);
+      }
+      return data;
+    }
+
+    throw new Error(`${lastMessage} The mint transaction is confirmed, but tiles.bot could not verify ownership yet. Wait a few seconds and try again.`);
+  }
+
   async function handleApprove() {
     if (!ensureBaseReady()) return;
     setStep('approve');
@@ -198,17 +223,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
 
       if (publicClient) await publicClient.waitForTransactionReceipt({ hash });
 
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          if (attempt > 0) await new Promise(r => setTimeout(r, 3000));
-          const res = await fetch(`/api/tiles/${tileId}/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ wallet: address, txHash: hash, chain: selectedChain }),
-          });
-          if (res.ok || res.status === 200) break;
-        } catch (_) {}
-      }
+      await registerBaseClaim(hash);
 
       setStep('success');
       playSound('claim');

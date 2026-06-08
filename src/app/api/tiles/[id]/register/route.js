@@ -106,7 +106,8 @@ export async function POST(request, { params }) {
       canonicalOwner = verification.canonicalOwner || body.wallet;
     }
   } catch (err) {
-    console.error('[register] On-chain verification failed:', err);
+    const isUnminted = isUnmintedTokenError(err);
+    if (!isUnminted) console.error('[register] On-chain verification failed:', err);
     logRegisterVerificationFailure({
       tileId,
       wallet: body?.wallet || 'unknown',
@@ -114,10 +115,22 @@ export async function POST(request, { params }) {
       errorMessage: err.message || String(err),
     });
 
-    const status = isUnmintedTokenError(err) ? 404 : 502;
+    if (isUnminted) {
+      return NextResponse.json(
+        {
+          error: 'Tile ownership is not visible on-chain yet',
+          message: 'Mint transaction may still be propagating. Retry registration shortly.',
+          detail: err.message,
+          chain: chain.id,
+          retryAfterMs: 3000,
+        },
+        { status: 202 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to verify on-chain ownership', detail: err.message, chain: chain.id },
-      { status }
+      { status: 502 }
     );
   }
 

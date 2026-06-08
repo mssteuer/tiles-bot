@@ -350,9 +350,9 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
           >
             {/* Profile pic or fallback icon */}
             <span className="shrink-0 flex items-center justify-center w-7 h-7">
-              {evt.tileImageUrl || (evt.tileId != null && evt.type !== 'tile_action') ? (
+              {evt.tileImageUrl ? (
                 <img
-                  src={evt.tileImageUrl || `/tile-images/thumb/${evt.tileId}.webp`}
+                  src={evt.tileImageUrl}
                   alt=""
                   className="w-7 h-7 rounded-full object-cover bg-surface-2"
                   onError={(e) => {
@@ -364,7 +364,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
               ) : null}
               <span
                 className="text-[16px]"
-                style={evt.tileImageUrl || (evt.tileId != null && evt.type !== 'tile_action') ? { display: 'none' } : {}}
+                style={evt.tileImageUrl ? { display: 'none' } : {}}
               >
                 {evt.tileAvatar || eventIcon(evt.type, evt.meta)}
               </span>

@@ -20,6 +20,9 @@ function run() {
   const grid = read('../src/components/grid/Grid.js');
   const tooltip = read('../src/components/grid/TileTooltip.js');
   const aboutTab = read('../src/components/tile-panel/AboutTab.js');
+  const activityFeed = read('../src/components/ActivityFeed.js');
+  const wagmiConfig = read('../src/lib/wagmi.js');
+  const registerRoute = read('../src/app/api/tiles/[id]/register/route.js');
 
   for (const [name, source] of [
     ['ClaimModal', claimModal],
@@ -39,6 +42,9 @@ function run() {
   assertContains(claimModal, /Connect your Casper wallet/, 'ClaimModal has Casper-specific wallet prompt');
   assertContains(claimModal, /hasBaseAddress = isConnected && isAddress\(address \|\| ''\)/, 'ClaimModal requires a valid EVM account before Base actions');
   assertContains(claimModal, /MetaMask did not return a valid Base account/, 'ClaimModal normalizes undefined Base wallet address errors');
+  assertContains(claimModal, /async function registerBaseClaim/, 'ClaimModal treats Base registration as a required step');
+  assertContains(claimModal, /res\.status === 202/, 'ClaimModal retries transient on-chain registration propagation');
+  assertContains(claimModal, /throw new Error\(data\.error \|\| data\.detail/, 'ClaimModal surfaces failed registration instead of showing false success');
   assertContains(batchClaimModal, /Connect your Base wallet/, 'BatchClaimModal has Base-specific wallet prompt');
   assertContains(batchClaimModal, /Connect your Casper wallet/, 'BatchClaimModal has Casper-specific wallet prompt');
   assertContains(batchClaimModal, /hasBaseAddress = isConnected && isAddress\(address \|\| ''\)/, 'BatchClaimModal requires a valid EVM account before Base actions');
@@ -56,6 +62,12 @@ function run() {
   assertContains(tooltip, /chainVisual\.label/, 'Tile tooltip shows chain label');
   assertContains(aboutTab, /buildChainExplorerLinks/, 'About tab builds chain-specific explorer links');
   assertContains(aboutTab, /formatAddressForChain/, 'About tab formats addresses by chain');
+  assert.doesNotMatch(activityFeed, /`\/tile-images\/thumb\/\$\{evt\.tileId\}\.webp`/, 'ActivityFeed does not request missing fallback thumbnails');
+  assertContains(activityFeed, /src=\{evt\.tileImageUrl\}/, 'ActivityFeed renders image only when the event supplies an image URL');
+  assertContains(wagmiConfig, /mainnet/, 'wagmi config includes Ethereum mainnet for ConnectKit ENS lookups');
+  assertContains(wagmiConfig, /ethereum\.publicnode\.com/, 'wagmi config overrides ConnectKit ENS mainnet RPC away from eth.merkle.io');
+  assertContains(registerRoute, /\{ status: 202 \}/, 'Register route returns 202 for transient unminted ownership verification');
+  assert.doesNotMatch(registerRoute, /isUnmintedTokenError\(err\) \? 404/, 'Register route no longer maps transient propagation to browser-noisy 404');
 
   console.log('chain selection UI source tests: ok');
 }

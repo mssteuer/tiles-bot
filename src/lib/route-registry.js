@@ -299,6 +299,7 @@ export const ROUTE_REGISTRY = [
     responses: {
       '201': { description: 'Tile registered', content: { 'application/json': { schema: { $ref: '#/components/schemas/RegisterResponse' } } } },
       '200': { description: 'Tile was already registered' },
+      '202': { description: 'On-chain mint is not visible yet; retry registration shortly' },
       '400': { description: 'Invalid chain, tx/deploy, wallet, or tile already registered' },
       '403': { description: 'Wallet does not own this tile on the selected chain' },
       '502': { description: 'On-chain ownership verification failed' },
