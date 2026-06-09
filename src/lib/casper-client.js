@@ -3,10 +3,10 @@
 // Uses JSON-RPC directly for reliable contract state queries + SSE for deploy event streaming.
 
 import { blake2b } from '@noble/hashes/blake2b';
+import { bondingCurvePrice, TOTAL_TILES } from './pricing.js';
 
 // — Constants
 
-const TOTAL_TILES = 65536;
 const CASPER_PUBKEY_PATTERN = /^(01|02)[0-9a-fA-F]{64}$/;
 const ACCOUNT_HASH_PATTERN = /^[0-9a-fA-F]{64}$/;
 const DEPLOY_HASH_PATTERN = /^[0-9a-fA-F]{64}$/;
@@ -15,7 +15,7 @@ const DEFAULT_RETRY_DELAY = 1000; // ms
 const DEFAULT_GAS_PAYMENT = '2500000000'; // 2.5 CSPR
 
 // — Bonding Curve (JS parity with Solidity/Rust contracts)
-// Formula: price = exp(ln(11111) * totalMinted / 65536) / 100
+// Formula: price = 5 CSPR * exp(ln(11111) * totalMinted / 65536)
 
 /**
  * Compute tile price from the bonding curve.
@@ -24,7 +24,7 @@ const DEFAULT_GAS_PAYMENT = '2500000000'; // 2.5 CSPR
  */
 function computePrice(totalMinted) {
   if (totalMinted >= TOTAL_TILES) return Infinity;
-  return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
+  return bondingCurvePrice(totalMinted, 'casper');
 }
 
 // — Account hash normalization

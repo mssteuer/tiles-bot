@@ -1,6 +1,6 @@
 //! Tests for the bonding curve pricing logic.
-//! Formula: price_motes = 10_000_000 * exp(ln(11111) * total_minted / 65536)
-//! Range: 0.01 CSPR (10M motes) at mint 0 -> 111.11 CSPR (111.11B motes) at mint 65535
+//! Formula: price_motes = 5_000_000_000 * exp(ln(11111) * total_minted / 65536)
+//! Range: 5 CSPR at mint 0 -> ~55,555 CSPR at mint 65535
 
 #[cfg(test)]
 mod tests {
@@ -9,8 +9,8 @@ mod tests {
     #[test]
     fn price_at_zero_mints() {
         let price = bonding_curve::compute_price(0);
-        // At 0 mints, price should be ~10_000_000 motes (0.01 CSPR)
-        let expected: u128 = 10_000_000;
+        // At 0 mints, price should be ~5_000_000_000 motes (5 CSPR)
+        let expected: u128 = 5_000_000_000;
         let tolerance = expected / 1000; // 0.1%
         assert!(
             price >= expected - tolerance && price <= expected + tolerance,
@@ -23,8 +23,8 @@ mod tests {
     #[test]
     fn price_at_max_mints() {
         let price = bonding_curve::compute_price(65535);
-        // At 65535 mints, price should be ~111_110_000_000 motes (111.11 CSPR)
-        let expected: u128 = 111_110_000_000;
+        // At 65535 mints, price should be ~55_555_000_000_000 motes (~55,555 CSPR)
+        let expected: u128 = 55_555_000_000_000;
         let tolerance = expected / 100; // 1% tolerance at the high end
         assert!(
             price >= expected - tolerance && price <= expected + tolerance,
@@ -54,8 +54,8 @@ mod tests {
     fn price_at_midpoint() {
         let price = bonding_curve::compute_price(32768);
         // At midpoint: exp(ln(11111) * 0.5) = sqrt(11111) ~ 105.41
-        // price = 0.01 * 105.41 ~ 1.054 CSPR ~ 1_054_000_000 motes
-        let expected: u128 = 1_054_000_000;
+        // price = 5 * 105.41 ~ 527 CSPR ~ 527_000_000_000 motes
+        let expected: u128 = 527_000_000_000;
         let tolerance = expected / 50; // 2% tolerance
         assert!(
             price >= expected - tolerance && price <= expected + tolerance,

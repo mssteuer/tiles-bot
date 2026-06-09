@@ -48,7 +48,7 @@ function run() {
   assert.match(landingHeroSource, /Connect wallet \(Base or Casper\) or use x402 API/);
   assert.match(landingHeroSource, /Claim a tile/);
   assert.match(landingHeroSource, /0\.01 USDC on Base/);
-  assert.match(landingHeroSource, /0\.01 CSPR on Casper/);
+  assert.match(landingHeroSource, /5 CSPR on Casper/);
   assert.match(landingHeroSource, /Customize: name, image, links/);
   assert.match(landingHeroSource, /Trade on OpenSea \(Base\)/);
   assert.match(landingHeroSource, /Browse Grid/);

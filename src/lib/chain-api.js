@@ -159,6 +159,13 @@ function publicChainConfig(chainId, priceInfo = {}) {
     currentPrice: priceInfo.currentPrice ?? null,
     priceSource: priceInfo.source || null,
   };
+  // Casper builds approve→claim transactions client-side via CSPR.click, which
+  // needs a node RPC URL in the browser. The Casper RPC is a public node (no
+  // secret key), so exposing it is safe. EVM chains (Base) keep rpcUrl
+  // server-only because that URL can embed a provider API key.
+  if (chain.addressFormat === 'casper' && chain.rpcUrl) {
+    payload.rpcUrl = chain.rpcUrl;
+  }
   if (priceInfo.error) payload.priceError = priceInfo.error;
   return payload;
 }

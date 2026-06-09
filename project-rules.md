@@ -72,18 +72,19 @@ tiles.bot (nginx + TLS)
 - **Standard:** CEP-95 (NFT) + CEP-96 (collection metadata)
 - **Payment:** wCSPR (CEP-18 with transfer_with_authorization for x402)
 - Key entry points: `claim(token_id)`, `batch_claim(token_ids)`, `current_price()`
-- Bonding curve: **Same formula as Base** (independent per chain)
+- Bonding curve: same 11,111× multiplier as Base, but starts at 5 CSPR (independent per chain)
 - **Toolchain:** cargo-odra, wasm-opt, wabt (wasm-strip)
 - **Build:** `cd contracts/casper && cargo odra build`
 - **Test:** `cd contracts/casper && cargo test`
 
-### Bonding Curve (both chains)
-```
-price = exp(ln(11111) × totalMinted / 65536) / 100
+### Bonding Curve
+```text
+Base:   price = 0.01 × exp(ln(11111) × totalMinted / 65536)
+Casper: price = 5    × exp(ln(11111) × totalMinted / 65536)
 ```
 - Each chain has its own independent curve
 - Each chain tracks its own `totalMinted`
-- Range: 0.01 → 111.11 (in USD on Base, in CSPR on Casper)
+- Range: Base $0.01 → $111.11; Casper 5 CSPR → ~55,555 CSPR
 - Pricing is fully on-chain — no server oracle dependency
 
 ## Database

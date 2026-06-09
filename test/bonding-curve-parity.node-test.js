@@ -2,17 +2,20 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 // — Bonding Curve Formula Parity Tests
-// Verifies both chains use the exact same formula: price = e^(ln(11111) * totalMinted / 65536) / 100
+// Base keeps the original USDC curve. Casper uses the same exponential multiplier,
+// but starts at 5 CSPR instead of 0.01 CSPR.
 // These are pure math tests — no DB needed.
 
-function bondingCurvePrice(totalMinted) {
-  return Math.exp(Math.log(11111) * totalMinted / 65536) / 100;
+const START_PRICES = { base: 0.01, casper: 5 };
+
+function bondingCurvePrice(totalMinted, chain = 'base') {
+  return START_PRICES[chain] * Math.exp(Math.log(11111) * totalMinted / 65536);
 }
 
-function batchPrice(startMinted, count) {
+function batchPrice(startMinted, count, chain = 'base') {
   let total = 0;
   for (let i = 0; i < count; i++) {
-    total += bondingCurvePrice(startMinted + i);
+    total += bondingCurvePrice(startMinted + i, chain);
   }
   return total;
 }
@@ -53,47 +56,42 @@ describe('bonding curve formula verification', () => {
 });
 
 describe('independent per-chain pricing', () => {
-  it('same formula produces same price at same totalMinted', () => {
-    // If Base has 100 claimed and Casper has 100 claimed,
-    // next tile price should be identical on both chains
-    const basePrice = bondingCurvePrice(100);
-    const casperPrice = bondingCurvePrice(100);
-    assert.equal(basePrice, casperPrice, 'Same totalMinted = same price');
+  it('Casper starts at 5 CSPR while Base starts at $0.01', () => {
+    assert.ok(Math.abs(bondingCurvePrice(0, 'base') - 0.01) < 0.001, 'Base first tile is $0.01');
+    assert.ok(Math.abs(bondingCurvePrice(0, 'casper') - 5) < 0.001, 'Casper first tile is 5 CSPR');
   });
 
-  it('different totalMinted produces different prices', () => {
-    // If Base has 1000 claimed but Casper has 100 claimed,
-    // Base price should be higher
-    const basePrice = bondingCurvePrice(1000);
-    const casperPrice = bondingCurvePrice(100);
-    assert.ok(basePrice > casperPrice, 'More claimed = higher price');
+  it('same totalMinted uses the same multiplier with chain-specific starts', () => {
+    const basePrice = bondingCurvePrice(100, 'base');
+    const casperPrice = bondingCurvePrice(100, 'casper');
+    assert.ok(Math.abs(casperPrice / basePrice - 500) < 0.001, 'Casper remains 500× Base from its 5 CSPR start');
   });
 
-  it('early mover advantage: new chain starts at $0.01 regardless of other chain', () => {
-    // Even if Base has 50,000 tiles claimed (expensive!),
-    // Casper's first tile is still $0.01
-    const basePrice = bondingCurvePrice(50000);
-    const casperFirstTile = bondingCurvePrice(0);
+  it('different totalMinted produces different prices within the same chain', () => {
+    const lower = bondingCurvePrice(100, 'casper');
+    const higher = bondingCurvePrice(1000, 'casper');
+    assert.ok(higher > lower, 'More claimed = higher price');
+  });
+
+  it('early mover advantage: new Casper chain starts at 5 CSPR regardless of Base', () => {
+    const basePrice = bondingCurvePrice(50000, 'base');
+    const casperFirstTile = bondingCurvePrice(0, 'casper');
 
     assert.ok(basePrice > 10, `Base at 50K should be expensive: $${basePrice.toFixed(2)}`);
-    assert.ok(Math.abs(casperFirstTile - 0.01) < 0.001, 'Casper first tile still $0.01');
+    assert.ok(Math.abs(casperFirstTile - 5) < 0.001, 'Casper first tile still 5 CSPR');
   });
 
   it('batch pricing is independent per chain', () => {
-    // Buying 5 tiles on Base at 1000 minted costs more
-    // than buying 5 tiles on Casper at 100 minted
-    const baseBatch = batchPrice(1000, 5);
-    const casperBatch = batchPrice(100, 5);
-    assert.ok(baseBatch > casperBatch, 'Batch on more-claimed chain costs more');
+    const baseBatch = batchPrice(1000, 5, 'base');
+    const casperBatch = batchPrice(100, 5, 'casper');
+    assert.ok(casperBatch > baseBatch, 'Casper batch is higher because Casper starts at 5 CSPR');
   });
 
-  it('formula reaches $111.11 at 65535 regardless of which chain', () => {
-    // Each chain can theoretically have all 65536 tiles claimed
-    // Their max price should be ~$111.11 independently
-    const baseMaxPrice = bondingCurvePrice(65535);
-    const casperMaxPrice = bondingCurvePrice(65535);
-    assert.equal(baseMaxPrice, casperMaxPrice, 'Max price is same formula');
-    assert.ok(Math.abs(baseMaxPrice - 111.11) < 0.1, `Max price: ~$111.11, got $${baseMaxPrice.toFixed(2)}`);
+  it('formula reaches each chain-specific max at 65535 independently', () => {
+    const baseMaxPrice = bondingCurvePrice(65535, 'base');
+    const casperMaxPrice = bondingCurvePrice(65535, 'casper');
+    assert.ok(Math.abs(baseMaxPrice - 111.11) < 0.1, `Base max price: ~$111.11, got $${baseMaxPrice.toFixed(2)}`);
+    assert.ok(Math.abs(casperMaxPrice - 55555) < 50, `Casper max price: ~55,555 CSPR, got ${casperMaxPrice.toFixed(2)}`);
   });
 });
 

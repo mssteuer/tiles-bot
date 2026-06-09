@@ -403,7 +403,13 @@ describe('DB-backed multi-chain grid and pricing', () => {
     const stats = db.getPerChainStats();
     assert.equal(stats.base.claimed, 4);
     assert.equal(stats.casper.claimed, 2);
-    assert.ok(stats.base.currentPrice > stats.casper.currentPrice, 'Base should be pricier with more claims');
+    // Base prices in USDC (starts $0.01) and Casper in CSPR (starts 5 CSPR), so a
+    // cross-chain magnitude comparison is meaningless. Prove each chain's bonding
+    // curve climbs independently above its own start price as its claim count grows.
+    const BASE_START_PRICE = 0.01;
+    const CASPER_START_PRICE = 5;
+    assert.ok(stats.base.currentPrice > BASE_START_PRICE, 'Base price should climb above its start with more claims');
+    assert.ok(stats.casper.currentPrice > CASPER_START_PRICE, 'Casper price should climb above its start with more claims');
     assert.equal(db.getCurrentPriceByChain('base'), stats.base.currentPrice);
     assert.equal(db.getCurrentPriceByChain('casper'), stats.casper.currentPrice);
   });

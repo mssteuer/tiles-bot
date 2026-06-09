@@ -7,6 +7,7 @@ import { useModal } from 'connectkit';
 import { isAddress, parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, MBH_ABI, ERC20_ABI, TARGET_CHAIN } from '@/lib/wagmi';
 import { useCasperWallet } from '@/lib/casper-wallet';
+import { buildTileClaimTransaction, buildWcsprApproveTransaction, csprToMotes, sendCasperTransaction } from '@/lib/casper-transactions';
 
 const CHAIN_OPTIONS = [
   {
@@ -35,7 +36,7 @@ function formatUsd(value) {
 
 function formatCspr(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return '0.0100 CSPR';
+  if (!Number.isFinite(n)) return '5.0000 CSPR';
   return `${n.toFixed(4)} CSPR`;
 }
 
@@ -55,13 +56,12 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   const { address, isConnected, chainId } = useAccount();
   const { switchChain } = useSwitchChain();
   const { setOpen: openConnectModal } = useModal();
-  const { publicKey: casperPublicKey, truncatedKey: casperTruncatedKey, isConnected: isCasperConnected, signIn: openCasperWallet } = useCasperWallet();
+  const { publicKey: casperPublicKey, truncatedKey: casperTruncatedKey, isConnected: isCasperConnected, signIn: openCasperWallet, getClickRef } = useCasperWallet();
 
   const [selectedChain, setSelectedChain] = useState(null);
   const [step, setStep] = useState('select-chain');
   const [errorMsg, setErrorMsg] = useState('');
   const [txHash, setTxHash] = useState('');
-  const [casperDeployHash, setCasperDeployHash] = useState('');
   const [chainPrices, setChainPrices] = useState({ base: null, casper: null });
 
   const { data: onChainPrice } = useReadContract({
@@ -107,7 +107,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
 
   const basePrice = onChainPrice ? onChainPrice : parseUnits(String(chainPrices.base ?? 0.01), 6);
   const basePriceDisplay = formatUnits(basePrice, 6);
-  const casperPriceDisplay = chainPrices.casper ?? 0.01;
+  const casperPriceDisplay = chainPrices.casper ?? 5;
   const hasAllowance = allowance !== undefined && allowance >= basePrice;
   const hasBalance = usdcBalance === undefined || usdcBalance >= basePrice;
   const hasBaseAddress = isConnected && isAddress(address || '');
@@ -241,29 +241,74 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
     }
   }
 
-  async function handleRegisterCasperDeploy() {
-    const deployHash = casperDeployHash.trim();
-    if (!deployHash) {
-      setErrorMsg('Paste the Casper deploy hash after minting on-chain.');
+  function ensureCasperReady() {
+    if (!casperPublicKey) {
+      setErrorMsg('Connect your Casper wallet before claiming.');
       setStep('error');
-      return;
+      return false;
     }
-    setStep('claim');
-    setErrorMsg('');
-    try {
+    if (!getClickRef?.()) {
+      setErrorMsg('CSPR.click is not ready yet. Reconnect your Casper wallet and try again.');
+      setStep('error');
+      return false;
+    }
+    return true;
+  }
+
+  async function registerCasperClaim(deployHash) {
+    let lastMessage = 'Casper ownership is not visible yet.';
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
       const res = await fetch(`/api/tiles/${tileId}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: casperPublicKey, deployHash, txHash: deployHash, chain: selectedChain }),
+        body: JSON.stringify({ wallet: casperPublicKey, deployHash, txHash: deployHash, chain: 'casper' }),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 202) {
+        lastMessage = data.message || data.error || lastMessage;
+        continue;
+      }
       if (!res.ok) throw new Error(data.error || data.detail || 'Casper registration failed');
-      setTxHash(deployHash);
+      return data;
+    }
+    throw new Error(`${lastMessage} The Casper claim was sent, but tiles.bot could not verify ownership yet. Wait a few seconds and try again.`);
+  }
+
+  async function handleCasperClaim() {
+    if (!ensureCasperReady()) return;
+    const chainPayload = await fetch('/api/chains').then(r => r.json()).catch(() => null);
+    const config = chainPayload?.chains?.casper;
+    if (!config?.nftContract || !config?.paymentToken || !config?.rpcUrl) {
+      setErrorMsg('Casper claiming is temporarily misconfigured. Missing NFT contract, wCSPR token, or RPC URL.');
+      setStep('error');
+      return;
+    }
+
+    const clickRef = getClickRef();
+    const amountMotes = csprToMotes(casperPriceDisplay);
+    setErrorMsg('');
+    try {
+      setStep('approve');
+      const approveTx = await buildWcsprApproveTransaction({ publicKey: casperPublicKey, chainConfig: config, amountMotes });
+      await sendCasperTransaction(clickRef, approveTx, casperPublicKey);
+
+      setStep('claim');
+      const claimTx = await buildTileClaimTransaction({ publicKey: casperPublicKey, chainConfig: config, tileId });
+      const deployHash = await sendCasperTransaction(clickRef, claimTx, casperPublicKey, { onSent: setTxHash });
+      if (deployHash) setTxHash(deployHash);
+      await registerCasperClaim(deployHash);
+
       setStep('success');
       playSound('claim');
       if (onClaimed) onClaimed(tileId, casperPublicKey);
     } catch (e) {
-      setErrorMsg(extractError(e));
+      const msg = extractError(e);
+      if (msg.includes('rejected') || msg.includes('denied') || msg.includes('cancel')) {
+        setStep('info');
+        return;
+      }
+      setErrorMsg(msg);
       setStep('error');
     }
   }
@@ -311,20 +356,14 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
         <div className="mb-4 rounded-[2px] border border-red-500/25 bg-red-500/10 px-3.5 py-2.5 text-[12px] text-text-dim">
           <div className="mb-1 font-semibold text-red-300">Casper flow</div>
           <ol className="ml-4 list-decimal space-y-1">
-            <li>Approve wCSPR spending for the tiles.bot Casper contract.</li>
-            <li>Mint with <span className="font-mono">claim(token_id)</span> in your Casper wallet or agent flow.</li>
-            <li>Paste the deploy hash here so tiles.bot verifies ownership and registers the tile.</li>
+            <li>Approve wCSPR spending for this tile.</li>
+            <li>Confirm the Casper <span className="font-mono">claim(token_id)</span> transaction.</li>
+            <li>tiles.bot registers the tile after on-chain ownership is visible.</li>
           </ol>
         </div>
-        <input
-          value={casperDeployHash}
-          onChange={e => setCasperDeployHash(e.target.value)}
-          placeholder="Casper deploy hash"
-          className="mb-3 w-full rounded-[2px] border border-border bg-surface-2 px-3 py-2.5 font-mono text-[12px] text-text outline-none"
-        />
-        <button onClick={handleRegisterCasperDeploy} disabled={step === 'claim'} className={`btn-retro btn-retro-casper w-full px-3 py-3 text-[15px] ${step === 'claim' ? 'btn-loading' : ''}`}>
-          {step === 'claim' && <span className="spinner spinner-amber" />}
-          {step === 'claim' ? 'Verifying Casper deploy…' : `Register Casper claim (${formatCspr(casperPriceDisplay)})`}
+        <button onClick={handleCasperClaim} disabled={step === 'approve' || step === 'claim'} className={`btn-retro btn-retro-casper w-full px-3 py-3 text-[15px] ${(step === 'approve' || step === 'claim') ? 'btn-loading' : ''}`}>
+          {(step === 'approve' || step === 'claim') && <span className="spinner spinner-amber" />}
+          {step === 'approve' ? 'Approving wCSPR…' : step === 'claim' ? 'Claiming on Casper…' : `Approve + Claim on Casper (${formatCspr(casperPriceDisplay)})`}
         </button>
         <p className="mt-3 text-center text-[11px] text-text-gray">Connected Casper: {casperTruncatedKey}</p>
       </div>

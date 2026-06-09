@@ -6,7 +6,7 @@ const OPENSEA_COLLECTION_URL = 'https://opensea.io/collection/million-bot-homepa
 
 const HOW_IT_WORKS = [
   'Connect wallet (Base or Casper) or use x402 API',
-  'Claim a tile — from $0.01 USDC on Base, 0.01 CSPR on Casper',
+  'Claim a tile — from $0.01 USDC on Base, 5 CSPR on Casper',
   'Customize: name, image, links',
   'Trade on OpenSea (Base) or the grid itself (Casper)',
 ];

@@ -166,9 +166,9 @@ describe('casper-client', () => {
       );
 
       const price = await client.getCurrentPrice();
-      // At 0 mints: exp(ln(11111) * 0 / 65536) / 100 = 1/100 = 0.01
+      // At 0 mints: 5 CSPR
       assert.ok(price > 0, 'Price should be positive');
-      assert.ok(Math.abs(price - 0.01) < 0.001, `Price at 0 mints should be ~0.01 CSPR, got ${price}`);
+      assert.ok(Math.abs(price - 5) < 0.001, `Price at 0 mints should be ~5 CSPR, got ${price}`);
     });
 
     it('returns higher price with more minted tiles', async () => {
@@ -184,7 +184,7 @@ describe('casper-client', () => {
       );
 
       const price1000 = await client.getCurrentPrice();
-      assert.ok(price1000 > 0.01, `Price at 1000 mints (${price1000}) should be > 0.01`);
+      assert.ok(price1000 > 5, `Price at 1000 mints (${price1000}) should be > 5`);
     });
   });
 
@@ -631,13 +631,13 @@ describe('casper-client', () => {
     it('matches expected prices at key points', () => {
       const { computePrice } = casperClient;
 
-      // At 0 mints: 0.01 CSPR
+      // At 0 mints: 5 CSPR
       const p0 = computePrice(0);
-      assert.ok(Math.abs(p0 - 0.01) < 0.001, `Price at 0: ${p0} (expected ~0.01)`);
+      assert.ok(Math.abs(p0 - 5) < 0.001, `Price at 0: ${p0} (expected ~5)`);
 
-      // At 65535 mints: ~111.11 CSPR
+      // At 65535 mints: ~55,555 CSPR
       const pMax = computePrice(65535);
-      assert.ok(Math.abs(pMax - 111.11) < 2, `Price at 65535: ${pMax} (expected ~111.11)`);
+      assert.ok(Math.abs(pMax - 55555) < 1000, `Price at 65535: ${pMax} (expected ~55,555)`);
 
       // Monotonically increasing
       let prev = computePrice(0);
@@ -648,11 +648,11 @@ describe('casper-client', () => {
       }
     });
 
-    it('midpoint price matches sqrt(11111) * 0.01', () => {
+    it('midpoint price matches sqrt(11111) * 5', () => {
       const { computePrice } = casperClient;
       const mid = computePrice(32768);
-      // sqrt(11111) ≈ 105.41, * 0.01 = 1.054
-      assert.ok(Math.abs(mid - 1.054) < 0.05, `Midpoint price: ${mid} (expected ~1.054)`);
+      // sqrt(11111) ≈ 105.41, * 5 = ~527
+      assert.ok(Math.abs(mid - 527) < 25, `Midpoint price: ${mid} (expected ~527)`);
     });
   });
 

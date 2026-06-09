@@ -7,6 +7,8 @@ import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'w
 import { isAddress, parseAbi } from 'viem';
 import { TARGET_CHAIN } from '@/lib/wagmi';
 import { useCasperWallet } from '@/lib/casper-wallet';
+import { bondingCurveBatchPrice } from '@/lib/pricing';
+import { buildBatchTileClaimTransaction, buildWcsprApproveTransaction, csprToMotes, sendCasperTransaction } from '@/lib/casper-transactions';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -69,14 +71,8 @@ function detectRectangle(tileIds) {
   };
 }
 
-function bondingPrice(totalMinted) {
-  return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
-}
-
-function batchEstimate(totalMinted, count) {
-  let total = 0;
-  for (let i = 0; i < count; i++) total += bondingPrice(totalMinted + i);
-  return total;
+function batchEstimate(totalMinted, count, chainId = 'base') {
+  return bondingCurveBatchPrice(totalMinted, count, chainId);
 }
 
 function formatUsd(value) {
@@ -87,7 +83,7 @@ function formatUsd(value) {
 
 function formatCspr(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return '0.0100 CSPR';
+  if (!Number.isFinite(n)) return '5.0000 CSPR';
   return `${n.toFixed(4)} CSPR`;
 }
 
@@ -111,16 +107,15 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
   const [error, setError] = useState(null);
   const [claimedCount, setClaimedCount] = useState(0);
   const [claimTxHash, setClaimTxHash] = useState('');
-  const [casperDeployHash, setCasperDeployHash] = useState('');
   const [chainStats, setChainStats] = useState({
     base: { currentPrice: 0.01, claimed: 0 },
-    casper: { currentPrice: 0.01, claimed: 0 },
+    casper: { currentPrice: 5, claimed: 0 },
   });
   const frozenTiles = useRef(null);
   const { address, isConnected, chainId } = useAccount();
   const { switchChain } = useSwitchChain();
   const { setOpen: openConnectModal } = useModal();
-  const { publicKey: casperPublicKey, truncatedKey: casperTruncatedKey, isConnected: isCasperConnected, signIn: openCasperWallet } = useCasperWallet();
+  const { publicKey: casperPublicKey, truncatedKey: casperTruncatedKey, isConnected: isCasperConnected, signIn: openCasperWallet, getClickRef } = useCasperWallet();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
@@ -151,7 +146,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
             claimed: d?.perChain?.base?.claimed ?? d?.claimed ?? 0,
           },
           casper: {
-            currentPrice: d?.perChain?.casper?.currentPrice ?? 0.01,
+            currentPrice: d?.perChain?.casper?.currentPrice ?? 5,
             claimed: d?.perChain?.casper?.claimed ?? 0,
           },
         });
@@ -163,11 +158,11 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
   const estimates = useMemo(() => ({
     base: {
       perTilePrice: Number(chainStats.base.currentPrice).toFixed(4),
-      estimatedTotal: batchEstimate(chainStats.base.claimed, unclaimed.length).toFixed(4),
+      estimatedTotal: batchEstimate(chainStats.base.claimed, unclaimed.length, 'base').toFixed(4),
     },
     casper: {
       perTilePrice: Number(chainStats.casper.currentPrice).toFixed(4),
-      estimatedTotal: batchEstimate(chainStats.casper.claimed, unclaimed.length).toFixed(4),
+      estimatedTotal: batchEstimate(chainStats.casper.claimed, unclaimed.length, 'casper').toFixed(4),
     },
   }), [chainStats, unclaimed.length]);
 
@@ -256,10 +251,44 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
     }
   };
 
-  async function handleRegisterCasperBatch() {
-    const deployHash = casperDeployHash.trim();
-    if (!deployHash) {
-      setError('Paste the Casper deploy hash after batch minting on-chain.');
+  async function registerCasperBatch(deployHash) {
+    let lastMessage = 'Casper ownership is not visible yet.';
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
+      const res = await fetch('/api/tiles/batch-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: casperPublicKey, tileIds: unclaimed, deployHash, txHash: deployHash, chain: 'casper' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 202) {
+        lastMessage = data.message || data.error || lastMessage;
+        continue;
+      }
+      if (!res.ok) throw new Error(data.error || data.detail || 'Casper batch registration failed');
+      return data;
+    }
+    throw new Error(`${lastMessage} The Casper batch claim was sent, but tiles.bot could not verify ownership yet. Wait a few seconds and try again.`);
+  }
+
+  async function handleCasperBatchClaim() {
+    if (unclaimed.length === 0 || selectedChain !== 'casper') return;
+    if (!casperPublicKey) {
+      setError('Connect your Casper wallet before claiming.');
+      setStep('error');
+      return;
+    }
+    const clickRef = getClickRef?.();
+    if (!clickRef) {
+      setError('CSPR.click is not ready yet. Reconnect your Casper wallet and try again.');
+      setStep('error');
+      return;
+    }
+
+    const chainPayload = await fetch('/api/chains').then(r => r.json()).catch(() => null);
+    const config = chainPayload?.chains?.casper;
+    if (!config?.nftContract || !config?.paymentToken || !config?.rpcUrl) {
+      setError('Casper claiming is temporarily misconfigured. Missing NFT contract, wCSPR token, or RPC URL.');
       setStep('error');
       return;
     }
@@ -267,21 +296,30 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
     try {
       frozenTiles.current = { unclaimed: [...unclaimed], alreadyClaimed: [...alreadyClaimed], wasCapped };
       setClaimedCount(unclaimed.length);
-      setStep('claim');
       setError(null);
-      const res = await fetch('/api/tiles/batch-register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: casperPublicKey, tileIds: unclaimed, deployHash, txHash: deployHash, chain: selectedChain }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || data.detail || 'Casper batch registration failed');
-      setClaimTxHash(deployHash);
+      setStep('approve');
+
+      const amountMotes = csprToMotes(selectedEstimate.estimatedTotal);
+      const approveTx = await buildWcsprApproveTransaction({ publicKey: casperPublicKey, chainConfig: config, amountMotes });
+      await sendCasperTransaction(clickRef, approveTx, casperPublicKey);
+
+      setStep('claim');
+      const claimTx = await buildBatchTileClaimTransaction({ publicKey: casperPublicKey, chainConfig: config, tileIds: unclaimed });
+      const deployHash = await sendCasperTransaction(clickRef, claimTx, casperPublicKey, { onSent: setClaimTxHash });
+      if (deployHash) setClaimTxHash(deployHash);
+      await registerCasperBatch(deployHash);
+
       setStep('success');
       playSound('batch-claim');
       if (onClaimed) onClaimed(unclaimed);
     } catch (err) {
-      setError(err?.message || 'Casper batch registration failed');
+      const msg = err?.shortMessage || err?.message || String(err || 'Casper batch claim failed');
+      if (msg.toLowerCase().includes('reject') || msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('cancel')) {
+        frozenTiles.current = null;
+        setStep('preview');
+        return;
+      }
+      setError(msg);
       setStep('error');
     }
   }
@@ -376,18 +414,12 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
           <div className="mb-1 font-semibold text-red-300">Casper batch flow</div>
           <ol className="ml-4 list-decimal space-y-1">
             <li>Approve wCSPR for the total batch price.</li>
-            <li>Mint with <span className="font-mono">batch_claim(token_ids)</span> from your Casper wallet or agent flow.</li>
-            <li>Paste the deploy hash here so tiles.bot verifies the batch and registers the tiles.</li>
+            <li>Confirm the Casper <span className="font-mono">batch_claim(token_ids)</span> transaction.</li>
+            <li>tiles.bot registers the tiles after ownership is visible.</li>
           </ol>
         </div>
-        <input
-          value={casperDeployHash}
-          onChange={e => setCasperDeployHash(e.target.value)}
-          placeholder="Casper deploy hash"
-          className="mb-3 w-full rounded-[2px] border border-border bg-surface-2 px-3 py-2.5 font-mono text-[12px] text-text outline-none"
-        />
-        <button onClick={handleRegisterCasperBatch} className="btn-retro btn-retro-casper w-full px-0 py-3.5 text-[16px]">
-          Register Casper batch ({formatCspr(selectedEstimate.estimatedTotal)})
+        <button onClick={handleCasperBatchClaim} className="btn-retro btn-retro-casper w-full px-0 py-3.5 text-[16px]">
+          Approve + Claim {unclaimed.length} on Casper ({formatCspr(selectedEstimate.estimatedTotal)})
         </button>
         <p className="mt-3 text-center text-[11px] text-text-gray">Connected Casper: {casperTruncatedKey}</p>
       </div>
@@ -475,14 +507,14 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         {step === 'approve' && (
           <div className="btn-loading rounded-[2px] border border-amber-500/30 bg-amber-500/10 px-0 py-3.5 text-center text-[14px] text-amber-500">
             <span className="spinner spinner-amber" />
-            Approving USDC — confirm in Base wallet…
+            {selectedChain === 'casper' ? 'Approving wCSPR — confirm in Casper wallet…' : 'Approving USDC — confirm in Base wallet…'}
           </div>
         )}
 
         {step === 'claim' && (
           <div className="btn-loading rounded-[2px] border border-blue-500/30 bg-blue-500/10 px-0 py-3.5 text-center text-[14px] text-accent-blue">
             <span className="spinner spinner-blue" />
-            {selectedChain === 'casper' ? 'Verifying Casper deploy…' : `Claiming ${unclaimed.length} tiles — confirm in Base wallet…`}
+            {selectedChain === 'casper' ? 'Claiming on Casper — confirm in wallet…' : `Claiming ${unclaimed.length} tiles — confirm in Base wallet…`}
           </div>
         )}
 

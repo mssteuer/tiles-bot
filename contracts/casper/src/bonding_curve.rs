@@ -1,14 +1,14 @@
 //! Fixed-point exponential bonding curve for tiles.bot pricing.
 //!
-//! Formula: price_motes = BASE_PRICE * exp(LN_11111 * total_minted / MAX_SUPPLY)
+//! Formula: price_motes = CASPER_START_PRICE * exp(LN_11111 * total_minted / MAX_SUPPLY)
 //!
 //! Uses 64.64 fixed-point arithmetic (i128 where value = raw / 2^64).
 
 /// Maximum number of tiles (256 * 256 grid)
 pub const MAX_SUPPLY: u64 = 65_536;
 
-/// Base price in motes: 0.01 CSPR = 10_000_000 motes (9 decimal places)
-pub const BASE_PRICE_MOTES: u128 = 10_000_000;
+/// Casper start price in motes: 5 CSPR = 5_000_000_000 motes (9 decimal places)
+pub const BASE_PRICE_MOTES: u128 = 5_000_000_000;
 
 /// Maximum batch size
 pub const MAX_BATCH_SIZE: u64 = 100;
@@ -44,7 +44,7 @@ pub fn compute_price(total_minted: u64) -> u128 {
     // price = BASE_PRICE * multiplier
     // To avoid overflow, multiply BASE_PRICE (plain integer) by the fp value,
     // then shift down. This keeps us within i128 range since
-    // BASE_PRICE (10M) * max_multiplier_raw (~11111 * 2^64) fits.
+    // BASE_PRICE (5B) * max_multiplier_raw (~11111 * 2^64) fits.
     let price = fp_mul_u128(BASE_PRICE_MOTES, multiplier);
 
     // Ensure minimum price of 1 mote

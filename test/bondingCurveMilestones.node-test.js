@@ -1,16 +1,16 @@
 // Bonding curve pricing milestone test
-// Verifies the JS bonding curve formula matches documented CSPR price milestones.
-// Formula: price = exp(ln(11111) * totalMinted / 65536) / 100
+// Verifies Base and Casper bonding curves match documented price milestones.
+// Base formula:   price = 0.01 * exp(ln(11111) * totalMinted / 65536)
+// Casper formula: price = 5    * exp(ln(11111) * totalMinted / 65536)
 //
 // These values must stay in sync with docs/CSPR-PRICING-MILESTONES.md.
-// The same formula applies to both chains (USDC on Base, CSPR on Casper).
 
 const assert = require('node:assert/strict');
 
 const TOTAL_TILES = 65536;
 
-function bondingCurvePrice(totalMinted) {
-  return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
+function bondingCurvePrice(totalMinted, startPrice = 0.01) {
+  return startPrice * Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES);
 }
 
 function run() {
@@ -47,6 +47,25 @@ function run() {
   assert.ok(
     last > 110 && last < 112,
     `Last tile price should be ~111.09, got ${last}`
+  );
+
+  // Casper milestones use the same multiplier from a 5 CSPR start.
+  const casperFirst = bondingCurvePrice(0, 5);
+  assert.ok(
+    Math.abs(casperFirst - 5) < 0.0001,
+    `Casper first tile price should be ~5, got ${casperFirst}`
+  );
+
+  const casperMid = bondingCurvePrice(32768, 5);
+  assert.ok(
+    casperMid > 525 && casperMid < 530,
+    `Casper midpoint should be ~527, got ${casperMid}`
+  );
+
+  const casperLast = bondingCurvePrice(65535, 5);
+  assert.ok(
+    casperLast > 55000 && casperLast < 56000,
+    `Casper last tile price should be ~55,555, got ${casperLast}`
   );
 
   // Monotonically increasing

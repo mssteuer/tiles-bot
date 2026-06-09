@@ -223,7 +223,7 @@ describe('Casper x402 E2E: PaymentRequirements Shape', () => {
       payTo: casperConfig.treasury,
       // Casper-specific
       paymentToken: casperConfig.paymentToken,
-      maxAmountRequired: '10000000', // 0.01 CSPR in motes (9 decimals)
+      maxAmountRequired: '5000000000', // 5 CSPR in motes (9 decimals)
       resource: 'https://tiles.bot/api/tiles/42/claim',
       description: 'Claim tile #42 on tiles.bot',
       // Facilitator
@@ -277,8 +277,8 @@ describe('Casper x402 E2E: Agent Claim Sequence Validation', () => {
     const tileId = 51000;
 
     // Step 1: Agent queries price (GET /api/stats or GET /api/tiles/:id)
-    const price = db.getCurrentPrice();
-    assert.ok(price >= 0, 'Price should be available');
+    const price = db.getCurrentPriceByChain('casper');
+    assert.ok(price >= 5, 'Casper price should be available');
 
     // Step 2: Agent receives 402 with PaymentRequirements
     // (tested in PaymentRequirements shape test above)
@@ -292,7 +292,7 @@ describe('Casper x402 E2E: Agent Claim Sequence Validation', () => {
       step1_approve: {
         contract: casperConfig.paymentToken,
         entryPoint: 'approve',
-        args: { spender: casperConfig.nftContract, amount: '10000000' },
+        args: { spender: casperConfig.nftContract, amount: '5000000000' },
       },
       step2_claim: {
         contract: casperConfig.nftContract,
@@ -327,7 +327,7 @@ describe('Casper x402 E2E: Agent Claim Sequence Validation', () => {
     const tileIds = [51001, 51002, 51003];
 
     for (const id of tileIds) {
-      const tile = db.claimTile(id, agentWallet, 0.01, 'casper');
+      const tile = db.claimTile(id, agentWallet, 5, 'casper');
       assert.ok(tile, `Tile ${id} claim should succeed`);
       assert.equal(tile.chain, 'casper');
     }

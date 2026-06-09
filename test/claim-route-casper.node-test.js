@@ -63,7 +63,7 @@ function loadRouteWithMocks(overrides = {}) {
     db: {
       TOTAL_TILES: 65536,
       getTile: () => null,
-      getCurrentPrice: () => 0.01,
+      getCurrentPrice: () => 5,
       getNextAvailableTileId: () => 7,
     },
     logger: {
@@ -81,14 +81,14 @@ function loadRouteWithMocks(overrides = {}) {
       createClient(options) {
         calls.createClient.push(options);
         return {
-          getCurrentPrice: async () => 0.01,
+          getCurrentPrice: async () => 5,
         };
       },
     },
     casperX402: {
       csprToMotes(value) {
-        assert.equal(value, 0.01);
-        return '10000000';
+        assert.equal(value, 5);
+        return '5000000000';
       },
       buildCasperPaymentRequirements(args) {
         calls.buildRequirements.push(args);
@@ -177,7 +177,7 @@ describe('claim route Casper x402 integration', () => {
     assert.equal(body.accepts.length, 1);
     assert.equal(body.accepts[0].x402Version, 2);
     assert.equal(body.accepts[0].network, 'casper:casper');
-    assert.equal(body.accepts[0].maxAmountRequired, '10000000');
+    assert.equal(body.accepts[0].maxAmountRequired, '5000000000');
     assert.equal(body.accepts[0].asset, 'hash-wcspr-token');
     assert.equal(calls.createClient.length, 1);
     assert.equal(calls.createClient[0].chainName, 'casper-test');

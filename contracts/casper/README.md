@@ -7,7 +7,7 @@ AI Agent Grid NFT contract for tiles.bot on Casper 2.0.
 - **Standard:** CEP-95 (NFT) + CEP-96 (collection metadata)
 - **Framework:** Odra v2.7+
 - **Grid:** 256x256 = 65,536 tiles (token IDs 0-65535)
-- **Pricing:** Exponential bonding curve (0.01 -> 111 CSPR)
+- **Pricing:** Exponential bonding curve (5 -> ~55,555 CSPR)
 - **Payment:** wCSPR (CEP-18 token, supports x402 agentic payments)
 - **Batch:** Up to 100 tiles per transaction
 
@@ -45,12 +45,12 @@ Plus all standard CEP-95 (transfer, approve, etc.) and CEP-96 (collection metada
 
 ## Bonding Curve
 
-```
-price = exp(ln(11111) * totalMinted / 65536) / 100
+```text
+price = 5 × exp(ln(11111) * totalMinted / 65536)
 ```
 
 - Each chain has its own independent curve
-- Range: 0.01 CSPR (mint #0) -> 111.11 CSPR (mint #65535)
+- Range: 5 CSPR (mint #0) -> ~55,555 CSPR (mint #65535)
 - Fully on-chain, no oracle dependency
 - Fixed-point 64.64 arithmetic (degree-6 Taylor series, <1% error)
 

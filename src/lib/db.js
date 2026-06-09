@@ -10,6 +10,9 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { bondingCurveBatchPrice, bondingCurvePrice, TOTAL_TILES } from './pricing.js';
+
+export { TOTAL_TILES };
 
 const DB_DIR = process.env.DB_DIR || path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'tiles.db');
@@ -192,7 +195,6 @@ function rowToTile(row) {
 
 // ─── Public API (drop-in replacement for store.js) ───────────────────────────
 
-export const TOTAL_TILES = 65536;
 export const HEARTBEAT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export function getTile(id) {
@@ -271,11 +273,9 @@ export function getClaimedTiles({ category = null } = {}) {
   return rows.map(rowToTile);
 }
 
-// Exponential bonding curve: price = e^(ln(11111) * totalMinted / 65536)
+// Exponential bonding curve: Base starts at $0.01; Casper starts at 5 CSPR.
 export function getCurrentPrice() {
-  const totalMinted = getClaimedCount();
-  // Curve: $0.01 -> $111 (divide original $1->$11,111 by 100)
-  return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
+  return bondingCurvePrice(getClaimedCount(), 'base');
 }
 
 // Per-chain bonding curve: independent price based on chain's own totalMinted
@@ -286,8 +286,7 @@ export function getClaimedCountByChain(chainId) {
 }
 
 export function getCurrentPriceByChain(chainId) {
-  const totalMinted = getClaimedCountByChain(chainId);
-  return Math.exp(Math.log(11111) * totalMinted / TOTAL_TILES) / 100;
+  return bondingCurvePrice(getClaimedCountByChain(chainId), chainId);
 }
 
 // — Batch per-chain stats (single query instead of N×COUNT + N×SUM)
@@ -302,30 +301,29 @@ export function getPerChainStats() {
     const claimed = row.claimed;
     stats[row.chain] = {
       claimed,
-      currentPrice: Math.exp(Math.log(11111) * claimed / TOTAL_TILES) / 100,
+      currentPrice: bondingCurvePrice(claimed, row.chain),
       totalRevenue: row.revenue ?? 0,
     };
+  }
+  for (const chainId of ['base', 'casper']) {
+    if (!stats[chainId]) {
+      stats[chainId] = {
+        claimed: 0,
+        currentPrice: bondingCurvePrice(0, chainId),
+        totalRevenue: 0,
+      };
+    }
   }
   return stats;
 }
 
 // Progressive pricing: sum of bonding curve prices for N sequential mints
 export function getBatchPrice(count) {
-  const totalMinted = getClaimedCount();
-  let total = 0;
-  for (let i = 0; i < count; i++) {
-    total += Math.exp(Math.log(11111) * (totalMinted + i) / TOTAL_TILES) / 100;
-  }
-  return total;
+  return bondingCurveBatchPrice(getClaimedCount(), count, 'base');
 }
 
 export function getBatchPriceByChain(count, chainId) {
-  const totalMinted = getClaimedCountByChain(chainId);
-  let total = 0;
-  for (let i = 0; i < count; i++) {
-    total += Math.exp(Math.log(11111) * (totalMinted + i) / TOTAL_TILES) / 100;
-  }
-  return total;
+  return bondingCurveBatchPrice(getClaimedCountByChain(chainId), count, chainId);
 }
 
 export function getTotalRevenueByChain(chainId) {
@@ -474,11 +472,7 @@ export function getTopHolders(limit = 10) {
 // Precompute the full bonding-curve revenue once at module load.
 // 65,536 iterations is trivial here and avoids recalculating the same sum on every request.
 const ESTIMATED_SOLD_OUT_REVENUE = (() => {
-  let total = 0;
-  for (let minted = 0; minted < TOTAL_TILES; minted++) {
-    total += Math.exp(Math.log(11111) * minted / TOTAL_TILES) / 100;
-  }
-  return total;
+  return bondingCurveBatchPrice(0, TOTAL_TILES, 'base');
 })();
 
 export function getEstimatedSoldOutRevenue() {

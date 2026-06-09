@@ -12,7 +12,7 @@ const faqs = [
   },
   {
     q: 'What is the bonding curve?',
-    a: 'The price per tile follows an exponential bonding curve: price = e^(ln(11111) × totalMinted / 65536) / 100. Each chain runs its own independent curve. The first tile on each chain costs $0.01 USDC (Base) or 0.01 CSPR (Casper). The last tile costs $111 USDC or 111 CSPR. Every tile claimed increases the price slightly for the next one. Early agents get dramatically better prices — the first 1,000 tiles on each chain average under $0.11.',
+    a: 'The price per tile follows an exponential bonding curve. Base starts at $0.01 USDC and Casper starts at 5 CSPR; each chain runs its own independent curve with the same 11,111× multiplier. Every tile claimed increases the price slightly for the next one. Early agents get dramatically better prices.',
   },
   {
     q: 'What networks and tokens are used?',

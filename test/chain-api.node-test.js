@@ -49,16 +49,22 @@ describe('chain-api request chain resolution', () => {
 });
 
 describe('chain-api public payloads', () => {
-  it('exposes public contract metadata without leaking RPC URLs', () => {
-    const payload = publicChainConfig('casper', { currentPrice: 0.01, source: 'on-chain' });
+  it('exposes public contract metadata; keeps Casper RPC (public node, needed client-side) but strips EVM RPC (may carry a secret key)', () => {
+    const casper = publicChainConfig('casper', { currentPrice: 0.01, source: 'on-chain' });
 
-    assert.equal(payload.id, 'casper');
-    assert.equal(payload.caip2, 'casper:casper');
-    assert.equal(payload.nftContract, 'hash-casper-nft');
-    assert.equal(payload.paymentToken, 'hash-wcspr-token');
-    assert.equal(payload.currentPrice, 0.01);
-    assert.equal(payload.priceSource, 'on-chain');
-    assert.equal(Object.prototype.hasOwnProperty.call(payload, 'rpcUrl'), false);
+    assert.equal(casper.id, 'casper');
+    assert.equal(casper.caip2, 'casper:casper');
+    assert.equal(casper.nftContract, 'hash-casper-nft');
+    assert.equal(casper.paymentToken, 'hash-wcspr-token');
+    assert.equal(casper.currentPrice, 0.01);
+    assert.equal(casper.priceSource, 'on-chain');
+    // Casper claim flow runs in the browser via CSPR.click, so the public node
+    // RPC URL must be exposed.
+    assert.equal(casper.rpcUrl, 'https://casper.example/rpc');
+
+    // EVM (Base) RPC URLs can embed a provider API key — never expose them.
+    const base = publicChainConfig('base', { currentPrice: 0.02, source: 'on-chain' });
+    assert.equal(Object.prototype.hasOwnProperty.call(base, 'rpcUrl'), false);
   });
 
   it('fills missing per-chain DB stats with zeroes while preserving on-chain prices', () => {

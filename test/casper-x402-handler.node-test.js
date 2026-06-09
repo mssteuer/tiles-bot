@@ -46,7 +46,7 @@ describe('casper-x402: buildCasperPaymentRequirements', () => {
     const casperConfig = chains.getChain('casper');
     const result = casperX402.buildCasperPaymentRequirements({
       tileId: 42,
-      priceInMotes: '10000000',
+      priceInMotes: '5000000000',
       chainConfig: casperConfig,
       resource: 'https://tiles.bot/api/tiles/42/claim',
     });
@@ -55,7 +55,7 @@ describe('casper-x402: buildCasperPaymentRequirements', () => {
     assert.equal(result.scheme, 'exact');
     assert.equal(result.network, 'casper:casper');
     assert.equal(result.payTo, casperConfig.treasury);
-    assert.equal(result.maxAmountRequired, '10000000');
+    assert.equal(result.maxAmountRequired, '5000000000');
     assert.equal(result.resource, 'https://tiles.bot/api/tiles/42/claim');
 
     // Asset = wCSPR contract hash
@@ -131,7 +131,7 @@ describe('casper-x402: buildCasperClaimInstructions', () => {
     const casperConfig = chains.getChain('casper');
     const result = casperX402.buildCasperClaimInstructions({
       tileId: 42,
-      priceInMotes: '10000000',
+      priceInMotes: '5000000000',
       chainConfig: casperConfig,
       siteUrl: 'https://tiles.bot',
     });
@@ -360,18 +360,17 @@ describe('casper-x402: cspr-to-motes conversion', () => {
     assert.equal(casperX402.csprToMotes(1), '1000000000');
   });
 
-  it('converts 0.01 CSPR to 10_000_000 motes', () => {
-    assert.equal(casperX402.csprToMotes(0.01), '10000000');
+  it('converts 5 CSPR to 5_000_000_000 motes', () => {
+    assert.equal(casperX402.csprToMotes(5), '5000000000');
   });
 
   it('converts 111.11 CSPR correctly', () => {
     assert.equal(casperX402.csprToMotes(111.11), '111110000000');
   });
 
-  it('handles tiny amounts (base price)', () => {
-    // Base bonding curve price: 0.01
-    const motes = casperX402.csprToMotes(0.01);
-    assert.equal(motes, '10000000');
+  it('handles first Casper tile amount', () => {
+    const motes = casperX402.csprToMotes(5);
+    assert.equal(motes, '5000000000');
   });
 
   it('rejects non-finite prices before building facilitator amounts', () => {

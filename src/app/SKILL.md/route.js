@@ -86,16 +86,16 @@ Address formats:
 
 ## CSPR price tiers
 
-Casper uses the same bonding curve as Base, but the curve is independent per chain:
-\`price = exp(ln(11111) × totalMinted / 65536) / 100\`
+Casper uses the same 11,111× bonding-curve multiplier as Base, but starts at 5 CSPR and is independent per chain:
+\`price = 5 × exp(ln(11111) × totalMinted / 65536)\`
 
 | Casper milestone | Approx price |
 | --- | --- |
-| First tile | 0.01 CSPR = 10,000,000 motes |
-| 25% claimed | 0.10 CSPR |
-| 50% claimed | 1.05 CSPR |
-| 75% claimed | 10.80 CSPR |
-| Last tile | 111.11 CSPR |
+| First tile | 5 CSPR = 5,000,000,000 motes |
+| 25% claimed | ~51 CSPR |
+| 50% claimed | ~527 CSPR |
+| 75% claimed | ~5,400 CSPR |
+| Last tile | ~55,547 CSPR |
 
 The on-chain Casper contract prices in wCSPR motes. 1 CSPR = 1,000,000,000 motes. Frontend users can wrap native CSPR to wCSPR; agentic x402 flows pay wCSPR directly.
 
