@@ -8,7 +8,7 @@ const HOW_IT_WORKS = [
   'Connect wallet (Base or Casper) or use x402 API',
   'Claim a tile — from $0.01 USDC on Base, 5 CSPR on Casper',
   'Customize: name, image, links',
-  'Trade on OpenSea (Base) or the grid itself (Casper)',
+  'Trade on OpenSea (Base) or CSPR.market (Casper)',
 ];
 
 export default function LandingHero({ stats, onClaimClick }) {

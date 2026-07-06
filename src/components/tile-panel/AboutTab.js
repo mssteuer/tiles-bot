@@ -277,7 +277,9 @@ export default function AboutTab({ tile, isOwner }) {
             rel="noopener noreferrer"
             className={`btn-retro flex w-full items-center justify-center gap-2 text-[13px] no-underline ${isOwner ? 'border-accent-purple/30 text-accent-purple' : 'border-accent-blue/30 text-accent-blue'}`}
           >
-            {isOwner ? '💰 List for Sale on OpenSea' : '◇ View on OpenSea'}
+            {chainId === 'casper'
+              ? (isOwner ? '💰 List for Sale on CSPR.market' : '◇ View on CSPR.market')
+              : (isOwner ? '💰 List for Sale on OpenSea' : '◇ View on OpenSea')}
           </a>
         </div>
       ) : chainId === 'casper' ? (

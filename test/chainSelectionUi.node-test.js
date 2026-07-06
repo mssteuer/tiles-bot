@@ -35,7 +35,7 @@ function run() {
     assertContains(source, /chain:\s*selectedChain/, `${name} registers with selected chain`);
     assertContains(source, /basescan\.org/, `${name} links Base transactions to Basescan`);
     assertContains(source, /cspr\.live/, `${name} links Casper deploys to cspr.live`);
-    assertContains(source, /grid IS the marketplace/, `${name} explains Casper has no marketplace`);
+    assertContains(source, /CSPR\.market/, `${name} links Casper NFTs to CSPR.market, not OpenSea narrative text`);
   }
 
   assertContains(claimModal, /Connect your Base wallet/, 'ClaimModal has Base-specific wallet prompt');

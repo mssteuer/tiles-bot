@@ -24,7 +24,7 @@ const CHAIN_OPTIONS = [
     badge: '🔴',
     token: 'CSPR',
     tone: 'border-red-500/40 bg-red-500/10 text-red-300',
-    description: 'CEP-95 tile NFT. Pay with wCSPR; the grid IS the marketplace.',
+    description: 'CEP-95 tile NFT. Pay with wCSPR, trade on CSPR.market.',
   },
 ];
 
@@ -40,10 +40,11 @@ function formatCspr(value) {
   return `${n.toFixed(4)} CSPR`;
 }
 
-function explorerUrl(chain, hash) {
+function explorerUrl(chain, hash, chainConfigs) {
   if (!hash) return '';
-  if (chain === 'casper') return `https://cspr.live/deploy/${hash}`;
-  return `https://${TARGET_CHAIN.id === 84532 ? 'sepolia.' : ''}basescan.org/tx/${hash}`;
+  const config = chainConfigs?.[chain];
+  if (chain === 'casper') return `${config?.explorer || 'https://cspr.live'}/deploy/${hash}`;
+  return `${config?.explorer || 'https://basescan.org'}/tx/${hash}`;
 }
 
 export default function ClaimModal({ tileId, onClose, onClaimed }) {
@@ -63,6 +64,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [txHash, setTxHash] = useState('');
   const [chainPrices, setChainPrices] = useState({ base: null, casper: null });
+  const [chainConfigs, setChainConfigs] = useState({});
 
   const { data: onChainPrice } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -98,6 +100,10 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
           casper: stats?.perChain?.casper?.currentPrice ?? null,
         });
       })
+      .catch(() => {});
+    fetch('/api/chains')
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d?.chains) setChainConfigs(d.chains); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -335,7 +341,6 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
             );
           })}
         </div>
-        <div className="mt-3 text-[11px] text-text-gray">Independent bonding curves: Base is priced in USD/USDC, Casper in CSPR.</div>
       </div>
     );
   }
@@ -346,7 +351,6 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
         <div className="text-center">
           <p className="mb-4 text-[14px] text-text-dim">Connect your Casper wallet to claim this tile on Casper.</p>
           <button onClick={openCasperWallet} className="btn-retro btn-retro-casper w-full px-3 py-3.5 text-[15px]">Connect your Casper wallet</button>
-          <p className="mt-3 text-[11px] text-text-gray">Casper uses wCSPR for payment. The grid IS the marketplace — no OpenSea detour.</p>
         </div>
       );
     }
@@ -454,14 +458,16 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
             <h3 className="mb-2 text-accent-green">Tile Claimed!</h3>
             <p className="text-[13px] text-text-dim">Tile #{tileId} is now yours on {selectedChain === 'casper' ? 'Casper' : 'Base'}.</p>
             {txHash && (
-              <a href={explorerUrl(selectedChain, txHash)} target="_blank" rel="noopener noreferrer" className="block text-[12px] text-accent-blue no-underline">
+              <a href={explorerUrl(selectedChain, txHash, chainConfigs)} target="_blank" rel="noopener noreferrer" className="block text-[12px] text-accent-blue no-underline">
                 View on {selectedChain === 'casper' ? 'cspr.live' : 'Basescan'} →
               </a>
             )}
-            {selectedChain === 'base' && CONTRACT_ADDRESS && (
-              <a href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${tileId}`} target="_blank" rel="noopener noreferrer" className="mt-1 block text-[12px] text-accent-blue no-underline">View on OpenSea →</a>
+            {selectedChain === 'base' && CONTRACT_ADDRESS && chainConfigs.base?.marketplaceUrlTemplate && (
+              <a href={chainConfigs.base.marketplaceUrlTemplate.replace('{contract}', CONTRACT_ADDRESS).replace('{tokenId}', tileId)} target="_blank" rel="noopener noreferrer" className="mt-1 block text-[12px] text-accent-blue no-underline">View on OpenSea →</a>
             )}
-            {selectedChain === 'casper' && <p className="mt-2 text-[11px] text-text-gray">Casper has no external marketplace yet — the grid IS the marketplace.</p>}
+            {selectedChain === 'casper' && chainConfigs.casper?.marketplaceUrlTemplate && chainConfigs.casper?.nftContract && (
+              <a href={chainConfigs.casper.marketplaceUrlTemplate.replace('{contract}', chainConfigs.casper.nftContract).replace('{tokenId}', tileId)} target="_blank" rel="noopener noreferrer" className="mt-1 block text-[12px] text-accent-blue no-underline">View on CSPR.market →</a>
+            )}
             <button onClick={onClose} className="btn-retro btn-retro-primary mt-5 w-full px-6 py-2.5">Done</button>
           </div>
         ) : step === 'error' ? (

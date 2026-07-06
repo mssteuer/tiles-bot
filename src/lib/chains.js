@@ -17,7 +17,8 @@ const CHAIN_DEFINITIONS = [
     name: 'Casper',
     addressFormat: 'casper',
     explorerTxPattern: '/deploy/',
-    marketplace: null
+    // CEP-95 tiles trade on CSPR.market, never OpenSea.
+    marketplace: (contract, tokenId) => `https://cspr.market/nft/${contract}/${tokenId}`
   }
 ];
 

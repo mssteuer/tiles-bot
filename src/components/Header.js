@@ -58,16 +58,7 @@ function formatChainPrice(value, chain) {
 export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
   const pct = stats.total > 0 ? ((stats.claimed / stats.total) * 100) : 0;
   const price = parseFloat(stats.currentPrice ?? 0).toFixed(4);
-  const totalRevenue = stats.totalRevenue ?? 0;
-  const estimatedMax = stats.estimatedSoldOutRevenue ?? 0;
-  const revenuePct = estimatedMax > 0 ? Math.min((totalRevenue / estimatedMax) * 100, 100) : 0;
   const perChain = stats.perChain || {};
-
-  const fmtRevenue = (v) => {
-    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
-    if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
-    return `$${v.toFixed(2)}`;
-  };
 
   return (
     <header className="shrink-0 border-b border-border-dim bg-[#0d0d1a]">
@@ -144,20 +135,6 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
           ) : (
             <span className="font-bold text-accent-blue">${price}</span>
           )}
-        </div>
-
-        <span className="text-text-muted">│</span>
-
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="text-text-dim">Revenue</span>
-          <span className="font-semibold text-accent-green">{fmtRevenue(totalRevenue)}</span>
-          <span className="text-[10px] text-text-light">of {fmtRevenue(estimatedMax)}</span>
-          <div className="retro-progress-track h-[3px] w-10">
-            <div
-              className="retro-progress-fill bg-linear-to-r from-green-600 to-accent-green"
-              style={{ '--progress-width': `${Math.max(revenuePct, revenuePct > 0 ? 2 : 0)}%` }}
-            />
-          </div>
         </div>
       </div>
     </header>

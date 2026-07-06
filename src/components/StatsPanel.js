@@ -27,15 +27,6 @@ function formatUsd(value) {
   return `$${n.toFixed(4)}`;
 }
 
-function formatUsdShort(value) {
-  if (value == null || Number.isNaN(Number(value))) return '…';
-  const n = Number(value);
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
-  if (n >= 1) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  return `$${n.toFixed(4)}`;
-}
-
 function formatCspr(value) {
   if (value == null || Number.isNaN(Number(value))) return '…';
   const n = Number(value);
@@ -48,9 +39,6 @@ export default function StatsPanel({ stats }) {
   const [open, setOpen] = React.useState(true);
   const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
   const [nowTs, setNowTs] = React.useState(Date.now());
-  const totalRevenue = stats?.totalRevenue ?? 0;
-  const estimatedMax = stats?.estimatedSoldOutRevenue ?? 0;
-  const revenuePct = estimatedMax > 0 ? Math.min((totalRevenue / estimatedMax) * 100, 100) : 0;
   const perChain = stats?.perChain || {};
 
   React.useEffect(() => {
@@ -97,16 +85,6 @@ export default function StatsPanel({ stats }) {
               )}
               <div>
                 Est. sold out: <span className="font-bold text-amber-500">{formatUsd(stats.estimatedSoldOutRevenue)}</span>
-              </div>
-              <div className="mt-1">
-                <div className="mb-1">
-                  Revenue collected: <span className="font-bold text-accent-green">{formatUsdShort(totalRevenue)}</span>
-                  <span className="text-[11px] text-text-gray"> / {formatUsdShort(estimatedMax)} max</span>
-                </div>
-                <div className="retro-progress-track h-1.5 w-full !rounded bg-surface-2">
-                  <div className="retro-progress-fill !rounded bg-linear-to-r from-green-600 via-accent-green to-green-300 transition-[width] duration-500 ease-in-out" style={{ '--progress-width': `${Math.max(revenuePct, revenuePct > 0 ? 1 : 0)}%` }} />
-                </div>
-                <div className="mt-0.5 text-[10px] text-text-gray">{revenuePct.toFixed(3)}% of max revenue</div>
               </div>
               <div>
                 Next tile: <span className="font-bold text-accent-green">#{stats.nextAvailableTileId}</span>

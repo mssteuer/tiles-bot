@@ -158,6 +158,9 @@ function publicChainConfig(chainId, priceInfo = {}) {
     x402Facilitator: chain.x402Facilitator,
     currentPrice: priceInfo.currentPrice ?? null,
     priceSource: priceInfo.source || null,
+    // Marketplace URL, sourced from chains.js — client code interpolates
+    // {contract}/{tokenId} rather than hardcoding a marketplace domain.
+    marketplaceUrlTemplate: chain.marketplace ? chain.marketplace('{contract}', '{tokenId}') : null,
   };
   // Casper builds approve→claim transactions client-side via CSPR.click, which
   // needs a node RPC URL in the browser. The Casper RPC is a public node (no
