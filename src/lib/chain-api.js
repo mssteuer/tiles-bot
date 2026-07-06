@@ -155,6 +155,7 @@ function publicChainConfig(chainId, priceInfo = {}) {
     paymentToken: chain.paymentToken,
     treasury: chain.treasury,
     explorer: chain.explorer,
+    explorerAddressPattern: chain.explorerAddressPattern,
     x402Facilitator: chain.x402Facilitator,
     currentPrice: priceInfo.currentPrice ?? null,
     priceSource: priceInfo.source || null,

@@ -2,8 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ConnectKitButton } from 'connectkit';
-import CasperWalletButton from './CasperWalletButton';
+import WalletMenu from './WalletMenu';
 import { initSounds, isMuted, toggleMute, playSound } from '@/lib/sound';
 
 function SoundToggle() {
@@ -25,18 +24,6 @@ function SoundToggle() {
     >
       {muted ? '🔇' : '🔊'}
     </button>
-  );
-}
-
-function WalletButton() {
-  return (
-    <ConnectKitButton.Custom>
-      {({ isConnected, show, truncatedAddress, ensName }) => (
-        <button onClick={show} className={`btn-retro px-[14px] py-1.5 text-[12px] ${isConnected ? '' : 'btn-retro-primary'}`}>
-          {isConnected ? (ensName ?? truncatedAddress) : '🔵 Base Wallet'}
-        </button>
-      )}
-    </ConnectKitButton.Custom>
   );
 }
 
@@ -103,10 +90,7 @@ export default function Header({ stats, onClaimClick, nextAvailableTileId }) {
           <button onClick={() => onClaimClick(nextAvailableTileId ?? 0)} className="btn-retro btn-retro-green px-[14px] py-1.5 text-[12px]">
             ▶ Claim a Tile
           </button>
-          <div aria-label="Casper Wallet">
-            <CasperWalletButton />
-          </div>
-          <WalletButton />
+          <WalletMenu />
         </div>
       </div>
 

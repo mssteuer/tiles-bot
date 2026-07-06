@@ -7,26 +7,8 @@ import { useModal } from 'connectkit';
 import { isAddress, parseUnits, formatUnits } from 'viem';
 import { CONTRACT_ADDRESS, USDC_ADDRESS, MBH_ABI, ERC20_ABI, TARGET_CHAIN } from '@/lib/wagmi';
 import { useCasperWallet } from '@/lib/casper-wallet';
+import { useWalletSession } from '@/lib/useWalletSession';
 import { buildTileClaimTransaction, buildWcsprApproveTransaction, csprToMotes, sendCasperTransaction } from '@/lib/casper-transactions';
-
-const CHAIN_OPTIONS = [
-  {
-    id: 'base',
-    name: 'Base',
-    badge: '🔵',
-    token: 'USDC',
-    tone: 'border-blue-500/40 bg-blue-500/10 text-blue-300',
-    description: 'ERC-721 tile NFT. Pay with USDC, trade on OpenSea.',
-  },
-  {
-    id: 'casper',
-    name: 'Casper',
-    badge: '🔴',
-    token: 'CSPR',
-    tone: 'border-red-500/40 bg-red-500/10 text-red-300',
-    description: 'CEP-95 tile NFT. Pay with wCSPR; the grid IS the marketplace.',
-  },
-];
 
 function formatUsd(value) {
   const n = Number(value);
@@ -40,8 +22,11 @@ function formatCspr(value) {
   return `${n.toFixed(4)} CSPR`;
 }
 
-function explorerUrl(chain, hash) {
+function explorerUrl(chain, hash, explorers) {
   if (!hash) return '';
+  const base = explorers?.[chain];
+  if (base) return `${base.explorer}${chain === 'casper' ? '/deploy/' : '/tx/'}${hash}`;
+  // Fallback before /api/chains resolves.
   if (chain === 'casper') return `https://cspr.live/deploy/${hash}`;
   return `https://${TARGET_CHAIN.id === 84532 ? 'sepolia.' : ''}basescan.org/tx/${hash}`;
 }
@@ -57,12 +42,29 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
   const { switchChain } = useSwitchChain();
   const { setOpen: openConnectModal } = useModal();
   const { publicKey: casperPublicKey, truncatedKey: casperTruncatedKey, isConnected: isCasperConnected, signIn: openCasperWallet, getClickRef } = useCasperWallet();
+  const { activeChain } = useWalletSession();
 
   const [selectedChain, setSelectedChain] = useState(null);
   const [step, setStep] = useState('select-chain');
   const [errorMsg, setErrorMsg] = useState('');
   const [txHash, setTxHash] = useState('');
   const [chainPrices, setChainPrices] = useState({ base: null, casper: null });
+  const [chainExplorers, setChainExplorers] = useState(null);
+
+  // Single-chain session: never offer a "choose Base or Casper" step inside
+  // the claim modal itself. The chain choice happens once, at wallet-connect
+  // time (WalletMenu). Once a session is active, jump straight into that
+  // chain's flow. If no wallet is connected yet, prompt to connect (chain
+  // choice lives in the header's Connect Wallet menu).
+  useEffect(() => {
+    if (activeChain && selectedChain !== activeChain) {
+      setSelectedChain(activeChain);
+      setStep(prev => (prev === 'select-chain' ? 'info' : prev));
+    } else if (!activeChain && selectedChain) {
+      setSelectedChain(null);
+      setStep('select-chain');
+    }
+  }, [activeChain]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: onChainPrice } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -98,6 +100,10 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
           casper: stats?.perChain?.casper?.currentPrice ?? null,
         });
       })
+      .catch(() => {});
+    fetch('/api/chains')
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setChainExplorers(data?.chains || null); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -145,13 +151,6 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       return false;
     }
     return true;
-  }
-
-  function chooseChain(chain) {
-    setSelectedChain(chain);
-    setErrorMsg('');
-    setTxHash('');
-    setStep('info');
   }
 
   async function registerBaseClaim(hash) {
@@ -313,29 +312,11 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
     }
   }
 
-  function renderChainSelector() {
+  function renderConnectPrompt() {
     return (
-      <div>
-        <div className="mb-3 text-[14px] font-semibold text-text">Choose your chain</div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {CHAIN_OPTIONS.map(chain => {
-            const price = chain.id === 'casper' ? formatCspr(casperPriceDisplay) : `${formatUsd(basePriceDisplay)} USDC`;
-            return (
-              <button
-                key={chain.id}
-                onClick={() => chooseChain(chain.id)}
-                className={`cursor-pointer rounded-[3px] border px-3 py-3 text-left transition hover:-translate-y-0.5 ${chain.tone}`}
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[16px] font-bold">{chain.badge} {chain.name}</span>
-                  <span className="font-mono text-[13px]">{price}</span>
-                </div>
-                <div className="text-[12px] leading-snug text-text-dim">{chain.description}</div>
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-3 text-[11px] text-text-gray">Independent bonding curves: Base is priced in USD/USDC, Casper in CSPR.</div>
+      <div className="text-center">
+        <p className="mb-4 text-[14px] text-text-dim">Connect your wallet to claim this tile. Choose your chain from the wallet menu in the header.</p>
+        <button onClick={() => openConnectModal(true)} className="btn-retro btn-retro-primary w-full px-3 py-3.5 text-[15px]">Connect your wallet</button>
       </div>
     );
   }
@@ -432,29 +413,28 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
 
         <div className="mb-5 rounded-[2px] border border-border bg-surface-2 px-4 py-3 text-[13px] text-text-dim">
           <div>Position: Row {Math.floor(tileId / 256)}, Col {tileId % 256}</div>
-          <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-[20px] font-bold text-accent-blue">{formatUsd(basePriceDisplay)} USDC</span>
-            <span className="text-[20px] font-bold text-red-300">{formatCspr(casperPriceDisplay)}</span>
-          </div>
-          {selectedChain && <div className="mt-0.5 text-[11px] text-text-gray">Selected: {selectedChain === 'base' ? 'Base' : 'Casper'} — {selectedPrice}</div>}
-          {!selectedChain && <div className="mt-0.5 text-[11px] text-text-gray">Choose Base or Casper before payment.</div>}
+          {selectedChain ? (
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className={`text-[20px] font-bold ${selectedChain === 'casper' ? 'text-red-300' : 'text-accent-blue'}`}>{selectedPrice}</span>
+            </div>
+          ) : (
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-[20px] font-bold text-accent-blue">{formatUsd(basePriceDisplay)} USDC</span>
+              <span className="text-[20px] font-bold text-red-300">{formatCspr(casperPriceDisplay)}</span>
+            </div>
+          )}
+          {selectedChain && <div className="mt-0.5 text-[11px] text-text-gray">Claiming on {selectedChain === 'base' ? 'Base' : 'Casper'} — your active wallet session.</div>}
         </div>
 
-        {step !== 'select-chain' && step !== 'success' && (
-          <button onClick={() => { setSelectedChain(null); setStep('select-chain'); setErrorMsg(''); }} className="mb-4 border-none bg-transparent p-0 text-[12px] text-accent-blue underline-offset-2 hover:underline">
-            ← Back to chain choice
-          </button>
-        )}
-
         {step === 'select-chain' ? (
-          renderChainSelector()
+          renderConnectPrompt()
         ) : step === 'success' ? (
           <div className="text-center">
             <div className="mb-3 text-[48px]">🎉</div>
             <h3 className="mb-2 text-accent-green">Tile Claimed!</h3>
             <p className="text-[13px] text-text-dim">Tile #{tileId} is now yours on {selectedChain === 'casper' ? 'Casper' : 'Base'}.</p>
             {txHash && (
-              <a href={explorerUrl(selectedChain, txHash)} target="_blank" rel="noopener noreferrer" className="block text-[12px] text-accent-blue no-underline">
+              <a href={explorerUrl(selectedChain, txHash, chainExplorers)} target="_blank" rel="noopener noreferrer" className="block text-[12px] text-accent-blue no-underline">
                 View on {selectedChain === 'casper' ? 'cspr.live' : 'Basescan'} →
               </a>
             )}
