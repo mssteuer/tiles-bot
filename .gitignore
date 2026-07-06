@@ -22,3 +22,4 @@ contracts/casper/target/
 # Local env with secrets (template lives in .env.example)
 .env
 .env.bak*
+.worktrees/
