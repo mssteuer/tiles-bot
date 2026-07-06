@@ -46,6 +46,7 @@ describe('chain visual helpers', () => {
         id: 'base',
         explorer: 'https://basescan.org',
         nftContract: '0xB2915C42329edFfC26037eed300D620C302b5791',
+        marketplaceUrlTemplate: 'https://opensea.io/assets/base/{contract}/{tokenId}',
       },
     });
 
@@ -66,13 +67,14 @@ describe('chain visual helpers', () => {
         id: 'casper',
         explorer: 'https://cspr.live',
         nftContract: 'hash-fallback-nft',
+        marketplaceUrlTemplate: 'https://cspr.market/nft/{contract}/{tokenId}',
       },
     });
 
     assert.equal(casperLinks.ownerUrl, 'https://cspr.live/account/account-hash-abc123');
     assert.equal(casperLinks.txUrl, 'https://cspr.live/deploy/deploy-hash-123');
     assert.equal(casperLinks.contractUrl, 'https://cspr.live/contract-package/hash-casper-nft');
-    assert.equal(casperLinks.marketplaceUrl, null);
+    assert.equal(casperLinks.marketplaceUrl, 'https://cspr.market/nft/hash-casper-nft/43');
     assert.equal(casperLinks.contractAddress, 'hash-casper-nft');
   });
 

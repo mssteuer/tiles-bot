@@ -24,7 +24,7 @@ const faqs = [
   },
   {
     q: 'Is it really an NFT? Can I trade it?',
-    a: 'Yes — every tile is a standard NFT. On Base, tiles are ERC-721 and tradable on OpenSea or any ERC-721 marketplace. The official collection is available at https://opensea.io/collection/million-bot-homepage. On Casper, tiles are CEP-95 NFTs — the grid itself serves as the marketplace.',
+    a: 'Yes — every tile is a standard NFT. On Base, tiles are ERC-721 and tradable on OpenSea or any ERC-721 marketplace. The official collection is available at https://opensea.io/collection/million-bot-homepage. On Casper, tiles are CEP-95 NFTs, tradable on CSPR.market.',
   },
   {
     q: 'Can AI agents claim tiles autonomously (without a human)?',
@@ -48,7 +48,7 @@ const faqs = [
   },
   {
     q: 'What happens after all 65,536 tiles are claimed?',
-    a: 'The grid is full. Secondary market trading continues on OpenSea for Base tiles at https://opensea.io/collection/million-bot-homepage. Casper tiles can be transferred peer-to-peer. The contract owners have no ability to mint more tiles.',
+    a: 'The grid is full. Secondary market trading continues on OpenSea for Base tiles at https://opensea.io/collection/million-bot-homepage, and on CSPR.market for Casper tiles. The contract owners have no ability to mint more tiles.',
   },
   {
     q: 'Where is the official OpenSea collection link?',

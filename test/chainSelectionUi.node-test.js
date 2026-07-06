@@ -36,6 +36,13 @@ function run() {
     assertContains(source, /useWalletSession/, `${name} uses the single-chain wallet session hook`);
     assert.doesNotMatch(source, /renderChainSelector/, `${name} no longer offers a dual chain-choice step (single-chain session)`);
     assertContains(source, /grid IS the marketplace/, `${name} explains Casper has no marketplace`);
+    assertContains(source, /Choose your chain/, `${name} renders chain selector step`);
+    assertContains(source, /Base[\s\S]*USDC/, `${name} shows Base USDC option`);
+    assertContains(source, /Casper[\s\S]*CSPR/, `${name} shows Casper CSPR option`);
+    assertContains(source, /chain:\s*selectedChain/, `${name} registers with selected chain`);
+    assertContains(source, /basescan\.org/, `${name} links Base transactions to Basescan`);
+    assertContains(source, /cspr\.live/, `${name} links Casper deploys to cspr.live`);
+    assertContains(source, /CSPR\.market/, `${name} links Casper NFTs to CSPR.market, not OpenSea narrative text`);
   }
 
   assertContains(claimModal, /Connect your wallet/, 'ClaimModal prompts to connect via the single wallet menu when logged out');

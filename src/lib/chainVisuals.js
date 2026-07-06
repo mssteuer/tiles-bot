@@ -68,6 +68,13 @@ function buildChainExplorerLinks({ tile, chainConfig }) {
   const owner = tile?.owner || null;
   const txHash = tile?.txHash || null;
 
+  let marketplaceUrl = null;
+  if (contractAddress && tile?.id != null && chainConfig?.marketplaceUrlTemplate) {
+    marketplaceUrl = chainConfig.marketplaceUrlTemplate
+      .replace('{contract}', contractAddress)
+      .replace('{tokenId}', tile.id);
+  }
+
   if (chainId === 'casper') {
     return {
       chainId,
@@ -75,7 +82,7 @@ function buildChainExplorerLinks({ tile, chainConfig }) {
       ownerUrl: owner ? joinUrl(explorer, `/account/${owner}`) : null,
       txUrl: txHash ? joinUrl(explorer, `/deploy/${txHash}`) : null,
       contractUrl: contractAddress ? joinUrl(explorer, `/contract-package/${contractAddress}`) : null,
-      marketplaceUrl: null,
+      marketplaceUrl,
     };
   }
 
@@ -85,9 +92,7 @@ function buildChainExplorerLinks({ tile, chainConfig }) {
     ownerUrl: owner ? joinUrl(explorer, `/address/${owner}`) : null,
     txUrl: txHash ? joinUrl(explorer, `/tx/${txHash}`) : null,
     contractUrl: contractAddress ? joinUrl(explorer, `/address/${contractAddress}`) : null,
-    marketplaceUrl: contractAddress && tile?.id != null
-      ? `https://opensea.io/assets/base/${contractAddress}/${tile.id}`
-      : null,
+    marketplaceUrl,
   };
 }
 

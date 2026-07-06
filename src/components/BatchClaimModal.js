@@ -412,7 +412,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
       <div className="retro-modal w-[95%] max-w-[540px]" onClick={e => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="m-0 text-[20px]">Batch Claim — {unclaimed.length} Tile{unclaimed.length !== 1 ? 's' : ''}</h2>
-          <button onClick={onClose} className="flex h-11 w-11 cursor-pointer items-center justify-center border-none bg-transparent text-[24px] text-text-dim">×</button>
+          <button onClick={onClose} className="cursor-pointer border-none bg-transparent px-1 text-[24px] text-text-dim">×</button>
         </div>
 
         {alreadyClaimed.length > 0 && (
@@ -511,10 +511,12 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
                 View on {selectedChain === 'casper' ? 'cspr.live' : 'Basescan'} →
               </a>
             )}
-            {selectedChain === 'base' && CONTRACT_ADDRESS && unclaimed.length > 0 && (
-              <a href={`https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${unclaimed[0]}`} target="_blank" rel="noopener noreferrer" className="mt-1 block text-[12px] text-accent-blue no-underline">View first tile on OpenSea →</a>
+            {selectedChain === 'base' && CONTRACT_ADDRESS && unclaimed.length > 0 && chainExplorers?.base?.marketplaceUrlTemplate && (
+              <a href={chainExplorers.base.marketplaceUrlTemplate.replace('{contract}', CONTRACT_ADDRESS).replace('{tokenId}', unclaimed[0])} target="_blank" rel="noopener noreferrer" className="mt-1 block text-[12px] text-accent-blue no-underline">View first tile on OpenSea →</a>
             )}
-            {selectedChain === 'casper' && <p className="mt-2 text-[11px] text-text-gray">Casper has no external marketplace yet — the grid IS the marketplace.</p>}
+            {selectedChain === 'casper' && unclaimed.length > 0 && chainExplorers?.casper?.marketplaceUrlTemplate && chainExplorers?.casper?.nftContract && (
+              <a href={chainExplorers.casper.marketplaceUrlTemplate.replace('{contract}', chainExplorers.casper.nftContract).replace('{tokenId}', unclaimed[0])} target="_blank" rel="noopener noreferrer" className="mt-1 block text-[12px] text-accent-blue no-underline">View first tile on CSPR.market →</a>
+            )}
             <button onClick={onClose} className="btn-retro btn-retro-green mt-3 px-6 py-2.5">
               Done
             </button>

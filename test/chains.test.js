@@ -109,3 +109,17 @@ describe('explorerTx', () => {
     assert.equal(url, 'https://cspr.live/deploy/abc123');
   });
 });
+
+describe('marketplace', () => {
+  it('Base marketplace links to OpenSea', () => {
+    const chain = getChain('base');
+    assert.equal(chain.marketplace('0xcontract', 42), 'https://opensea.io/assets/base/0xcontract/42');
+  });
+
+  it('Casper marketplace links to CSPR.market, never OpenSea', () => {
+    const chain = getChain('casper');
+    const url = chain.marketplace('hash-nft', 42);
+    assert.equal(url, 'https://cspr.market/nft/hash-nft/42');
+    assert.doesNotMatch(url, /opensea/i);
+  });
+});
