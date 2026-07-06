@@ -9,6 +9,7 @@ const CHAIN_DEFINITIONS = [
     name: 'Base',
     addressFormat: 'evm',
     explorerTxPattern: '/tx/',
+    explorerAddressPattern: '/address/',
     marketplace: (contract, tokenId) => `https://opensea.io/assets/base/${contract}/${tokenId}`
   },
   {
@@ -17,6 +18,7 @@ const CHAIN_DEFINITIONS = [
     name: 'Casper',
     addressFormat: 'casper',
     explorerTxPattern: '/deploy/',
+    explorerAddressPattern: '/account/',
     marketplace: null
   }
 ];
@@ -82,6 +84,8 @@ function buildChainConfig(definition) {
     explorer: env.EXPLORER,
     x402Facilitator: env.X402_FACILITATOR,
     explorerTx: (hash) => `${env.EXPLORER}${definition.explorerTxPattern}${hash}`,
+    explorerAddressPattern: definition.explorerAddressPattern,
+    explorerAddress: (address) => `${env.EXPLORER}${definition.explorerAddressPattern}${address}`,
     marketplace: definition.marketplace
   };
 }

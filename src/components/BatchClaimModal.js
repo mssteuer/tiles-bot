@@ -7,6 +7,7 @@ import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'w
 import { isAddress, parseAbi } from 'viem';
 import { TARGET_CHAIN } from '@/lib/wagmi';
 import { useCasperWallet } from '@/lib/casper-wallet';
+import { useWalletSession } from '@/lib/useWalletSession';
 import { bondingCurveBatchPrice } from '@/lib/pricing';
 import { buildBatchTileClaimTransaction, buildWcsprApproveTransaction, csprToMotes, sendCasperTransaction } from '@/lib/casper-transactions';
 
@@ -23,25 +24,6 @@ const CONTRACT_ABI = parseAbi([
   'function batchClaim(uint256[] calldata tileIds) external',
   'function currentPrice() view returns (uint256)',
 ]);
-
-const CHAIN_OPTIONS = [
-  {
-    id: 'base',
-    name: 'Base',
-    badge: '🔵',
-    token: 'USDC',
-    tone: 'border-blue-500/40 bg-blue-500/10 text-blue-300',
-    description: 'Batch mint ERC-721 tiles with USDC. OpenSea support after claim.',
-  },
-  {
-    id: 'casper',
-    name: 'Casper',
-    badge: '🔴',
-    token: 'CSPR',
-    tone: 'border-red-500/40 bg-red-500/10 text-red-300',
-    description: 'Batch mint CEP-95 tiles with wCSPR. The grid IS the marketplace.',
-  },
-];
 
 function detectRectangle(tileIds) {
   if (!tileIds || tileIds.length < 2) return null;
@@ -87,8 +69,10 @@ function formatCspr(value) {
   return `${n.toFixed(4)} CSPR`;
 }
 
-function explorerUrl(chain, hash) {
+function explorerUrl(chain, hash, explorers) {
   if (!hash) return '';
+  const base = explorers?.[chain];
+  if (base) return `${base.explorer}${chain === 'casper' ? '/deploy/' : '/tx/'}${hash}`;
   if (chain === 'casper') return `https://cspr.live/deploy/${hash}`;
   return `https://${TARGET_CHAIN.id === 84532 ? 'sepolia.' : ''}basescan.org/tx/${hash}`;
 }
@@ -111,13 +95,27 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
     base: { currentPrice: 0.01, claimed: 0 },
     casper: { currentPrice: 5, claimed: 0 },
   });
+  const [chainExplorers, setChainExplorers] = useState(null);
   const frozenTiles = useRef(null);
   const { address, isConnected, chainId } = useAccount();
   const { switchChain } = useSwitchChain();
   const { setOpen: openConnectModal } = useModal();
   const { publicKey: casperPublicKey, truncatedKey: casperTruncatedKey, isConnected: isCasperConnected, signIn: openCasperWallet, getClickRef } = useCasperWallet();
+  const { activeChain } = useWalletSession();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
+
+  // Single-chain session: skip the "choose Base or Casper" step and jump
+  // straight into the active wallet session's flow.
+  useEffect(() => {
+    if (activeChain && selectedChain !== activeChain) {
+      setSelectedChain(activeChain);
+      setStep(prev => (prev === 'select-chain' ? 'preview' : prev));
+    } else if (!activeChain && selectedChain) {
+      setSelectedChain(null);
+      setStep('select-chain');
+    }
+  }, [activeChain]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { unclaimed, alreadyClaimed, wasCapped } = useMemo(() => {
     if (frozenTiles.current) return frozenTiles.current;
@@ -151,6 +149,15 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
           },
         });
       })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/chains')
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setChainExplorers(data?.chains || null); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -326,37 +333,11 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
 
   const gridCols = Math.min(unclaimed.length, 8);
 
-  function chooseChain(chain) {
-    setSelectedChain(chain);
-    setError(null);
-    setClaimTxHash('');
-    setStep('preview');
-  }
-
-  function renderChainSelector() {
+  function renderConnectPrompt() {
     return (
-      <div>
-        <div className="mb-3 text-[14px] font-semibold text-text">Choose your chain</div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {CHAIN_OPTIONS.map(chain => {
-            const estimate = chain.id === 'casper' ? estimates.casper : estimates.base;
-            const total = chain.id === 'casper' ? formatCspr(estimate.estimatedTotal) : `${formatUsd(estimate.estimatedTotal)} USDC`;
-            return (
-              <button
-                key={chain.id}
-                onClick={() => chooseChain(chain.id)}
-                className={`cursor-pointer rounded-[3px] border px-3 py-3 text-left transition hover:-translate-y-0.5 ${chain.tone}`}
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[16px] font-bold">{chain.badge} {chain.name}</span>
-                  <span className="font-mono text-[13px]">{total}</span>
-                </div>
-                <div className="text-[12px] leading-snug text-text-dim">{chain.description}</div>
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-3 text-[11px] text-text-gray">Independent bonding curves: Base totals are USD/USDC, Casper totals are CSPR.</div>
+      <div className="text-center text-[14px] text-text-dim">
+        <p className="mb-4">Connect your wallet to batch claim these tiles. Choose your chain from the wallet menu in the header.</p>
+        <button onClick={() => openConnectModal(true)} className="btn-retro btn-retro-primary w-full px-3 py-3.5 text-[15px]">Connect your wallet</button>
       </div>
     );
   }
@@ -458,32 +439,35 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
         )}
 
         <div className="mb-4 rounded-[2px] border border-border bg-surface px-3 py-3">
-          <div className="mb-1.5 flex justify-between text-[13px] text-text-dim">
-            <span>Base starting price:</span>
-            <span className="font-mono">{formatUsd(estimates.base.perTilePrice)} USDC</span>
-          </div>
-          <div className="mb-1.5 flex justify-between text-[13px] text-text-dim">
-            <span>Casper starting price:</span>
-            <span className="font-mono">{formatCspr(estimates.casper.perTilePrice)}</span>
-          </div>
-          <div className="flex justify-between text-[16px] font-semibold text-text">
-            <span>{selectedChain === 'casper' ? 'Casper' : selectedChain === 'base' ? 'Base' : 'Estimated'} total ({unclaimed.length} tiles):</span>
-            <span className="font-mono">
-              {selectedChain === 'casper'
-                ? formatCspr(selectedEstimate.estimatedTotal)
-                : `${formatUsd(selectedEstimate.estimatedTotal)} USDC`}
-            </span>
-          </div>
+          {selectedChain ? (
+            <div className="flex justify-between text-[16px] font-semibold text-text">
+              <span>{selectedChain === 'casper' ? 'Casper' : 'Base'} total ({unclaimed.length} tiles):</span>
+              <span className="font-mono">
+                {selectedChain === 'casper'
+                  ? formatCspr(selectedEstimate.estimatedTotal)
+                  : `${formatUsd(selectedEstimate.estimatedTotal)} USDC`}
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="mb-1.5 flex justify-between text-[13px] text-text-dim">
+                <span>Base starting price:</span>
+                <span className="font-mono">{formatUsd(estimates.base.perTilePrice)} USDC</span>
+              </div>
+              <div className="mb-1.5 flex justify-between text-[13px] text-text-dim">
+                <span>Casper starting price:</span>
+                <span className="font-mono">{formatCspr(estimates.casper.perTilePrice)}</span>
+              </div>
+              <div className="flex justify-between text-[16px] font-semibold text-text">
+                <span>Estimated total ({unclaimed.length} tiles):</span>
+                <span className="font-mono">{formatUsd(estimates.base.estimatedTotal)} USDC</span>
+              </div>
+            </>
+          )}
           <div className="mt-1 text-[11px] text-text-light">
             Price increases per tile along each chain's independent bonding curve
           </div>
         </div>
-
-        {step !== 'select-chain' && step !== 'success' && (
-          <button onClick={() => { setSelectedChain(null); setStep('select-chain'); setError(null); }} className="mb-4 border-none bg-transparent p-0 text-[12px] text-accent-blue underline-offset-2 hover:underline">
-            ← Back to chain choice
-          </button>
-        )}
 
         {step === 'success' && claimedRectangle && onSpanClaimRequest && (
           <div className="mb-4 rounded-[2px] border border-sky-500/35 bg-sky-500/12 px-3 py-3">
@@ -498,7 +482,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
           </div>
         )}
 
-        {step === 'select-chain' && renderChainSelector()}
+        {step === 'select-chain' && renderConnectPrompt()}
 
         {step === 'preview' && (
           selectedChain === 'casper' ? renderCasperFlow() : renderBaseFlow()
@@ -523,7 +507,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
             <div className="mb-2 text-[40px]">🎉</div>
             <div className="text-[16px] font-semibold text-accent-green">{claimedCount} tiles claimed on {selectedChain === 'casper' ? 'Casper' : 'Base'}!</div>
             {claimTxHash && (
-              <a href={explorerUrl(selectedChain, claimTxHash)} target="_blank" rel="noopener noreferrer" className="mt-2 block text-[12px] text-accent-blue no-underline">
+              <a href={explorerUrl(selectedChain, claimTxHash, chainExplorers)} target="_blank" rel="noopener noreferrer" className="mt-2 block text-[12px] text-accent-blue no-underline">
                 View on {selectedChain === 'casper' ? 'cspr.live' : 'Basescan'} →
               </a>
             )}
