@@ -157,7 +157,7 @@ export default function MultiTileSpanModal({ topLeftId, tiles, initialTileIds = 
             <h2 className="m-0 text-[20px]">Create Multi-Tile Span</h2>
             <p className="mt-1 text-[13px] text-text-light">Create the rectangle, upload one image, then wait for the span to become ready.</p>
           </div>
-          <button onClick={onClose} className="cursor-pointer border-none bg-transparent px-1 text-[24px] text-text-light">×</button>
+          <button onClick={onClose} className="flex h-11 w-11 cursor-pointer items-center justify-center border-none bg-transparent text-[24px] text-text-light">×</button>
         </div>
 
         <div className="mb-4 flex gap-2 text-[12px]">

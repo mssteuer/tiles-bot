@@ -70,7 +70,7 @@ export default function BlockClaimModal({ topLeftId, tiles, onClose, onClaimed }
             <h2 className="m-0 text-[20px] font-bold">Claim Block Tile</h2>
             <p className="mt-1 text-[13px] text-text-gray">Premium multi-tile claim — one name, one avatar, bigger presence</p>
           </div>
-          <button onClick={onClose} className="cursor-pointer border-none bg-transparent text-[24px] leading-none text-text-gray">×</button>
+          <button onClick={onClose} className="flex h-11 w-11 cursor-pointer items-center justify-center border-none bg-transparent text-[24px] leading-none text-text-gray">×</button>
         </div>
 
         {success ? (

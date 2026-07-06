@@ -103,7 +103,7 @@ export default function TilePanel({ tile, onClose, onTileUpdated, onConnectionsC
         <span className="text-[12px] text-text-gray">
           Tile #{tile.id} · ({col}, {row})
         </span>
-        <button onClick={onClose} className="border-none bg-transparent px-2 py-1 text-[24px] leading-none text-slate-400">×</button>
+        <button onClick={onClose} className="flex h-11 w-11 items-center justify-center border-none bg-transparent text-[24px] leading-none text-slate-400">×</button>
       </div>
 
       {saveMsg && !editing && (

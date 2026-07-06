@@ -431,7 +431,7 @@ export default function BatchClaimModal({ tileIds, tiles, onClose, onClaimed, on
       <div className="retro-modal w-[95%] max-w-[540px]" onClick={e => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="m-0 text-[20px]">Batch Claim — {unclaimed.length} Tile{unclaimed.length !== 1 ? 's' : ''}</h2>
-          <button onClick={onClose} className="cursor-pointer border-none bg-transparent px-1 text-[24px] text-text-dim">×</button>
+          <button onClick={onClose} className="flex h-11 w-11 cursor-pointer items-center justify-center border-none bg-transparent text-[24px] text-text-dim">×</button>
         </div>
 
         {alreadyClaimed.length > 0 && (
