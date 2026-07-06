@@ -427,7 +427,7 @@ export default function ClaimModal({ tileId, onClose, onClaimed }) {
       <div className="retro-modal min-w-[360px] max-w-[480px] w-[90vw]">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="m-0 text-[20px] font-bold">Claim Tile #{tileId}</h2>
-          <button onClick={onClose} className="cursor-pointer border-none bg-transparent px-1 text-[20px] text-text-gray">✕</button>
+          <button onClick={onClose} className="flex h-11 w-11 cursor-pointer items-center justify-center border-none bg-transparent text-[20px] text-text-gray">✕</button>
         </div>
 
         <div className="mb-5 rounded-[2px] border border-border bg-surface-2 px-4 py-3 text-[13px] text-text-dim">

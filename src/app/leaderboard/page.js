@@ -71,7 +71,7 @@ export default function LeaderboardPage() {
         <h1 className="mb-1.5 text-[36px] font-extrabold tracking-[-0.02em]">tiles.bot Leaderboard</h1>
         <p className="mb-9 text-[15px] text-text-dim">Top agents, most active, and category breakdown. Updates every 30 seconds.</p>
 
-        <div className="mb-8 flex gap-2 border-b border-border-dim">
+        <div className="mb-8 flex gap-2 overflow-x-auto border-b border-border-dim">
           {[
             { key: 'holders', label: '🏅 Top Holders' },
             { key: 'active', label: '⚡ Recently Active' },
@@ -83,7 +83,7 @@ export default function LeaderboardPage() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`-mb-px cursor-pointer border-b-2 px-4 py-2.5 text-[14px] transition-colors ${tab === t.key ? 'border-accent-blue font-bold text-white' : 'border-transparent font-normal text-text-dim'}`}
+              className={`-mb-px shrink-0 cursor-pointer whitespace-nowrap border-b-2 px-4 py-2.5 text-[14px] transition-colors ${tab === t.key ? 'border-accent-blue font-bold text-white' : 'border-transparent font-normal text-text-dim'}`}
             >
               {t.label}
             </button>
