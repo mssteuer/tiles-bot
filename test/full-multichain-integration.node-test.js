@@ -180,6 +180,17 @@ function loadClaimRoute(overrides = {}) {
     buildCasperInstructions: [],
     logs: [],
   };
+  const baseConfig = {
+    id: 'base',
+    caip2: 'eip155:84532',
+    name: 'Base',
+    nftContract: '0xbase-nft',
+    paymentToken: '0xbase-usdc',
+    treasury: process.env.CHAIN_BASE_TREASURY,
+    rpcUrl: 'https://sepolia.base.example/rpc',
+    explorer: 'https://sepolia.basescan.org',
+    x402Facilitator: 'https://x402.base.example',
+  };
   const casperConfig = {
     id: 'casper',
     caip2: 'casper:casper',
@@ -219,8 +230,9 @@ function loadClaimRoute(overrides = {}) {
     logger: { logX402Failure: (payload) => calls.logs.push(payload) },
     chains: {
       getChain(chainId) {
-        assert.equal(chainId, 'casper');
-        return casperConfig;
+        if (chainId === 'base') return baseConfig;
+        if (chainId === 'casper') return casperConfig;
+        throw new Error(`Unexpected chain: ${chainId}`);
       },
     },
     casperClient: {
@@ -263,6 +275,14 @@ function loadClaimRoute(overrides = {}) {
         };
       },
     },
+    baseX402: {
+      resolveBaseX402Config({ chainConfig }) {
+        return {
+          payToAddress: process.env.X402_PAY_TO_ADDRESS || chainConfig.treasury,
+          network: process.env.X402_NETWORK || 'base',
+        };
+      },
+    },
     ...overrides,
   };
 
@@ -275,6 +295,7 @@ function loadClaimRoute(overrides = {}) {
     .replace("import { getChain } from '@/lib/chains';", 'const { getChain } = __mocks.chains;')
     .replace("import { createClient as createCasperClient } from '@/lib/casper-client';", 'const { createClient: createCasperClient } = __mocks.casperClient;')
     .replace(/import \{\n  csprToMotes,\n  buildCasperPaymentRequirements,\n  buildCasperClaimInstructions,\n  verifyCasperPayment,\n  settleCasperPayment,\n\} from '@\/lib\/casper-x402';/, 'const { csprToMotes, buildCasperPaymentRequirements, buildCasperClaimInstructions, verifyCasperPayment, settleCasperPayment } = __mocks.casperX402;')
+    .replace("import { resolveBaseX402Config } from '@/lib/base-x402';", 'const { resolveBaseX402Config } = __mocks.baseX402;')
     .replace('export async function POST(request, context) {', 'async function POST(request, context) {');
 
   if (/^import |^export /m.test(source)) {

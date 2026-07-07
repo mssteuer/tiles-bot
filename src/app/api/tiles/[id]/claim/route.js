@@ -16,10 +16,12 @@ import {
   verifyCasperPayment,
   settleCasperPayment,
 } from '@/lib/casper-x402';
+import { resolveBaseX402Config } from '@/lib/base-x402';
 
-// Treasury address that receives x402 USDC payments
-const PAY_TO_ADDRESS = process.env.X402_PAY_TO_ADDRESS || '0x0000000000000000000000000000000000000000';
-const X402_NETWORK = process.env.X402_NETWORK || 'base-sepolia';
+// Base x402 settlements go to the dedicated chain treasury wallet.
+const baseX402Config = resolveBaseX402Config({ chainConfig: getChain('base') });
+const PAY_TO_ADDRESS = baseX402Config.payToAddress;
+const X402_NETWORK = baseX402Config.network;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://tiles.bot').replace(/\/$/, '');
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';

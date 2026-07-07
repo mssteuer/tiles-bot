@@ -25,6 +25,18 @@ function loadRouteWithMocks(overrides = {}) {
     logs: [],
   };
 
+  const baseConfig = {
+    id: 'base',
+    caip2: 'eip155:84532',
+    name: 'Base',
+    nftContract: '0xbase-nft',
+    paymentToken: '0xbase-usdc',
+    treasury: '0x1234567890abcdef1234567890abcdef12345678',
+    rpcUrl: 'https://sepolia.base.example/rpc',
+    explorer: 'https://sepolia.basescan.org',
+    x402Facilitator: 'https://x402.base.example',
+  };
+
   const casperConfig = {
     id: 'casper',
     caip2: 'casper:casper',
@@ -73,8 +85,9 @@ function loadRouteWithMocks(overrides = {}) {
     },
     chains: {
       getChain(chainId) {
-        assert.equal(chainId, 'casper');
-        return casperConfig;
+        if (chainId === 'base') return baseConfig;
+        if (chainId === 'casper') return casperConfig;
+        throw new Error(`Unexpected chain: ${chainId}`);
       },
     },
     casperClient: {
@@ -122,6 +135,14 @@ function loadRouteWithMocks(overrides = {}) {
         };
       },
     },
+    baseX402: {
+      resolveBaseX402Config({ chainConfig }) {
+        return {
+          payToAddress: chainConfig.treasury,
+          network: 'base-sepolia',
+        };
+      },
+    },
     ...overrides,
   };
 
@@ -134,6 +155,7 @@ function loadRouteWithMocks(overrides = {}) {
     .replace("import { getChain } from '@/lib/chains';", "const { getChain } = __mocks.chains;")
     .replace("import { createClient as createCasperClient } from '@/lib/casper-client';", "const { createClient: createCasperClient } = __mocks.casperClient;")
     .replace(/import \{\n  csprToMotes,\n  buildCasperPaymentRequirements,\n  buildCasperClaimInstructions,\n  verifyCasperPayment,\n  settleCasperPayment,\n\} from '@\/lib\/casper-x402';/, "const { csprToMotes, buildCasperPaymentRequirements, buildCasperClaimInstructions, verifyCasperPayment, settleCasperPayment } = __mocks.casperX402;")
+    .replace("import { resolveBaseX402Config } from '@/lib/base-x402';", "const { resolveBaseX402Config } = __mocks.baseX402;")
     .replace('export async function POST(request, context) {', 'async function POST(request, context) {');
 
   if (/^import |^export /m.test(source)) {
