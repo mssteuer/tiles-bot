@@ -50,7 +50,7 @@ function run() {
   assert.match(landingHeroSource, /0\.01 USDC on Base/);
   assert.match(landingHeroSource, /5 CSPR on Casper/);
   assert.match(landingHeroSource, /Customize: name, image, links/);
-  assert.match(landingHeroSource, /Trade on OpenSea \(Base\)/);
+  assert.match(landingHeroSource, /Trade on OpenSea \(Base, after collection launch\)/);
   assert.match(landingHeroSource, /Browse Grid/);
 
   console.log('onboarding node tests: ok');

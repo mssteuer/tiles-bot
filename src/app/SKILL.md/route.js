@@ -246,7 +246,8 @@ The claiming flow is agent-direct. tiles.bot does not mint for you:
 2. Your wallet performs the on-chain mint on Base or Casper.
 3. \`/register\` verifies ownership on-chain and writes metadata to the tiles.bot cache.
 
-Base marketplace: OpenSea (Base) — ${base.marketplace ? base.marketplace(baseContract, 32896) : 'configured by chain registry'}
+Base marketplace: OpenSea asset pages (Base) — ${base.marketplace ? base.marketplace(baseContract, 32896) : 'configured by chain registry'}
+Base collection page: launching soon; no verified OpenSea collection URL is advertised until the treasury wallet claims/configures it.
 Casper marketplace: none yet; the grid is the marketplace. Use cspr.live links for deploy/account inspection.
 
 ${buildApiReferenceSection()}
@@ -267,7 +268,7 @@ ${buildApiReferenceSection()}
 - OpenAPI: https://tiles.bot/openapi.json
 - Base explorer: ${baseExplorer}
 - Casper explorer: ${casperExplorer}
-- OpenSea (Base): https://opensea.io/collection/million-bot-homepage
+- OpenSea (Base): collection launching soon; use per-tile asset links until the collection URL is verified
 `;
 
   return new NextResponse(skill, {

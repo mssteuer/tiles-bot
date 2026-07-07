@@ -24,7 +24,7 @@ const faqs = [
   },
   {
     q: 'Is it really an NFT? Can I trade it?',
-    a: 'Yes — every tile is a standard NFT. On Base, tiles are ERC-721 and tradable on OpenSea or any ERC-721 marketplace. The official collection is available at https://opensea.io/collection/million-bot-homepage. On Casper, tiles are CEP-95 NFTs, tradable on CSPR.market.',
+    a: 'Yes — every tile is a standard NFT. On Base, tiles are ERC-721 and tradable on OpenSea or any ERC-721 marketplace once the operator-side collection claim is complete. On Casper, tiles are CEP-95 NFTs, tradable on CSPR.market. Until the final OpenSea collection URL is verified, tiles.bot will not advertise a collection link.',
   },
   {
     q: 'Can AI agents claim tiles autonomously (without a human)?',
@@ -48,11 +48,11 @@ const faqs = [
   },
   {
     q: 'What happens after all 65,536 tiles are claimed?',
-    a: 'The grid is full. Secondary market trading continues on OpenSea for Base tiles at https://opensea.io/collection/million-bot-homepage, and on CSPR.market for Casper tiles. The contract owners have no ability to mint more tiles.',
+    a: 'The grid is full. Secondary market trading continues on OpenSea for Base tiles after the collection is claimed and verified, and on CSPR.market for Casper tiles. The contract owners have no ability to mint more tiles.',
   },
   {
     q: 'Where is the official OpenSea collection link?',
-    a: 'The official OpenSea collection (Base chain tiles only) is https://opensea.io/collection/million-bot-homepage.',
+    a: 'The official OpenSea collection link is not live yet. The treasury wallet still needs to claim and configure the Base collection on OpenSea; once that operator step is complete and the URL resolves, tiles.bot will publish the verified link here.',
   },
 ];
 

@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from 'react';
 
-const OPENSEA_COLLECTION_URL = 'https://opensea.io/collection/million-bot-homepage';
-
 const HOW_IT_WORKS = [
   'Connect wallet (Base or Casper) or use x402 API',
   'Claim a tile — from $0.01 USDC on Base, 5 CSPR on Casper',
   'Customize: name, image, links',
-  'Trade on OpenSea (Base) or CSPR.market (Casper)',
+  'Trade on OpenSea (Base, after collection launch) or CSPR.market (Casper)',
 ];
 
 export default function LandingHero({ stats, onClaimClick }) {
@@ -52,14 +50,9 @@ export default function LandingHero({ stats, onClaimClick }) {
           {casperPriceDisplay && <span className="font-bold text-red-400">{casperPriceDisplay}</span>}
           {' per tile'}
         </span>
-        <a
-          href={OPENSEA_COLLECTION_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-lg border border-[#2a2a3e] px-3 py-1 text-[12px] font-semibold text-text-dim no-underline transition-colors hover:border-indigo-500 hover:text-text"
-        >
-          View Collection on OpenSea
-        </a>
+        <span className="rounded-lg border border-[#2a2a3e] px-3 py-1 text-[12px] font-semibold text-text-dim">
+          OpenSea collection launching soon
+        </span>
         <button
           onClick={onClaimClick}
           className="rounded-lg bg-linear-to-r from-accent-blue to-accent-purple px-3 py-1 text-[12px] font-bold text-white transition-opacity hover:opacity-90"
@@ -98,14 +91,9 @@ export default function LandingHero({ stats, onClaimClick }) {
           Claim a Tile — from {basePriceDisplay}
         </button>
 
-        <a
-          href={OPENSEA_COLLECTION_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="whitespace-nowrap rounded-[10px] border border-[#2a2a3e] bg-transparent px-7 py-3.5 text-[15px] font-semibold text-text-dim no-underline transition-colors hover:border-indigo-500 hover:text-text"
-        >
-          View Collection on OpenSea
-        </a>
+        <span className="whitespace-nowrap rounded-[10px] border border-[#2a2a3e] bg-transparent px-7 py-3.5 text-[15px] font-semibold text-text-dim">
+          OpenSea collection launching soon
+        </span>
 
         <button
           onClick={handleBrowseGrid}

@@ -495,5 +495,5 @@ Feature-gated endpoints return `{ error: "Feature X is currently disabled" }` wi
 ## Links
 
 - Grid: https://tiles.bot
-- OpenSea: https://opensea.io/collection/million-bot-homepage
+- OpenSea: collection launching soon; use per-tile Base asset links until the collection URL is verified
 - Base Contract: `0xB2915C42329edFfC26037eed300D620C302b5791`
