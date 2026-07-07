@@ -8,14 +8,24 @@
 //   - Works with Node.js server deployments (not Vercel Edge)
 
 import Database from 'better-sqlite3';
-import path from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { bondingCurveBatchPrice, bondingCurvePrice, TOTAL_TILES } from './pricing.js';
 
 export { TOTAL_TILES };
 
-const DB_DIR = process.env.DB_DIR || path.join(process.cwd(), 'data');
-const DB_PATH = path.join(DB_DIR, 'tiles.db');
+function storagePath(...segments) {
+  return segments
+    .filter(Boolean)
+    .map((segment, index) => {
+      const value = String(segment);
+      if (index === 0) return value.replace(/\/+$/, '');
+      return value.replace(/^\/+|\/+$/g, '');
+    })
+    .join('/');
+}
+
+const DB_DIR = process.env.DB_DIR || `${process.cwd()}/data`;
+const DB_PATH = storagePath(DB_DIR, 'tiles.db');
 
 // Ensure data directory exists
 if (!existsSync(DB_DIR)) {

@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
-const path = require('path');
-
 const nextConfig = {
-  outputFileTracingRoot: path.join(__dirname),
+  outputFileTracingRoot: __dirname,
+  outputFileTracingExcludes: {
+    '/*': ['./next.config.js'],
+  },
   serverExternalPackages: ['sharp'],
   // styled-components requires the SWC compiler plugin for SSR
   compiler: {

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getTile, updateTileMetadata, logEvent } from '@/lib/db';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import path from 'path';
 import sharp from 'sharp';
 import { isFilebaseConfigured, uploadToFilebase } from '@/lib/filebase';
 import { broadcast } from '@/lib/sse-broadcast';
@@ -11,12 +10,23 @@ import { broadcast } from '@/lib/sse-broadcast';
 export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
 
-const IMAGES_DIR = process.env.IMAGES_DIR || path.join(process.cwd(), 'public', 'tile-images');
+const IMAGES_DIR = process.env.IMAGES_DIR || `${process.cwd()}/public/tile-images`;
 const STORAGE_SIZE = 512;
 const MAX_UPLOAD_DIMENSION = 2048;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_GIF_SIZE = 2 * 1024 * 1024;  // 2MB for animated GIFs
 const ALLOWED_SIZES = new Set([64, 128, 256, 512]);
+
+function imagePath(...segments) {
+  return segments
+    .filter(Boolean)
+    .map((segment, index) => {
+      const value = String(segment);
+      if (index === 0) return value.replace(/\/+$/, '');
+      return value.replace(/^\/+|\/+$/g, '');
+    })
+    .join('/');
+}
 
 function isGifBuffer(buf) {
   // GIF magic bytes: GIF87a or GIF89a
@@ -29,7 +39,7 @@ function getImagePaths(id, gif = false) {
   const filename = gif ? `${id}.gif` : `${id}.png`;
   return {
     filename,
-    filePath: path.join(IMAGES_DIR, filename),
+    filePath: imagePath(IMAGES_DIR, filename),
     imageUrl: `/tile-images/${filename}`,
   };
 }
@@ -144,8 +154,8 @@ export async function POST(request, { params }) {
 
     // Generate static WebP thumbs from first frame for canvas rendering
     try {
-      const THUMB_DIR = path.join(IMAGES_DIR, 'thumb');
-      const THUMB_HD_DIR = path.join(IMAGES_DIR, 'thumb-hd');
+      const THUMB_DIR = imagePath(IMAGES_DIR, 'thumb');
+      const THUMB_HD_DIR = imagePath(IMAGES_DIR, 'thumb-hd');
       if (!existsSync(THUMB_DIR)) await mkdir(THUMB_DIR, { recursive: true });
       if (!existsSync(THUMB_HD_DIR)) await mkdir(THUMB_HD_DIR, { recursive: true });
       const firstFrame = sharp(imageBuffer, { pages: 1 });
@@ -154,8 +164,8 @@ export async function POST(request, { params }) {
         firstFrame.clone().resize(256, 256, { fit: 'cover' }).webp({ quality: 80 }).toBuffer(),
       ]);
       await Promise.all([
-        writeFile(path.join(THUMB_DIR, `${id}.webp`), sdBuf),
-        writeFile(path.join(THUMB_HD_DIR, `${id}.webp`), hdBuf),
+        writeFile(imagePath(THUMB_DIR, `${id}.webp`), sdBuf),
+        writeFile(imagePath(THUMB_HD_DIR, `${id}.webp`), hdBuf),
       ]);
     } catch (err) {
       console.error(`[image] GIF thumb generation failed for tile ${id}:`, err.message);
@@ -225,8 +235,8 @@ export async function POST(request, { params }) {
 
   // Generate WebP thumbnails for the grid canvas (SD + HD tiers)
   try {
-    const THUMB_DIR = path.join(IMAGES_DIR, 'thumb');
-    const THUMB_HD_DIR = path.join(IMAGES_DIR, 'thumb-hd');
+    const THUMB_DIR = imagePath(IMAGES_DIR, 'thumb');
+    const THUMB_HD_DIR = imagePath(IMAGES_DIR, 'thumb-hd');
     if (!existsSync(THUMB_DIR)) await mkdir(THUMB_DIR, { recursive: true });
     if (!existsSync(THUMB_HD_DIR)) await mkdir(THUMB_HD_DIR, { recursive: true });
     const [sdBuf, hdBuf] = await Promise.all([
@@ -234,8 +244,8 @@ export async function POST(request, { params }) {
       sharp(processedBuffer).resize(256, 256, { fit: 'cover' }).webp({ quality: 80 }).toBuffer(),
     ]);
     await Promise.all([
-      writeFile(path.join(THUMB_DIR, `${id}.webp`), sdBuf),
-      writeFile(path.join(THUMB_HD_DIR, `${id}.webp`), hdBuf),
+      writeFile(imagePath(THUMB_DIR, `${id}.webp`), sdBuf),
+      writeFile(imagePath(THUMB_HD_DIR, `${id}.webp`), hdBuf),
     ]);
   } catch (err) {
     console.error(`[image] Thumb generation failed for tile ${id}:`, err.message);
