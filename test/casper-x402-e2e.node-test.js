@@ -81,9 +81,12 @@ describe('Casper x402 E2E: Chain Config Resolution', () => {
     assert.equal(url, 'https://testnet.cspr.live/deploy/abc123deploy');
   });
 
-  it('Casper has no marketplace (grid IS the marketplace)', () => {
+  it('Casper marketplace links to CSPR.market', () => {
     const casper = chains.getChain('casper');
-    assert.equal(casper.marketplace, null);
+    assert.equal(
+      casper.marketplace('hash-abc123def456', 42),
+      'https://cspr.market/nft/hash-abc123def456/42'
+    );
   });
 
   it('both chains are registered', () => {
