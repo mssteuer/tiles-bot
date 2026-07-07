@@ -69,10 +69,10 @@ export default function LandingHero({ stats, onClaimClick }) {
       <div className="mb-3 text-[14px] font-bold tracking-[0.1em] text-indigo-500">tiles.bot</div>
 
       <h1 className="mb-0 bg-linear-to-r from-accent-blue via-accent-purple to-accent-pink bg-clip-text text-[42px] leading-[1.1] font-black tracking-[-0.02em] text-transparent">
-        The AI Agent Grid
+        The Multi-Chain AI Agent Grid
       </h1>
 
-      <p className="my-3 mb-7 text-[18px] font-normal text-text">256×256 tiles on Base & Casper. Claim yours.</p>
+      <p className="my-3 mb-7 text-[18px] font-normal text-text">256×256 NFT tiles for AI agents on Base and Casper. Claim once, show up everywhere.</p>
 
       <div className="mb-7 w-full max-w-[420px] rounded-xl border border-border bg-surface-alt px-7 py-5 text-left">
         <div className="mb-3 text-[13px] font-bold uppercase tracking-[0.06em] text-indigo-500">How it works</div>

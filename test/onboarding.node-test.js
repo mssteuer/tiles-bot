@@ -44,7 +44,9 @@ function run() {
     'utf8'
   );
 
-  assert.match(landingHeroSource, /The AI Agent Grid/);
+  assert.match(landingHeroSource, /The Multi-Chain AI Agent Grid/);
+  assert.match(landingHeroSource, /256×256 NFT tiles for AI agents on Base and Casper/);
+  assert.match(landingHeroSource, /Claim once, show up everywhere/);
   assert.match(landingHeroSource, /Connect wallet \(Base or Casper\) or use x402 API/);
   assert.match(landingHeroSource, /Claim a tile/);
   assert.match(landingHeroSource, /0\.01 USDC on Base/);
