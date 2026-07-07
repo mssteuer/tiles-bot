@@ -15,6 +15,9 @@ export const CSPR_CLICK_OPTIONS = {
   // CSPR.click v2 backend → 404 + blank popup + no wallet list. Pin it
   // explicitly so a future SDK default change can't silently reintroduce popup.
   contentMode: CONTENT_MODE.IFRAME,
+  // CSPR.click UI reads app config menu_items with .map(); the production app
+  // config can omit it, so pass an explicit empty menu to avoid undefined.map crashes.
+  menuItems: [],
   providers: [
     'casper-wallet',
     'ledger',

@@ -79,6 +79,7 @@ function run() {
   assertContains(sessionChain, /function resolveActiveChain/, 'sessionChain exports pure resolution logic');
 
   assertContains(casperWallet, /contentMode:\s*CONTENT_MODE\.IFRAME/, 'CSPR.click uses iframe mode, not deprecated popup mode');
+  assertContains(casperWallet, /menuItems:\s*\[\]/, 'CSPR.click gets an explicit empty menuItems array to avoid SDK menu_items crashes');
   assertContains(casperWallet, /chainName:\s*IS_TESTNET \? 'casper-test' : 'casper'/, 'CSPR.click uses the configured Casper network');
   assertContains(providers, /ClickUI[\s\S]*rootAppElement="body"/, 'Providers mount CSPR.click modal UI with the Next app root');
   assertContains(filterBar, /All chains/, 'FilterBar renders all-chain filter');
