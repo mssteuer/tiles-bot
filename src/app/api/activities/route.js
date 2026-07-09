@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getRecentActivity } from '@/lib/db';
+import { getActivityFeedState } from '@/lib/activityFreshness';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +22,9 @@ export async function GET(request) {
   }
 
   const events = getRecentActivity(limit);
+  const activityStatus = getActivityFeedState(events);
 
-  return NextResponse.json({ events }, {
+  return NextResponse.json({ events, activityStatus }, {
     headers: { 'Cache-Control': 'no-store' },
   });
 }

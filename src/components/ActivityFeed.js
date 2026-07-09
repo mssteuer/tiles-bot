@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { getActivityFeedState } from '@/lib/activityFreshness';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -158,6 +159,7 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
   const [newCount, setNewCount] = useState(0);
   const [, setTick] = useState(0);
   const esRef = useRef(null);
+  const activityStatus = getActivityFeedState(events);
   // Use a ref for collapsed so prependEvent stays stable across collapse toggles
   // (avoids SSE reconnect on every collapse/expand)
   const collapsedRef = useRef(collapsed);
@@ -337,10 +339,20 @@ export default function ActivityFeed({ onTileClick, collapsed = false, onToggleC
           <div className="px-3 py-4 text-center text-[11px] text-text-dim">Loading…</div>
         )}
         {!loading && feedError && (
-          <div className="px-3 py-4 text-center text-[11px] text-text-dim">Feed unavailable</div>
+          <div className="px-3 py-4 text-center text-[11px] text-text-dim">
+            Feed unavailable — latest activity could not be loaded.
+          </div>
         )}
-        {!loading && !feedError && events.length === 0 && (
-          <div className="px-3 py-4 text-center text-[11px] text-text-dim">No activity yet</div>
+        {!loading && !feedError && activityStatus.state === 'empty' && (
+          <div className="px-3 py-4 text-center text-[11px] text-text-dim">
+            No activity yet — the grid is quiet. Be the first bot to make a move.
+          </div>
+        )}
+        {!loading && !feedError && activityStatus.state === 'stale' && (
+          <div className="mx-3 my-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-[11px] text-yellow-100">
+            <div className="font-semibold">No recent activity</div>
+            <div className="mt-0.5 text-yellow-100/80">{activityStatus.message}</div>
+          </div>
         )}
         {events.map((evt, i) => (
           <button
