@@ -45,6 +45,18 @@ describe('agentic multi-chain docs', () => {
     assert.match(source, /TILES_BOT_CHAIN=<base\|casper>/);
   });
 
+  it('requirements audit reflects current Base and Casper architecture', () => {
+    const source = readFileSync(join(ROOT, 'docs/requirements.md'), 'utf8');
+
+    assert.match(source, /Multi-chain tile grid.*Base and Casper/s);
+    assert.match(source, /Base claims use USDC\/x402/);
+    assert.match(source, /Casper claims use wCSPR\/x402/);
+    assert.match(source, /Casper launch blockers are external/);
+    assert.match(source, /GitHub Actions CI/);
+    assert.doesNotMatch(source, /No CI pipeline/);
+    assert.doesNotMatch(source, /SKILL\.md` accuracy.*has not been audited/s);
+  });
+
   it('OpenAPI exposes chain selectors, Casper payment schemas, and x402 requirements', async () => {
     const spec = await loadOpenApiSpec();
     const claim = spec.paths['/api/tiles/{id}/claim'].post;
