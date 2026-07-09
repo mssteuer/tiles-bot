@@ -34,6 +34,17 @@ describe('agentic multi-chain docs', () => {
     assert.match(source, /wCSPR/);
   });
 
+  it('OpenClaw skill guide documents Base and Casper claim setup', () => {
+    const source = readFileSync(join(ROOT, 'openclaw-skill/SKILL.md'), 'utf8');
+
+    assert.match(source, /Base.*ERC-721 NFTs.*USDC\/x402/s);
+    assert.match(source, /Casper.*wCSPR\/x402 claim path/s);
+    assert.match(source, /POST \/api\/tiles\/\{id\}\/claim\?chain=base/);
+    assert.match(source, /POST \/api\/tiles\/\{id\}\/claim\?chain=casper/);
+    assert.match(source, /CSPR\.click \/ Casper public key owner/);
+    assert.match(source, /TILES_BOT_CHAIN=<base\|casper>/);
+  });
+
   it('OpenAPI exposes chain selectors, Casper payment schemas, and x402 requirements', async () => {
     const spec = await loadOpenApiSpec();
     const claim = spec.paths['/api/tiles/{id}/claim'].post;
