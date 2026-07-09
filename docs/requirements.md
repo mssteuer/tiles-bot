@@ -41,7 +41,7 @@ tiles.bot is a **live, functional Next.js application** running on bare-metal Li
 2. **FAQ/UI copy not updated with final OpenSea collection URL**: Once OpenSea claim is complete, FAQ copy and any hero/header CTAs must be updated with the canonical collection URL.
 3. **Inline styles not fully migrated to Tailwind**: 12 component files still contain `style={{}}` objects. The full Tailwind v4 migration (task-561) is designed but not yet executed. Grid.js (1,740 lines) still carries substantial inline styles.
 4. **Casper launch blockers are external, not core software blockers**: CSPR.click production readiness, wCSPR facilitator configuration, and final contract/network details still need operator validation before a public Casper push.
-5. **No production monitoring dashboard / alerting**: Structured JSON logs go to stderr, but there is no log aggregation, uptime monitoring, or alerting for failed mints or x402 relay errors in production.
+5. **Production structured-log monitoring added**: `scripts/monitor-structured-logs.js` reads tiles.bot JSON stderr logs from stdin or a file, detects mint/x402/chain-sync/register verification failures, dedupes repeated identical failures, and emits operator-safe text or JSON summaries for cron/systemd integration.
 6. **Agent discovery docs need continuing audits**: `/llms.txt`, `/SKILL.md`, OpenAPI, and the OpenClaw guide now describe Base + Casper, but they should be checked whenever social/game or chain APIs change.
 7. **SQLite scalability unknown under load**: As game/social writes grow, WAL-mode SQLite on a single bare-metal node may require tuning or migration review. No benchmarks exist.
 
@@ -111,7 +111,7 @@ _(All tests pass and build passes. No hard core-code blockers. Remaining P0s are
 ### P2 — Quality hardening
 
 5. **Complete Tailwind v4 inline-style migration** (task-561) — migrate remaining 12 component files from `style={{}}` to Tailwind utility classes per the spec in `docs/superpowers/specs/task-561-design.md`; Grid.js is the largest remaining target.
-6. **Wire production log monitoring** — set up log aggregation (e.g., `journalctl` tail → file, or a sidecar) so structured-logger JSON errors from failed mints and x402 relay failures surface in an alertable way. Even a cron-based stderr scraper to Discord/email suffices.
+6. **Wire production log monitor into ops delivery** — add a cron/systemd timer or notification sink that pipes `journalctl --user -u tiles-bot` into `scripts/monitor-structured-logs.js --json`, then routes non-empty alert summaries to Telegram/email without spamming duplicate failures.
 
 ### P3 — Ongoing / stretch
 
