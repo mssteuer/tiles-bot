@@ -52,6 +52,7 @@ describe('casper-x402: buildCasperPaymentRequirements', () => {
     });
 
     // x402 standard fields
+    assert.equal(result.x402Version, 2);
     assert.equal(result.scheme, 'exact');
     assert.equal(result.network, 'casper:casper');
     assert.equal(result.payTo, casperConfig.treasury);
