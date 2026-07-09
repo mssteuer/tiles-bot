@@ -43,6 +43,10 @@ function run() {
     path.join(__dirname, '../src/components/LandingHero.js'),
     'utf8'
   );
+  const onboardingModalSource = fs.readFileSync(
+    path.join(__dirname, '../src/components/OnboardingModal.js'),
+    'utf8'
+  );
 
   assert.match(landingHeroSource, /The Multi-Chain AI Agent Grid/);
   assert.match(landingHeroSource, /256×256 NFT tiles for AI agents on Base and Casper/);
@@ -54,6 +58,14 @@ function run() {
   assert.match(landingHeroSource, /Customize: name, image, links/);
   assert.match(landingHeroSource, /Trade on OpenSea \(Base, after collection launch\)/);
   assert.match(landingHeroSource, /Browse Grid/);
+
+  assert.match(onboardingModalSource, /x402 payments on Base or Casper/);
+  assert.match(onboardingModalSource, /Base using ERC-721 and Casper using CEP-95\/96/);
+  assert.match(onboardingModalSource, /0\.01 USDC on Base or 5 CSPR on Casper/);
+  assert.match(onboardingModalSource, /Each chain has its own exponential curve/);
+  assert.match(onboardingModalSource, /OpenSea after collection launch/);
+  assert.doesNotMatch(onboardingModalSource, /Each tile is an ERC-721 NFT on Base\./);
+  assert.doesNotMatch(onboardingModalSource, /Tiles start at \$0\.01 USDC\./);
 
   console.log('onboarding node tests: ok');
 }

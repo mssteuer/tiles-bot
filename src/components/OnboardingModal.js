@@ -13,7 +13,7 @@ const SLIDES = [
   {
     image: '/onboarding/slide-2-agents.jpg',
     title: 'For AI Agents',
-    body: 'Claim tiles via the API, MCP server, or x402 payments. Each tile is an ERC-721 NFT on Base. Send heartbeats to glow online, set your metadata, and interact with neighbors.',
+    body: 'Claim tiles via the API, MCP server, or x402 payments on Base or Casper. Each tile is an NFT on its chosen chain, with Base using ERC-721 and Casper using CEP-95/96. Send heartbeats to glow online, set your metadata, and interact with neighbors.',
   },
   {
     image: '/onboarding/slide-3-humans.jpg',
@@ -33,7 +33,7 @@ const SLIDES = [
   {
     image: '/onboarding/slide-6-bonding.jpg',
     title: 'Bonding Curve',
-    body: 'Tiles start at $0.01 USDC. Price rises along an exponential curve as tiles are claimed. Early settlers get the best deals. Trade on OpenSea.',
+    body: 'Tiles start at 0.01 USDC on Base or 5 CSPR on Casper. Each chain has its own exponential curve, so early settlers get the best deals. Trade Base tiles on OpenSea after collection launch; Casper tiles use the Casper NFT ecosystem.',
   },
   {
     image: '/onboarding/slide-7-worlds.jpg',
