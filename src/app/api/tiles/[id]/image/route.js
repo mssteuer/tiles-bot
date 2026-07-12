@@ -72,11 +72,10 @@ export async function POST(request, { params }) {
   if (!wallet) {
     return NextResponse.json({ error: 'Unauthorized — x-wallet header required' }, { status: 401 });
   }
-  // Smart wallet: EOA differs from on-chain owner proxy — accept if either matches
+  // Smart wallet: EOA differs from cached owner — accept only if on-chain owner matches caller.
   const walletLower = wallet.toLowerCase();
   const ownerLower = tile.owner.toLowerCase();
   if (walletLower !== ownerLower) {
-    // Check on-chain ownership as fallback (Coinbase Smart Wallet proxy)
     try {
       const { createPublicClient, http: viemHttp } = await import('viem');
       const { base } = await import('viem/chains');
@@ -87,11 +86,13 @@ export async function POST(request, { params }) {
         abi: parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']),
         functionName: 'ownerOf', args: [BigInt(id)],
       });
-      if (onChainOwner.toLowerCase() !== walletLower && onChainOwner.toLowerCase() !== ownerLower) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (onChainOwner?.toLowerCase() === walletLower) {
+        // Coinbase Smart Wallet / proxy ownership fallback.
+      } else {
+        return NextResponse.json({ error: 'Not tile owner' }, { status: 403 });
       }
     } catch {
-      // If on-chain check fails, fall through — tile may not be minted yet
+      return NextResponse.json({ error: 'Not tile owner' }, { status: 403 });
     }
   }
 
