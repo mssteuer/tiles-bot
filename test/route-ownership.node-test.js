@@ -129,7 +129,7 @@ function loadHeartbeatRoute({ owner = EVM_OWNER } = {}) {
   return { POST: context.module.exports.POST, calls };
 }
 
-function loadImageRoute({ owner = EVM_OWNER, onChainOwner = owner } = {}) {
+function loadImageRoute({ owner = EVM_OWNER, onChainOwner = owner, onChainOwnerError = null } = {}) {
   const calls = { updateTileMetadata: [], writeFile: [], logEvent: [], broadcasts: [], filebase: [] };
   const tile = ownedTile(owner);
   const mocks = {
@@ -162,7 +162,12 @@ function loadImageRoute({ owner = EVM_OWNER, onChainOwner = owner } = {}) {
     },
     sse: { broadcast: (payload) => calls.broadcasts.push(payload) },
     viem: {
-      createPublicClient: () => ({ readContract: async () => onChainOwner }),
+      createPublicClient: () => ({
+        readContract: async () => {
+          if (onChainOwnerError) throw onChainOwnerError;
+          return onChainOwner;
+        },
+      }),
       http: () => ({}),
       parseAbi: (abi) => abi,
       base: {},
@@ -328,5 +333,25 @@ describe('tile image route ownership', () => {
     assert.equal(body.error, 'Not tile owner');
     assert.deepEqual(calls.writeFile, []);
     assert.deepEqual(calls.updateTileMetadata, []);
+  });
+
+  it('fails closed with HTTP 403 when the on-chain ownership check errors', async () => {
+    const { POST, calls } = loadImageRoute({
+      owner: EVM_OWNER,
+      onChainOwnerError: new Error('RPC unavailable'),
+    });
+    const response = await POST(
+      requestFor('https://tiles.bot/api/tiles/42/image', {
+        headers: { 'x-wallet': EVM_INTRUDER, 'content-type': 'application/octet-stream' },
+      }),
+      { params: Promise.resolve({ id: '42' }) },
+    );
+    const body = await responseJson(response);
+
+    assert.equal(response.status, 403);
+    assert.equal(body.error, 'Not tile owner');
+    assert.deepEqual(calls.writeFile, []);
+    assert.deepEqual(calls.updateTileMetadata, []);
+    assert.deepEqual(calls.broadcasts, []);
   });
 });
