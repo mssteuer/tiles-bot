@@ -39,11 +39,15 @@ export async function GET(request) {
         const desc = (t.description || '').toLowerCase();
         const xHandle = (t.xHandle || '').toLowerCase();
         const githubUsername = (t.githubUsername || '').toLowerCase();
+        const ownerAddress = (t.owner || '').toLowerCase();
+        const chainContract = (t.chainContract || '').toLowerCase();
         return (
           name.includes(q) ||
           desc.includes(q) ||
           xHandle.includes(q) ||
-          githubUsername.includes(q)
+          githubUsername.includes(q) ||
+          ownerAddress.includes(q) ||
+          chainContract.includes(q)
         );
       });
     }

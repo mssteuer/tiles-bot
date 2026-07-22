@@ -1,11 +1,23 @@
 import { getTilesByOwner, getClaimedCount } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
+const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const CASPER_PUBLIC_KEY_RE = /^(01|02)[0-9a-fA-F]{64}$/;
+const CASPER_ACCOUNT_HASH_RE = /^account-hash-[0-9a-fA-F]{64}$/;
+
+function isSupportedOwnerAddress(address) {
+  return (
+    EVM_ADDRESS_RE.test(address) ||
+    CASPER_PUBLIC_KEY_RE.test(address) ||
+    CASPER_ACCOUNT_HASH_RE.test(address)
+  );
+}
+
 export async function GET(request, { params }) {
   try {
     const { address } = await params;
     
-    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    if (!address || !isSupportedOwnerAddress(address)) {
       return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
     }
 
