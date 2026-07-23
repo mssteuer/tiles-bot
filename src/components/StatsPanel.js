@@ -28,11 +28,20 @@ function formatUsd(value) {
 }
 
 function formatCspr(value) {
-  if (value == null || Number.isNaN(Number(value))) return '…';
+  if (value == null || Number.isNaN(Number(value))) return '—';
   const n = Number(value);
   if (n >= 1000) return `${Math.round(n).toLocaleString()}`;
   if (n >= 1) return n.toFixed(2);
   return n.toFixed(4);
+}
+
+function formatCasperPrice(value) {
+  if (value == null || Number.isNaN(Number(value))) return 'unavailable';
+  return `${formatCspr(value)} CSPR`;
+}
+
+function hasMultiChainRevenue(perChain) {
+  return Boolean(perChain?.base || perChain?.casper);
 }
 
 export default function StatsPanel({ stats }) {
@@ -40,6 +49,7 @@ export default function StatsPanel({ stats }) {
   const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
   const [nowTs, setNowTs] = React.useState(Date.now());
   const perChain = stats?.perChain || {};
+  const showPerChainRevenue = hasMultiChainRevenue(perChain);
 
   React.useEffect(() => {
     const tick = setInterval(() => setNowTs(Date.now()), 10_000);
@@ -77,15 +87,34 @@ export default function StatsPanel({ stats }) {
                   {perChain.casper && (
                     <div>
                       <span className="text-red-400">Casper:</span>{' '}
-                      <span className="font-semibold">{formatCspr(perChain.casper.currentPrice)} CSPR</span>
+                      <span className="font-semibold">{formatCasperPrice(perChain.casper.currentPrice)}</span>
                       <span className="text-text-gray"> ({perChain.casper.claimed} claimed)</span>
                     </div>
                   )}
                 </div>
               )}
-              <div>
-                Est. sold out: <span className="font-bold text-amber-500">{formatUsd(stats.estimatedSoldOutRevenue)}</span>
-              </div>
+              {showPerChainRevenue ? (
+                <div className="flex flex-col gap-0.5">
+                  <div className="text-text-light">Revenue by chain:</div>
+                  {perChain.base && (
+                    <div className="text-[11px]">
+                      <span className="text-blue-400">Base:</span>{' '}
+                      <span className="font-semibold text-amber-500">{formatUsd(perChain.base.totalRevenue)} USDC</span>
+                    </div>
+                  )}
+                  {perChain.casper && (
+                    <div className="text-[11px]">
+                      <span className="text-red-400">Casper:</span>{' '}
+                      <span className="font-semibold text-amber-500">{formatCspr(perChain.casper.totalRevenue)} CSPR</span>
+                    </div>
+                  )}
+                  <div className="text-[11px] text-text-gray">Est. Base sellout: {formatUsd(stats.estimatedSoldOutRevenue)}</div>
+                </div>
+              ) : (
+                <div>
+                  Est. sold out: <span className="font-bold text-amber-500">{formatUsd(stats.estimatedSoldOutRevenue)}</span>
+                </div>
+              )}
               <div>
                 Next tile: <span className="font-bold text-accent-green">#{stats.nextAvailableTileId}</span>
               </div>
