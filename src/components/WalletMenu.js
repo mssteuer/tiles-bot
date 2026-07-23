@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useModal } from 'connectkit';
 import { useWalletSession } from '@/lib/useWalletSession';
+import { buildWalletExplorerUrl, getWalletExplorerLabel } from '@/lib/header-wallet-formatting';
 
 /**
  * Single wallet menu — replaces the old dual "Casper Wallet" + "Base Wallet"
@@ -18,7 +19,7 @@ export default function WalletMenu() {
 
   const [chainPicking, setChainPicking] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [explorerBase, setExplorerBase] = useState(null);
+  const [chainsPayload, setChainsPayload] = useState(null);
   const menuRef = useRef(null);
   const pickerRef = useRef(null);
 
@@ -29,10 +30,7 @@ export default function WalletMenu() {
       .then(r => r.json())
       .then(data => {
         if (cancelled) return;
-        const chain = data?.chains?.[activeChain];
-        if (chain?.explorer && chain?.explorerAddressPattern) {
-          setExplorerBase(`${chain.explorer}${chain.explorerAddressPattern}`);
-        }
+        setChainsPayload(data);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -90,8 +88,8 @@ export default function WalletMenu() {
   }
 
   const badge = activeChain === 'casper' ? '🔴' : '🔵';
-  const explorerUrl = explorerBase && address ? `${explorerBase}${address}` : null;
-  const explorerLabel = activeChain === 'casper' ? 'cspr.live' : 'BaseScan';
+  const explorerUrl = buildWalletExplorerUrl(chainsPayload, activeChain, address);
+  const explorerLabel = getWalletExplorerLabel(activeChain);
 
   return (
     <div ref={menuRef} className="relative inline-block" aria-label="Wallet session">
