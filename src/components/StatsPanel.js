@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { formatChainPrice } from '@/lib/header-wallet-formatting';
 
 function timeAgo(isoString, nowTs) {
   if (!isoString) return 'unknown';
@@ -19,20 +20,13 @@ function truncateAddr(addr) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function formatUsd(value) {
-  if (value == null || Number.isNaN(Number(value))) return '…';
-  const n = Number(value);
-  if (n >= 1000000) return `$${Math.round(n).toLocaleString()}`;
-  if (n >= 1) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  return `$${n.toFixed(4)}`;
+function hasRenderableNumber(value) {
+  return value != null && !Number.isNaN(Number(value));
 }
 
-function formatCspr(value) {
-  if (value == null || Number.isNaN(Number(value))) return '…';
-  const n = Number(value);
-  if (n >= 1000) return `${Math.round(n).toLocaleString()}`;
-  if (n >= 1) return n.toFixed(2);
-  return n.toFixed(4);
+function renderRevenue(value, chain) {
+  if (!hasRenderableNumber(value)) return null;
+  return formatChainPrice(value, chain);
 }
 
 export default function StatsPanel({ stats }) {
@@ -40,6 +34,7 @@ export default function StatsPanel({ stats }) {
   const claimedPct = stats?.total > 0 ? ((stats.claimed / stats.total) * 100).toFixed(2) : '0.00';
   const [nowTs, setNowTs] = React.useState(Date.now());
   const perChain = stats?.perChain || {};
+  const hasMixedChainRevenue = Boolean(perChain.base && perChain.casper);
 
   React.useEffect(() => {
     const tick = setInterval(() => setNowTs(Date.now()), 10_000);
@@ -63,29 +58,44 @@ export default function StatsPanel({ stats }) {
                 <span className="text-text-light"> ({claimedPct}%)</span>
               </div>
               <div>
-                Current price: <span className="font-bold text-accent-purple">{formatUsd(stats.currentPrice)} USDC</span>
+                Current Base price: <span className="font-bold text-accent-purple">{formatChainPrice(stats.currentPrice, 'base')} USDC</span>
               </div>
               {(perChain.base || perChain.casper) && (
                 <div className="mt-1 flex flex-col gap-0.5 text-[11px]">
                   {perChain.base && (
                     <div>
                       <span className="text-blue-400">Base:</span>{' '}
-                      <span className="font-semibold">{formatUsd(perChain.base.currentPrice)}</span>
+                      <span className="font-semibold">{formatChainPrice(perChain.base.currentPrice, 'base')} USDC</span>
                       <span className="text-text-gray"> ({perChain.base.claimed} claimed)</span>
+                      {renderRevenue(perChain.base.totalRevenue, 'base') && (
+                        <span className="text-text-gray"> · revenue {renderRevenue(perChain.base.totalRevenue, 'base')} USDC</span>
+                      )}
                     </div>
                   )}
                   {perChain.casper && (
                     <div>
                       <span className="text-red-400">Casper:</span>{' '}
-                      <span className="font-semibold">{formatCspr(perChain.casper.currentPrice)} CSPR</span>
+                      <span className="font-semibold">
+                        {hasRenderableNumber(perChain.casper.currentPrice) ? formatChainPrice(perChain.casper.currentPrice, 'casper') : 'price unavailable'}
+                      </span>
                       <span className="text-text-gray"> ({perChain.casper.claimed} claimed)</span>
+                      {renderRevenue(perChain.casper.totalRevenue, 'casper') && (
+                        <span className="text-text-gray"> · revenue {renderRevenue(perChain.casper.totalRevenue, 'casper')}</span>
+                      )}
                     </div>
                   )}
                 </div>
               )}
-              <div>
-                Est. sold out: <span className="font-bold text-amber-500">{formatUsd(stats.estimatedSoldOutRevenue)}</span>
-              </div>
+              {!hasMixedChainRevenue && (
+                <div>
+                  Est. sold out: <span className="font-bold text-amber-500">{formatChainPrice(stats.estimatedSoldOutRevenue, 'base')}</span>
+                </div>
+              )}
+              {hasMixedChainRevenue && (
+                <div className="text-[11px] text-text-gray">
+                  Revenue shown per chain to avoid mixing USDC and CSPR totals.
+                </div>
+              )}
               <div>
                 Next tile: <span className="font-bold text-accent-green">#{stats.nextAvailableTileId}</span>
               </div>
